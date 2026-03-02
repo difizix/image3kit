@@ -91,8 +91,7 @@ class voxelField {
   void reset(int3 n);
   void reset(int3 n, T value);
   void reset(int n1, int n2, int n3, T value) {  reset(int3(n1,n2,n3), value);  }
-  void readMicroCT(std::string);
-  bool readAscii(std::string);
+  bool readAscii(std::string fileName);
   void readAscii(std::ifstream& in);
   int  readBin(std::string fileName, int nSkipBytes=0);
   int  readBir(std::string fileName,int iBgn,int iEndp1 , int jBgn,int jEndp1 , int kBgn,int kEndp1, int nSkipBytes=0);
@@ -185,7 +184,7 @@ class voxelImageT: public voxelImageTBase, public voxelField<T>  {
 
   template<typename T2> void resetFrom(const voxelImageT<T2>&Values);
   void setFrom(const voxelImageT<T>&Values, int n1, int n2, int n3);
-  bool readAscii(std::string fileName);
+  bool readAscii(std::string fileName, int nSkipBytes=0);
 
   std::unique_ptr<voxelImageTBase> copy() const { return std::make_unique<voxelImageT<T>>(*this); }
 

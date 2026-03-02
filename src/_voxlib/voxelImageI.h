@@ -159,17 +159,18 @@ template<typename T>   void voxelField<T>::getSize(int& n1, int& n2, int& n3) co
 
 
 
-//read order sensitive
+// image size are set in voxelImageT(fname) constructor, deduced from file name
 template<typename T>   void voxelField<T>::readAscii(std::ifstream& in)  {
   forAllvr_seq((*this)) in>>vr;
 }
 
 template<>  inline  void voxelField<unsigned char>::readAscii(std::ifstream& in)  {
+  //!  overwrite voxelField<T>::readAscii(), as voxelField interprets  8bit numerical values as characters not integers
   int tmp;
   forAllvr_seq((*this)) { in>>tmp;  vr=tmp; }
 }
 
-//read order sensitive
+// If image is not allocated, use voxelImageT constructor instead
 template<typename T>   bool voxelField<T>::readAscii(std::string fnam)  {
   std::cout<<" ascii, reading "<<fnam<<std::endl;
   std::ifstream in(fnam); ensure(in, "cannot open image file "+fnam,-1);
@@ -177,9 +178,7 @@ template<typename T>   bool voxelField<T>::readAscii(std::string fnam)  {
   return !in.fail();
 }
 
-template<typename T>   bool voxelImageT<T>::readAscii(std::string fnam)  {
-    //!  overwrite voxelField<T>::readAscii(), as voxelField interprets  8bit numerical values as characters not integers
-
+template<typename T>   bool voxelImageT<T>::readAscii(std::string fnam, int nSkipBytes)  {
   std::cout<<" reading "<<fnam<<std::endl;
 
   std::ifstream in(fnam);
@@ -187,34 +186,16 @@ template<typename T>   bool voxelImageT<T>::readAscii(std::string fnam)  {
 
   char tmpc[8];
   for (int i=0; i<8; ++i)   in>>tmpc[i];
-  if (std::string(tmpc).compare(0,4,"ascii") == 0) //ignore first lines
-  {
+  if (std::string(tmpc).compare(0,5,"ascii") == 0) { //ignore first lines, ICL 2006 images, depricated
     int3 nnn;           in>>nnn.z>>nnn.x>>nnn.y;//ignore first lines
     dbl3  xmin,xmax;  in>> xmin.x>>xmax.x>>xmin.y>>xmax.y>>xmin.z>>xmax.z ;
     std::cout<<"Warning: ignoring the header of file "<<fnam<<std::endl;
+    ensure(this->size3()==nnn, "inconsistant image size, in "+fnam, -1);
   }
   else
-    in.seekg(0, in.beg);
+    in.seekg(nSkipBytes, in.beg);
   voxelField<T>::readAscii(in);
   return !in.fail();
-}
-
-
-
-//read order sensitive
-template<typename T>   void voxelField<T>::readMicroCT(std::string fnam)  {
-  std::cout<<" micro-CT, reading "<<fnam<<std::endl;
-  std::ifstream in(fnam);    ensure(in,"can not open image file, "+fnam,-1);
-
-  char tmpc;
-  for (int i=0; i<8; ++i)   in>>tmpc, std::cout<<" "<<tmpc;  //ignore the first 8 characters (ascii 3uc)
-  int3 nnn;
-  dbl3  xmin,  xmax;
-
-  in>>nnn.z>>nnn.y>>nnn.x;            // number of variables (dimension of
-  ensure(nnn.x==this->nx());
-  in>>  xmin  >>  xmax ;
-  readAscii(in); // no reset?!!
 }
 
 
@@ -760,19 +741,19 @@ int resetFromImageT(voxelImageT<T>& vImg, const voxelImageTBase* imgPtr) { //! c
 }
 
 template<typename T> inline // inline is needed for crap macOS clang++
-voxelImageT<T>::voxelImageT(const std::string& hdrNam, readOpt procConvert)
+voxelImageT<T>::voxelImageT(const std::string& fname, readOpt procConvert)
 : X0_(0.,0.,0.),dx_(1,1,1)
 { //! read image and if needed convert its type // readConvertFromHeader
   #ifdef _VoxBasic8
   static_assert(sizeof(T)<=1);
   #endif
 
-  if (hasExt(hdrNam,".raw.gz") || hasExt(hdrNam,".raw")) {
-    std::cout<<"Reading "<<hdrNam<<" as "<<_s(typeid(T).name()) << ", figuring out image size from file name." <<std::endl;
-    readFromHeader(hdrNam);
+  if (hasExt(fname,".raw.gz") || hasExt(fname,".raw") || hasExt(fname,".dat") || hasExt(fname,".txt")) {
+    std::cout<<"Reading "<<fname<<" as "<<_s(typeid(T).name()) << ", figuring out image size from file name." <<std::endl;
+    readFromHeader(fname);
     return;
   }
-  std::unique_ptr<voxelImageTBase> vImgUptr = readImage(hdrNam, procConvert != readOpt::justRead);
+  std::unique_ptr<voxelImageTBase> vImgUptr = readImage(fname, procConvert != readOpt::justRead);
   voxelImageTBase* imgPtr = vImgUptr.get();
   if  (auto img = dynamic_cast<voxelImageT<T>*>(imgPtr)) {
     *this = std::move(*img);

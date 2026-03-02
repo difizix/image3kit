@@ -41,17 +41,48 @@ void voxelImageT<T>::readFromHeader(const string& hdrNam, int procesKeys)  {
 
   if (hdrNam.empty() || hdrNam=="NO_READ")  return;
 
-  std::ifstream fil{hdrNam};  ensure(fil,"Cannot open header file, "+hdrNam,-1);
   //! read image from file header, format detected based on image extension
-  auto& vImg=*this; string fnam;
+  auto& vImg=*this;
 
+  string fnam;
   int3 nnn(0,0,0);
+
   string BinaryData="XXX", flipSigByt="False";
   bool X0read=false, dxread=false, autoUnit=true; //auto unit only applies to .mhd format
   double unit_=1.;
   int nSkipBytes(0);
-  if (hasExt(hdrNam,".mhd") || hasExt(hdrNam,".py")) {
+  if (hasExt(hdrNam,".raw.gz") || hasExt(hdrNam,".raw") || hasExt(hdrNam,".dat") || hasExt(hdrNam,".txt"))  { // detect size and voxel size from image name.
+      string
+      data=replaceFromTo(replaceFromTo(replaceFromTo(replaceFromTo(replaceFromTo(replaceFromTo(
+                    hdrNam,".gz$",""), ".raw$"," "), ".dat$"," "), ".txt$"," "),"__","\n"),"_"," ");
+
+      data=regex_replace(data,regex(".*/"), "");
+      data=regex_replace(data, regex(R"(\b[a-zA-Z_]\w*)"), "");
+
+      data=replaceFromTo(replaceFromTo(replaceFromTo(data,"voxel",""),"size"," "),"um ","\n");
+      data=regex_replace(data,regex("( [0-9][0-9]*)c"), " $1 $1 $1 ", regex_constants::format_first_only);
+      data=regex_replace(data,regex("( [0-9][0-9]*)[ x]*([0-9][0-9]*)[ x]*([0-9][0-9]* )"),
+                                              "\n   reset_NdX $1 $2 $3 ", regex_constants::format_first_only);
+      data=regex_replace(data,regex("^[^\n]*\n"), "", regex_constants::format_first_only);
+      // data=regex_replace(data,regex("\n|($)"),"\n   read "+hdrNam+"\n", regex_constants::format_first_only);
+      for(auto&da:data)  { if(da=='p') da='.'; else if(da=='\n') break; }
+      // vxlProcess(data,vImg,hdrNam); // removed from Python build for simplicity
+      procesKeys=0;
+      stringstream ss(data);
+      string cmd;
+      while(ss >> cmd) {
+        if(cmd=="reset_NdX") {
+          ss >> nnn;
+          double dxv=1.0;
+          if (ss >> dxv) { vImg.dxCh()=dbl3(dxv,dxv,dxv); }
+        }
+      }
+      // TODO support units nm and mm ?
+      fnam = hdrNam;
+  }
+  else if (hasExt(hdrNam,".mhd") || hasExt(hdrNam,".py")) {
     (cout<<" "<<hdrNam<<": ").flush();
+    std::ifstream fil{hdrNam};  ensure(fil,"Cannot open header file, "+hdrNam,-1);
     while (true)  {
       std::streampos begLine = fil.tellg();
       string ky, tmp;   fil>>ky>>tmp;
@@ -89,10 +120,10 @@ void voxelImageT<T>::readFromHeader(const string& hdrNam, int procesKeys)  {
     fnam=hdrNam;
     procesKeys=0;
   }
-  else if (hasExt(hdrNam,".raw.gz") || hasExt(hdrNam,".raw") || hasExt(hdrNam,".dat"))  { // detect size and voxel size from image name.
+  else if (hasExt(hdrNam,".raw.gz") || hasExt(hdrNam,".raw") || hasExt(hdrNam,".dat") || hasExt(hdrNam,".txt"))  { // detect size and voxel size from image name.
     string
-    data=replaceFromTo(replaceFromTo(replaceFromTo(replaceFromTo(replaceFromTo(
-                  hdrNam,".gz$",""), ".raw$"," "), ".dat$"," "),"__","\n"),"_"," ");
+    data=replaceFromTo(replaceFromTo(replaceFromTo(replaceFromTo(replaceFromTo(replaceFromTo(
+                  hdrNam,".gz$",""), ".raw$"," "), ".dat$"," "), ".txt$"," "),"__","\n"),"_"," ");
 
     data=regex_replace(data,regex(".*/"), "");
     data=regex_replace(data, regex(R"(\b[a-zA-Z_]\w*)"), "");
@@ -107,18 +138,6 @@ void voxelImageT<T>::readFromHeader(const string& hdrNam, int procesKeys)  {
     // vxlProcess(data,vImg,hdrNam); // removed from Python build for simplicity
     procesKeys=0;
   }
-  else if (hasExt(hdrNam,"_header"))  {
-    cout<<" (depricated) _header:"<<hdrNam<<","<<endl;
-
-    char tmpc;
-    for (int i=0; i<8; ++i)   fil>>tmpc, cout<<tmpc;  //ignore the first 8 characters (ascii 3uc)
-
-    if (hasExt(hdrNam,"_header"))  fnam=hdrNam.substr(0,hdrNam.size()-7);
-    fil>>nnn >> vImg.dx_ >>  vImg.X0_ ;
-    cout<<"\n Nxyz: "<<nnn<<"    dX: "<< vImg.dx_<<"   X0: "<< vImg.X0_ <<" um"<< endl;
-    ensure(fil,"incomplete/bad header name", -1);
-  }
-  else  alert("Unknown (header) file type: "+hdrNam,-1); // exit
 
   if(nnn.z) vImg.reset(nnn);
   int readingImage=0;
@@ -143,10 +162,9 @@ void voxelImageT<T>::readFromHeader(const string& hdrNam, int procesKeys)  {
     else if (hasExt(fnam,".raw.gz")) {
       readingImage = vImg.readBin(fnam);
     }
-    else   {
-    std::ifstream in(fnam);  assert(in);
-    if(nSkipBytes) in.ignore(nSkipBytes);
-    vImg.voxelField<T>::readAscii(in);
+    else {
+      ensure(hasExt(fnam, ".dat") || hasExt(fnam, ".txt"), "assuming image is in ascii format");
+      readAscii(fnam, nSkipBytes);
     }
   }
   ensure(readingImage==0, "cannot read image "+fnam,-1);

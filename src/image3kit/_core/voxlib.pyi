@@ -51,6 +51,10 @@ class VxlImgF32(voxelImageTBase):
         """
         Get the raw data buffer as a numpy array.
         """
+    def __buffer__(self, flags):
+        """
+        Return a buffer object that exposes the underlying memory of the object.
+        """
     def __getitem__(self, arg0: tuple) -> float: ...
     @typing.overload
     def __init__(self, shape: tuple = (0, 0, 0), value: typing.SupportsFloat | typing.SupportsIndex = 0) -> None:
@@ -66,6 +70,10 @@ class VxlImgF32(voxelImageTBase):
     def __init__(self, image: voxelImageTBase) -> None:
         """
         Initialize (duplicate and convert) from another voxelImageT object
+        """
+    def __release_buffer__(self, buffer):
+        """
+        Release the buffer object that exposes the underlying memory of the object.
         """
     def __repr__(self) -> str: ...
     def __setitem__(self, arg0: tuple, arg1: typing.SupportsFloat | typing.SupportsIndex) -> None: ...
@@ -353,7 +361,7 @@ class VxlImgF32(voxelImageTBase):
         """
         Set values in range [min, max] to val.
         """
-    def readAscii(self, filename: str) -> bool:
+    def readAscii(self, filename: str, nSkipBytes: typing.SupportsInt | typing.SupportsIndex = 0) -> bool:
         """
         Read image data from an ASCII file.
         """
@@ -540,6 +548,10 @@ class VxlImgI32(voxelImageTBase):
         """
         Get the raw data buffer as a numpy array.
         """
+    def __buffer__(self, flags):
+        """
+        Return a buffer object that exposes the underlying memory of the object.
+        """
     def __getitem__(self, arg0: tuple) -> int: ...
     @typing.overload
     def __init__(self, shape: tuple = (0, 0, 0), value: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
@@ -555,6 +567,10 @@ class VxlImgI32(voxelImageTBase):
     def __init__(self, image: voxelImageTBase) -> None:
         """
         Initialize (duplicate and convert) from another voxelImageT object
+        """
+    def __release_buffer__(self, buffer):
+        """
+        Release the buffer object that exposes the underlying memory of the object.
         """
     def __repr__(self) -> str: ...
     def __setitem__(self, arg0: tuple, arg1: typing.SupportsInt | typing.SupportsIndex) -> None: ...
@@ -842,7 +858,7 @@ class VxlImgI32(voxelImageTBase):
         """
         Set values in range [min, max] to val.
         """
-    def readAscii(self, filename: str) -> bool:
+    def readAscii(self, filename: str, nSkipBytes: typing.SupportsInt | typing.SupportsIndex = 0) -> bool:
         """
         Read image data from an ASCII file.
         """
@@ -1029,6 +1045,10 @@ class VxlImgU16(voxelImageTBase):
         """
         Get the raw data buffer as a numpy array.
         """
+    def __buffer__(self, flags):
+        """
+        Return a buffer object that exposes the underlying memory of the object.
+        """
     def __getitem__(self, arg0: tuple) -> int: ...
     @typing.overload
     def __init__(self, shape: tuple = (0, 0, 0), value: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
@@ -1044,6 +1064,10 @@ class VxlImgU16(voxelImageTBase):
     def __init__(self, image: voxelImageTBase) -> None:
         """
         Initialize (duplicate and convert) from another voxelImageT object
+        """
+    def __release_buffer__(self, buffer):
+        """
+        Release the buffer object that exposes the underlying memory of the object.
         """
     def __repr__(self) -> str: ...
     def __setitem__(self, arg0: tuple, arg1: typing.SupportsInt | typing.SupportsIndex) -> None: ...
@@ -1331,7 +1355,7 @@ class VxlImgU16(voxelImageTBase):
         """
         Set values in range [min, max] to val.
         """
-    def readAscii(self, filename: str) -> bool:
+    def readAscii(self, filename: str, nSkipBytes: typing.SupportsInt | typing.SupportsIndex = 0) -> bool:
         """
         Read image data from an ASCII file.
         """
@@ -1541,6 +1565,10 @@ class VxlImgU8(voxelImageTBase):
         """
         Get the raw data buffer as a numpy array.
         """
+    def __buffer__(self, flags):
+        """
+        Return a buffer object that exposes the underlying memory of the object.
+        """
     def __getitem__(self, arg0: tuple) -> int: ...
     @typing.overload
     def __init__(self, shape: tuple = (0, 0, 0), value: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
@@ -1556,6 +1584,10 @@ class VxlImgU8(voxelImageTBase):
     def __init__(self, image: voxelImageTBase) -> None:
         """
         Initialize (duplicate and convert) from another voxelImageT object
+        """
+    def __release_buffer__(self, buffer):
+        """
+        Release the buffer object that exposes the underlying memory of the object.
         """
     def __repr__(self) -> str: ...
     def __setitem__(self, arg0: tuple, arg1: typing.SupportsInt | typing.SupportsIndex) -> None: ...
@@ -1853,7 +1885,7 @@ class VxlImgU8(voxelImageTBase):
         """
         Set values in range [min, max] to val.
         """
-    def readAscii(self, filename: str) -> bool:
+    def readAscii(self, filename: str, nSkipBytes: typing.SupportsInt | typing.SupportsIndex = 0) -> bool:
         """
         Read image data from an ASCII file.
         """

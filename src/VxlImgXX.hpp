@@ -138,7 +138,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     .def("write", &SelfT::write, arg("filename"), "Write the image to a file (.mhd, .raw, .ra.gz formats).")
     .def("writeNoHeader", &SelfT::writeNoHdr, arg("filename"), "Write the raw image data without a header.")
     // .def("writeHeader", &SelfT::writeHeader)
-    .def("readAscii", &SelfT::readAscii, arg("filename"), "Read image data from an ASCII file.")
+    .def("readAscii", &SelfT::readAscii, arg("filename"), arg("nSkipBytes")=0, "Read image data from an ASCII file.")
     // .def("readRLE", &SelfT::readRLE)
     .def("cropD", [](SelfT &m, py::tuple bgn, py::tuple end, int emptyLayers, VxT emptyLayersValue, bool verbose) {
          m.cropD(tov3<int>(bgn), tov3<int>(end), emptyLayers, emptyLayersValue, verbose);
