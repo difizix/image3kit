@@ -9,10 +9,7 @@ using namespace std;
 
 VxlStrips::VxlStrips(const InputFile& inp)
     : nx(0), ny(0), nz(0), vxlSize(1), X0(0.,0.,0.)
-  {
-    _1ExtraSegX = !inp.getOr("oldAlg", true);
-
-
+{
   (cout<< "InputData: ").flush();
   inp.echoKeywords(std::cout);
 
@@ -28,7 +25,7 @@ VxlStrips::VxlStrips(const InputFile& inp)
 
   cout<<" voxel indices:"<<endl;
   rockTypes_.push_back({0,0});
-  inp.giv("void_range", rockTypes_.back());
+  inp.giv("VoidRange", rockTypes_.back());
   cout<<"  "<<0<<": void voxels "<<endl;
 
   istringstream iss;
@@ -132,7 +129,7 @@ void VxlStrips::createStripsX(const voxelImage& VImage) {
     nVInsids+=nVxlVs[i];
     cout<<" "<<i<<" totalVol: "<<nVxlVs[i]<<" voxels, "<< nVxlVs[i]/(double(0.01*nx)*ny*nz) << "%"<<endl;
   }
-  ensure(nVInsids>double(0.01*nx)*ny*nz, "too few voxels, set 'void_range' maybe?", -1);
+  ensure(nVInsids>double(0.01*nx)*ny*nz, "too few voxels, set 'VoidRange' maybe?", -1);
   cout<< endl;
 
 }

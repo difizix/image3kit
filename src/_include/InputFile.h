@@ -61,7 +61,7 @@ class InputFile {
 
    InputFile(const InputFile& inp, const string& nam, int multiline=-1)
   :  data_(inp.data_), fileName_(inp.fileName_), folder_(inp.folder_), name_(nam),
-    multiline_(multiline<0 ? inp.multiline_ : multiline)  {  set("name",nam);  }
+    multiline_(multiline<0 ? inp.multiline_ : multiline)  {  set("OutputName", nam);  }
 
   bool safeGetline(std::istream& is, string& sr, bool noeq=false)  {
     /// \return readnext,  true: keep reading same key, if returned sr not empty
@@ -203,14 +203,16 @@ class InputFile {
       }
     }
 
-    if (lookup("name",name_) || lookup("TITLE",name_) || lookup("title",name_))  name_ = prf+name_;
+    if (lookup("OutputName",name_))  name_ = prf+name_;
     else if(prf.size()) name_ = prf;
     else {
-      prf = getOr("network", getOr("networkFile", string("")));
+      prf = getOr("NetworkFile", string(""));
       if (prf.empty()) { prf = fnam; }
       if (prf.empty()) { if(!lookup("ElementDataFile",prf)) prf = fileName(); }
       if (prf.size()>7 && prf.substr(prf.size()-3,3)==".gz") prf = prf.substr(0,prf.size()-3); // sync bname
-      size_t dl=prf.find_last_of(".");   if (dl<prf.size()) prf.erase(dl);
+      if (prf.size()>7 && (prf.substr(prf.size()-7)=="_ms.xmf" || prf.substr(prf.size()-7)=="_pn.xmf"))
+        prf = prf.substr(0,prf.size()-7);
+      else { size_t dl=prf.find_last_of(".");   if (dl<prf.size()) prf.erase(dl); }
       size_t sl=prf.find_last_of("\\/"); if (sl<prf.size()) prf=prf.substr(sl+1);
       name_ = prf;
     }

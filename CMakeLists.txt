@@ -174,6 +174,12 @@ target_link_libraries(_core PRIVATE Python::Module ZLIB::ZLIB TIFF::tiff
 
 # The install directory is the output (wheel) directory
 install(TARGETS _core DESTINATION image3kit)
+install(
+  DIRECTORY src/image3kit/
+  DESTINATION image3kit
+  FILES_MATCHING
+  PATTERN "*.py"
+  PATTERN "*.pyi")
 
 # Handle installation of headers and CMake package configuration
 include(cmake/PackageConfig.cmake)

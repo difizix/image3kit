@@ -96,7 +96,7 @@ public:
   dbl3                   X0;
   string                 imgfrmt;
   long long              nInside;
-  int                    _1ExtraSegX;
+  constexpr static int   _1ExtraSegX = 1;
 
   stvec<stvec<strips>>   segXs_;
 

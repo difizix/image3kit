@@ -17,6 +17,7 @@
 
 #include <istream>  // not iostream, since we don't need cin/cout
 #include <ostream>
+#include <cstring>
 #include "zlib.h"
 
 /*****************************************************************************/
