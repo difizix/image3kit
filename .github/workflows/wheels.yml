@@ -12,6 +12,7 @@ on:
 
 env:
   FORCE_COLOR: 3
+  CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: "delvewheel repair -v -w {dest_dir} {wheel}"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,7 +33,7 @@ jobs:
     - name: Check metadata
       run: pipx run twine check dist/*
 
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: cibw-sdist
         path: dist/*.tar.gz
@@ -57,13 +58,38 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         brew install libomp
-        echo "OpenMP_ROOT=$(brew --prefix libomp)" >> $GITHUB_ENV
+        PREFIX=$(brew --prefix libomp)
+        TARGET="11.0"
+        LLVM_VERSION="18.1.8"
+        work=$(mktemp -d)
+        cd "$work"
+        base=https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}
+        curl -fsSL -o openmp.tar.xz "${base}/openmp-${LLVM_VERSION}.src.tar.xz"
+        curl -fsSL -o cmake.tar.xz  "${base}/cmake-${LLVM_VERSION}.src.tar.xz"
+        tar -xf openmp.tar.xz
+        tar -xf cmake.tar.xz
+        mv "cmake-${LLVM_VERSION}.src" cmake
+        cd "openmp-${LLVM_VERSION}.src"
+        cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="${TARGET}" \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
+            -DCMAKE_INSTALL_NAME_DIR="${PREFIX}/lib" \
+            -DLIBOMP_INSTALL_ALIASES=OFF \
+            -DOPENMP_ENABLE_LIBOMPTARGET=OFF
+        cmake --build build --parallel
+        cmake --install build
+        echo "OpenMP_ROOT=${PREFIX}" >> $GITHUB_ENV
 
     - name: Install dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
-        vcpkg install zlib:${{ matrix.os == 'windows-11-arm' && 'arm64' || 'x64' }}-windows
-        echo "CMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
+        $triplet = "${{ matrix.os == 'windows-11-arm' && 'arm64' || 'x64' }}-windows"
+        vcpkg install zlib:$triplet
+        echo "CMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" >> $env:GITHUB_ENV
+        echo "$env:VCPKG_INSTALLATION_ROOT/installed/$triplet/bin" >> $env:GITHUB_PATH
+      shell: pwsh
 
     - name: Find correct LLVM OpenMP DLL (Windows ARM64)
       if: matrix.os == 'windows-11-arm'
@@ -72,18 +98,18 @@ jobs:
         if ($libomp) {
           echo "LIBOMP_DIR=$($libomp.DirectoryName)" >> $env:GITHUB_ENV
           echo "Found libomp at $($libomp.DirectoryName)"
-          echo ('CIBW_REPAIR_WHEEL_COMMAND_WINDOWS=delvewheel repair -w {dest_dir} {wheel} --add-path "' + $libomp.DirectoryName + '"') >> $env:GITHUB_ENV
+          echo ('CIBW_REPAIR_WHEEL_COMMAND_WINDOWS=delvewheel repair -v -w {dest_dir} {wheel} --add-path "' + $libomp.DirectoryName + '"') >> $env:GITHUB_ENV
         } else {
           echo "::warning ::libomp140.aarch64.dll not found!"
         }
       shell: pwsh
 
-    - uses: pypa/cibuildwheel@v3.3
+    - uses: pypa/cibuildwheel@v3.4
       env:
         CIBW_ENABLE: cpython-prerelease
         CIBW_SKIP: "cp39-win_arm64 cp310-win_arm64 cp311-win_arm64 cp39-win32 cp310-win32 cp311-win32 cp312-win32"
         CIBW_ARCHS_WINDOWS: ${{ matrix.os == 'windows-11-arm' && 'ARM64' || 'AMD64' }}
-        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        MACOSX_DEPLOYMENT_TARGET: "11.0"
         CIBW_ENVIRONMENT_WINDOWS: SKBUILD_CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
         CIBW_ENVIRONMENT_MACOS: OpenMP_ROOT=$OpenMP_ROOT
 
@@ -91,7 +117,7 @@ jobs:
       run: git diff --exit-code
       shell: bash
 
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: cibw-wheels-${{ matrix.os }}
         path: wheelhouse/*.whl
@@ -112,14 +138,14 @@ jobs:
       with:
         python-version: "3.x"
 
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         pattern: cibw-*
         merge-multiple: true
         path: dist
 
     - name: Generate artifact attestation for sdist and wheels
-      uses: actions/attest-build-provenance@v3
+      uses: actions/attest-build-provenance@v4
       with:
         subject-path: "dist/*"
 

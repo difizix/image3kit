@@ -107,6 +107,24 @@ set(tiff-contrib
 set(tiff-docs
     OFF
     CACHE BOOL "Build libtiff docs")
+set(jpeg
+    OFF
+    CACHE BOOL "use libjpeg" FORCE)
+set(zstd
+    OFF
+    CACHE BOOL "use libzstd" FORCE)
+set(webp
+    OFF
+    CACHE BOOL "use libwebp" FORCE)
+set(jbig
+    OFF
+    CACHE BOOL "use jbig" FORCE)
+set(lzma
+    OFF
+    CACHE BOOL "use lzma" FORCE)
+set(libdeflate
+    OFF
+    CACHE BOOL "use libdeflate" FORCE)
 set(BUILD_SHARED_LIBS
     OFF
     CACHE BOOL "Build shared libraries" FORCE)
