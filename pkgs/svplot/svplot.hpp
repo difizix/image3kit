@@ -483,7 +483,8 @@ public:
    //!  \tparam T Type of data in series (must be compatible with std::pair).
     serieses_.push_back(
       svplot_series(  container.begin(),  container.end(),
-      title, auto_point_shape(), auto_color(), auto_stroke_dash()) );
+      title, auto_point_shape(), auto_color())//, auto_stroke_dash()
+    );
     return serieses_[serieses_.size()-1]; //! \return Reference to data series just added to make chainable.
   }
 
@@ -499,7 +500,8 @@ public:
   //!   my_2d_plot.plot(&my_data[1], &my_data[3], "my_data 1 to 3"); // Add part of data series.
   //! \endcode
     serieses_.push_back(
-     svplot_series( begin,  end, title, auto_point_shape(), auto_color(), auto_stroke_dash()) );
+     svplot_series( begin,  end, title, auto_point_shape(), auto_color())//, auto_stroke_dash()
+    );
 
     return serieses_[serieses_.size() - 1]; //! \return Reference to data series  to make chainable.
   }

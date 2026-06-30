@@ -135,7 +135,7 @@ template<typename T>  bool adjustBrightnessWith( stringstream& ins, voxelImageT<
 }
 
 
-template<typename T> bool adjustSliceBrightness(voxelImageT<T>& vImg, voxelImage& mskRegA, voxelImage& mskRegB, voxelImageT<T>& img2, int nSmoothItr, int nSmoothKrnl)
+template<typename T> bool adjustSliceBrightness(voxelImageT<T>& vImg, const voxelImage& mskRegA, const voxelImage& mskRegB, const voxelImageT<T>& img2, int nSmoothItr, int nSmoothKrnl)
 {
     dbls mu1sRegA(vImg.nz(), 0.); //mean at region RegA of img1
     dbls mu2sRegA(vImg.nz(), 0.);
@@ -226,7 +226,7 @@ template<typename T> bool adjustSliceBrightness(voxelImageT<T>& vImg, voxelImage
   return true;
 }
 
-template<typename T>  bool adjustSliceBrightness( stringstream& ins, voxelImageT<T>& )  {
+template<typename T>  bool adjustSliceBrightness( stringstream& ins, voxelImageT<T>& vImg)  {
   KeyHint("....");
   cout<<"  adjusting Slice RegBrightness  ";
   int nSmoothItr(3), nSmoothKrnl(20);

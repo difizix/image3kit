@@ -32,7 +32,7 @@ int  smoothSurf(InputFile& inp, facePieceList& facezsZ, piece<point> pointsAll) 
 
   labelList pMarks(pointsAll.size(),0);
   for(const auto& facezs:facezsZ) for(const auto& fac:facezs) for(const auto& pI:fac) {// this only guaranties up to  3faces contact lines work ok
-  {  int zn=fac.zone+1, pm=pMarks[pI]&255;  pMarks[pI] |= ((pm^zn)*(pm!=0))<<8 | zn;  } //syncCalcPMarks
+     int zn=fac.zone+1, pm=pMarks[pI]&255;  pMarks[pI] |= ((pm^zn)*(pm!=0))<<8 | zn;  } //syncCalcPMarks
 
     for(int iter = 0; iter < nIters; iter++)  {///    Volume-preserving Gaussian smoothing
      if(iter==nIters-1) writeSurfaceFiles(facezsZ,pointsAll, "dumpSurfSmooth.vtk");
