@@ -14,6 +14,7 @@ Developed by:
 #ifdef TIFLIB
 #include "voxelTiff.h"
 #endif
+
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "voxelPng_stbi.h"
@@ -31,8 +32,13 @@ Developed by:
 #include "InputFile.h"
 using namespace std; //cin cout endl string stringstream  istream istringstream regex*
 
+// use `reset maxNz 100` to limit the number of layers processed during fine-tuning of image processing params
+int maxNz = 1000000, _maxNz = 1000000|12;
 
-int maxNz = 1000000, _maxNz = 1000000|12; // use `reset maxNz 100` to limit the number of layers processed during fine-tuning of image processing params
+
+string plotAll_normalAxis="xyz";
+int    plotAll_colrGrey=15;
+
 
 
 template<typename T>

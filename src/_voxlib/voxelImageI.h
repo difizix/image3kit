@@ -21,7 +21,6 @@ Developed by:
 #undef check
 #endif
 
-typedef int sdsdsdsdsdsds;
 
 #include <functional>
 
@@ -295,7 +294,7 @@ template<typename T>   int voxelField<T>::readBin(std::string fnam, int nSkipByt
     char* const ve =reinterpret_cast<char*>(&*voxelField<T>::data_.end());
     while(vp<ve)  { // this requires data_ has reserved extra memory  when maxNz is set, sync: XADSDAS
       in.get(count); in.get(val);
-      if(count&static_cast<char>(0x80)) {
+      if(count & static_cast<char>(0x80)) {
         *vp=val;
         count&=0x7f;
         while(--count) { in.get(val); *(++vp)=val; }

@@ -16,6 +16,38 @@
 #include "InputFile.h"
 
 
+#ifndef IMAGE3KIT_PYTHON_BINDINGS
+
+int usage()  {
+  std::cout<<"\nvoxelToSurfMesh:\n converting 3D image file to  surface format"
+    <<"\nusages: \n"
+    <<"    voxelToSurfMesh inputMetaImage.mhd outPutFile.obj \n"
+    << std::endl;
+  return -1;
+}
+
+int main(int argc, char *argv[])  {
+
+  if(argc<2) return usage();
+
+  std::string fnam(argv[1]); // .mhd header or image name
+
+  InputFile inp(std::string(hasExt(fnam,".mhd")? fnam : ""), 0);
+  inp.echoKeywords(cout);
+
+  if(fnam.size()<4) return usage();
+  std::string outputSurface = (argc>2) ? string(argv[2]) :
+                inp.getOr("outputSurface", basePath(fnam)+".obj");
+
+
+
+  voxelImage vimage(fnam);
+
+  vxlToSurfMesh(inp, vimage, outputSurface);
+
+  return 0;
+}
+#endif
 #define MAIN
 #include "voxelImage.h"
 
@@ -24,116 +56,83 @@ surfMsh createSurface(InputFile& inp,  const voxelImage & vxlImg, const int nVVs
 
 using namespace std;
 void vxlToSurfMesh(InputFile& inp, voxelImage& vimage, std::string outputSurface)  {
-    // TODO: refactor and convert to a Python function, in addDodgyFuncsU8(py::class_<voxelImageT<VxT>, voxelImageTBase> &m) requires(sizeof(VxT)<=1) {
-    int3 n = vimage.size3();
+  // TODO: refactor and convert to a Python function, in addDodgyFuncsU8(py::class_<voxelImageT<VxT>, voxelImageTBase> &m) requires(sizeof(VxT)<=1) {
+  int3 n = vimage.size3();
 
-    vimage.cropD(int3(0,0,0),vimage.size3(),1,1);   //       XXXXXXXXXXXXXXXXXXXXXXXXXXXX
+  vimage.cropD(int3(0,0,0),vimage.size3(),1,1);   //    XXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-    //keepLargestvv(vimage, 0, 0); //! CtrlF:isolated=254
-
-
-    vimage.printInfo();
-
-    //if(resetX0=='T' || resetX0=='t')      vimage.X0Ch()=-vimage.dx();
+  //keepLargestvv(vimage, 0, 0); //! CtrlF:isolated=254
 
 
-    //! solid phase should have the highest vv TODO: add multilabel
-    int nVVs=0;
-    forAllvv_seq(vimage) if(vv<240) nVVs =max(nVVs,int(vv));
-    cout<<" maxVxlvalue:"<<nVVs<<endl;
-    forAllvp_(vimage) if(*vp>nVVs) *vp=nVVs; //! set isolateds to last vv, CtrlF:isolated=254
-    ++nVVs;
-    cout<<"nVVs:"<<int(nVVs)<<endl;
-    if(int nZG=inp.getOr("nZeroGradLayers",0)) //TODO make this part of libvoxel commands
-        vimage.zeroGrad(nZG);
+  vimage.printInfo();
+
+  //if(resetX0=='T' || resetX0=='t')    vimage.X0Ch()=-vimage.dx();
 
 
-    if (inp.getOr("extractBoxBoundary",false))  {
-        cout<<"extracting box boundary"<<endl;
-        const int
-            Left  =nVVs+0,
-            Right =nVVs+1,
-            Bottom=nVVs+2,
-            Top   =nVVs+3,
-            Back  =nVVs+4,
-            Front =nVVs+5;
-            vimage.setSlice('i',0,     0+1*Left  );
-            vimage.setSlice('i',n[0]+1,0+1*Right );
-            vimage.setSlice('j',0,     0+1*Bottom);
-            vimage.setSlice('j',n[1]+1,0+1*Top   );
-            vimage.setSlice('k',0,     0+1*Back  );
-            vimage.setSlice('k',n[2]+1,0+1*Front );
-    }
-    else
-    {
-        vimage.zeroGrad(1);
-    }
-
-    if (inp.getOr("filterImage",true))  {
-        bool verbose=true;
-        (cout<<" Filtering Image: ").flush();
-        //modeNSames(vimage,2,verbose);
-        (cout<<" .").flush();
-        int maxitr=10;
-        while(modeNSames(vimage,1,verbose) && (--maxitr)) (cout<<".").flush(); //was .mod(3)
-
-        (cout<<"\n.").flush();
-        maxitr=20;
-        while(modeNSames(vimage,2,verbose) && (--maxitr)) (cout<<"; ").flush(); //was .mod(3) // without this the surface correction most likely would crash
-    }
-    else (cout<<"Warning, not filetring image is not a good idea").flush();
+  //! solid phase should have the highest vv TODO: add multilabel
+  int nVVs=0;
+  forAllvv_seq(vimage) if(vv<240) nVVs =max(nVVs,int(vv));
+  cout<<" maxVxlvalue:"<<nVVs<<endl;
+  forAllvp_(vimage) if(*vp>nVVs) *vp=nVVs; //! set isolateds to last vv, CtrlF:isolated=254
+  ++nVVs;
+  cout<<"nVVs:"<<int(nVVs)<<endl;
+  if(int nZG=inp.getOr("nZeroGradLayers",0)) //TODO make this part of libvoxel commands
+    vimage.zeroGrad(nZG);
 
 
+  if (inp.getOr("extractBoxBoundary",false))  {
+    cout<<"extracting box boundary"<<endl;
+    const int
+      Left  =nVVs+0,
+      Right =nVVs+1,
+      Bottom=nVVs+2,
+      Top   =nVVs+3,
+      Back  =nVVs+4,
+      Front =nVVs+5;
+      vimage.setSlice('i',0,     0+1*Left  );
+      vimage.setSlice('i',n[0]+1,0+1*Right );
+      vimage.setSlice('j',0,     0+1*Bottom);
+      vimage.setSlice('j',n[1]+1,0+1*Top   );
+      vimage.setSlice('k',0,     0+1*Back  );
+      vimage.setSlice('k',n[2]+1,0+1*Front );
+  }
+  else
+  {
+    vimage.zeroGrad(1);
+  }
 
-    vimage.printInfo();
+  if (inp.getOr("filterImage",true))  {
+    bool verbose=true;
+    (cout<<" Filtering Image: ").flush();
+    //modeNSames(vimage,2,verbose);
+    (cout<<" .").flush();
+    int maxitr=10;
+    while(modeNSames(vimage,1,verbose) && (--maxitr)) (cout<<".").flush(); //was .mod(3)
 
-    cout<<" createSurface { outputFileName: "<<outputSurface<<endl;
-    try {
-        surfMsh srfMsh = createSurface(inp, vimage,nVVs, outputSurface);//         XXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-        //piece<point> pointsp=piece<point>(srfMsh.points);
-
-        smoothSurf(inp, srfMsh.faces_bs, srfMsh.points);
-
-        writeSurfaceFiles(srfMsh.faces_bs, srfMsh.points, outputSurface);
-        writeMergeSurfaceFile(srfMsh.faces_bs, srfMsh.points, outputSurface);
-    }
-    catch (std::exception& e)   {  std::cerr << "Error in surfMsh " << e.what()<<endl;  }
-    catch (...) {  std::cerr << "Error in surfMsh "<<endl;   }
+    (cout<<"\n.").flush();
+    maxitr=20;
+    while(modeNSames(vimage,2,verbose) && (--maxitr)) (cout<<"; ").flush(); //was .mod(3) // without this the surface correction most likely would crash
+  }
+  else (cout<<"Warning, not filetring image is not a good idea").flush();
 
 
-    cout<< "end }" << endl;
+
+  vimage.printInfo();
+
+  cout<<" createSurface { outputFileName: "<<outputSurface<<endl;
+  try {
+    surfMsh srfMsh = createSurface(inp, vimage,nVVs, outputSurface);//         XXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+    //piece<point> pointsp=piece<point>(srfMsh.points);
+
+    smoothSurf(inp, srfMsh.faces_bs, srfMsh.points);
+
+    writeSurfaceFiles(srfMsh.faces_bs, srfMsh.points, outputSurface);
+    writeMergeSurfaceFile(srfMsh.faces_bs, srfMsh.points, outputSurface);
+  }
+  catch (std::exception& e) {  std::cerr << "Error in surfMsh " << e.what()<<endl;  }
+  catch (...) { std::cerr << "Error in surfMsh "<<endl;   }
+
+
+  cout<< "end }" << endl;
 }
-
-#ifndef IMAGE3KIT_PYTHON_BINDINGS
-
-int usage()  {
-    std::cout<<"\nvoxelToSurfMesh:\n converting 3D image file to  surface format"
-        <<"\nusages: \n"
-        <<"    voxelToSurfMesh inputMetaImage.mhd outPutFile.obj \n"
-        << std::endl;
-    return -1;
-}
-
-int main(int argc, char *argv[])  {
-
-    if(argc<2) return usage();
-
-    std::string fnam(argv[1]); // .mhd header or image name
-
-    InputFile inp(std::string(hasExt(fnam,".mhd")? fnam : ""), 0);
-        inp.echoKeywords(cout);
-
-    if(fnam.size()<4) return usage();
-    std::string outputSurface = (argc>2) ? string(argv[2]) :
-                inp.getOr("outputSurface", basePath(fnam)+".obj");
-
-
-
-    voxelImage vimage(fnam);
-
-    vxlToSurfMesh(inp, vimage, outputSurface);
-
-    return 0;
-}
-#endif

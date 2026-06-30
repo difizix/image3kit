@@ -30,7 +30,6 @@ Developed by:
 namespace MCTProcessing {
 
 
-
 template<typename T>  bool averageWith(voxelImageT<T>& vImg, const std::vector<std::string>& imgNames) {
   int nImgs=1;
   voxelField<double> sumImgs(vImg.size3(),0.);

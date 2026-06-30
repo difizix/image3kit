@@ -294,7 +294,7 @@ voxelImageT<T> copyOrReadImgT(std::string hdrNam) {
 
 typedef voxelImageT<unsigned char> voxelImage;   //! default image type
 
-// moved here / inlined to avoid link misterious link errors
+// moved here / inlined to avoid  mysterious link errors
 template<typename T> inline  void voxelField<T>::reset(int3 nnn)  {
   nij_=(long long)(nnn.x)*nnn.y;
   this->data_.resize((long long)(nnn.z)*nij_+128); // 128 extra memory for readRLE, sync: XADSDAS

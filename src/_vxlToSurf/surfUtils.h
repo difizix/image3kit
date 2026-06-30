@@ -34,9 +34,9 @@ typedef dbl3 point    ;
 typedef dbl3s vectorField    ;
 //typedef vars<point> pointField    ;
 struct surfMsh {
-    std::vector<face> faces;
-    facePieceList faces_bs;
-    DynamicField<point> points;
+  std::vector<face> faces;
+  facePieceList faces_bs;
+  DynamicField<point> points;
 };
 #define append  push_back
 #define setSize resize
@@ -53,9 +53,9 @@ std::vector<std::vector<face> > getbsoleteOrderedFaces(const facePieceList& face
 
 inline int appendUnique(DynamicList<label>& dynList, label value)
 {
-    for_(dynList,i) if(dynList[i]==value) return 0;
-    dynList.append(value);
-    return 1;
+  for_(dynList,i) if(dynList[i]==value) return 0;
+  dynList.append(value);
+  return 1;
 }
 
 template<typename T, template<typename ...> class C >
@@ -129,15 +129,13 @@ inline labelListList pointFaces(size_t nPoints, const facePiece& faces) {
 inline labelListList edgeFaces(const ints& myPPoints, const facePiece& faces, const ints& myPFaces) {
     labelDynamicListList edgFacsTmp(myPPoints.size());
     labelListList edgFacs(myPPoints.size());
-    for_(myPFaces,mfI)
-    {
-        const face & f=faces[myPFaces[mfI]];
-        for(auto pI:f)
-        {
-            for_(myPPoints,neIp)
-                if(myPPoints[neIp]==pI)
-                { appendUnique(edgFacsTmp[neIp], myPFaces[mfI]); break; }
-        }
+    for_(myPFaces,mfI) {
+      const face & f=faces[myPFaces[mfI]];
+      for(auto pI:f) {
+        for_(myPPoints,neIp)
+          if(myPPoints[neIp]==pI)
+            { appendUnique(edgFacsTmp[neIp], myPFaces[mfI]); break; }
+      }
     }
 
     for_(edgFacs,i)
@@ -147,17 +145,17 @@ inline labelListList edgeFaces(const ints& myPPoints, const facePiece& faces, co
     return edgFacs;
 }
 inline dbl3 areax2(const face& f, const piece<point>& points) {
-    dbl3 diag = points[f[2]]- points[f[0]]; return ((points[f[1]]-points[f[0]])^diag) + (diag^(points[f[3]]-points[f[0]]));
+  dbl3 diag = points[f[2]] - points[f[0]];   return ((points[f[1]]-points[f[0]])^diag) + (diag^(points[f[3]]-points[f[0]]));
 }
-inline dbl3 normal(const face& f, const piece<point>& points) { dbl3 aa = areax2(f,points); return aa/mag(aa); }
+inline dbl3 normal(const face& f, const piece<point>& points) { dbl3 aa = areax2(f,points);  return aa/mag(aa); }
 inline dbl3 centre(const face& f, const piece<point>& points) { return 0.25*(points[f[0]] + points[f[1]] + points[f[2]] + points[f[3]]); }
 inline dbl3s faceCentres(const facePiece& facez, const piece<point>& points) {
-    dbl3s res(facez.size());
-    for(size_t fi=0; fi<facez.size(); ++fi) res[fi]=centre(facez[fi],points);
-    return res;
+  dbl3s res(facez.size());
+  for(size_t fi=0; fi<facez.size(); ++fi) res[fi]=centre(facez[fi],points);
+  return res;
 }
 inline vars<dbl3s> faceCentres(const std::vector<facePiece>& facezs, const piece<point>& points){
-    vars<dbl3s> res(facezs.size());
-    for(size_t iz=0;iz<facezs.size();++iz) res[iz]=faceCentres(facezs[iz],points);
-    return res;
+  vars<dbl3s> res(facezs.size());
+  for(size_t iz=0;iz<facezs.size();++iz) res[iz]=faceCentres(facezs[iz],points);
+  return res;
 }

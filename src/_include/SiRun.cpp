@@ -20,7 +20,7 @@ using namespace std;
 
 //!# SiM namespace: is used to define C++ functions  which will be invoked from input files
 
-                namespace SiM _begins_
+namespace SiM {
 
 #ifdef MULTITHREAD
   class threadDetacher {// not tested
@@ -324,8 +324,7 @@ using namespace std;
     return 0;
   }
 
-
-                _end_of_(namespace SiM)
+} // namespace SiM
 
 SiR::SiR() {
   rootDir_=getpwd();

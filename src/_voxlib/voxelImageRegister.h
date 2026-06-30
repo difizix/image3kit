@@ -365,7 +365,7 @@ inline std::pair<Tnsr3d,Vctr3d>  registerToImageEMS(voxelImageT<T>& origImage, v
 
 
 
-                namespace MCTProcessing _begins_
+namespace MCTProcessing {
 
 template<typename T>  bool registerToImage(stringstream& ins, voxelImageT<T> & vxlImage)  {
   KeyHint("toImgName maskNam  smooth   (bilateralX:nIters  kernRad , Xstp   sigmavv  sigmadd \\\n\t  sharpFact  smotOut toSmOut) bgnReg endReg dX0 thetaz nSkip defaultV");
@@ -498,4 +498,4 @@ template<typename T>  bool readTransFrom( stringstream& ins, voxelImageT<T>& vIm
   return true;
 }
 
-                _end_of_(namespace MCTProcessing)
+}  // namespace MCTProcessing
