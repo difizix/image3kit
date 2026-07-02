@@ -221,6 +221,29 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     //.def("maskWriteFraction", &SelfT::maskWriteFraction)
     .def("mapFrom", [](SelfT& m, const SelfT& vimg2, VxT vmin, VxT vmax, double scale, double shift) { mapToFrom(m, vimg2, vmin, vmax, scale, shift); }, arg("sourceImage"), arg("vmin"), arg("vmax"), arg("scale"), arg("shift"), "Map values from another image.")
     .def("addSurfNoise", [](SelfT &m, const int randMask1, const int randMask2, int trsh, int randseed) { addSurfNoise(m, randMask1, randMask2, trsh, randseed); }, arg("mask1"), arg("mask2"), arg("threshold"), arg("seed"), "Add surface noise.")
+    .def("__iadd__", [](SelfT &m, const SelfT &other) {
+        if (m.size3() != other.size3()) throw std::runtime_error("Image sizes do not match");
+        m.data_ += other.data_;
+        return &m;
+    }, py::is_operator())
+    .def("__add__", [](const SelfT &m, const SelfT &other) {
+        if (m.size3() != other.size3()) throw std::runtime_error("Image sizes do not match");
+        SelfT result(m);
+        result.data_ += other.data_;
+        return result;
+    }, py::is_operator())
+    .def("__isub__", [](SelfT &m, const SelfT &other) {
+        if (m.size3() != other.size3()) throw std::runtime_error("Image sizes do not match");
+        m.data_ -= other.data_;
+        return &m;
+    }, py::is_operator())
+    .def("__sub__", [](const SelfT &m, const SelfT &other) {
+        if (m.size3() != other.size3()) throw std::runtime_error("Image sizes do not match");
+        SelfT result(m);
+        result.data_ -= other.data_;
+        return result;
+    }, py::is_operator())
+
 
     // // Individual bindings for convenience
     .def("averageWith", [](SelfT &m, std::string args) { std::stringstream ss(args); return MCTProcessing::averageWith(ss, m); })
