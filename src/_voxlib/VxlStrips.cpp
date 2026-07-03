@@ -153,7 +153,7 @@ DistMap::DistMap(const InputFile& inp, VxlStrips& cfg, size_t ivVal)//, double v
   : inVxVal_(ivVal)
   , segXs_(cfg.segXs_)
 {
-  _nRSmoothing=3;
+  _nRSmoothing=1;
   _clipROutx=0.05;
   _clipROutyz=0.98;
   if(cfg.nBP6==6)   _clipROutyz=_clipROutx;
@@ -161,15 +161,14 @@ DistMap::DistMap(const InputFile& inp, VxlStrips& cfg, size_t ivVal)//, double v
   if(inVxVal_) // DAR_1:
   {
     _clipROutyz = 1.;
-    _nRSmoothing /= 3;
   }
 
 
   if (std::istringstream iss;
       inp.giv("DistMapSettings"+_s(inVxVal_), iss) || inp.giv("DistMapSettings", iss)
-     ) iss >>_clipROutx >>_clipROutyz >> _nRSmoothing;
-  cout<<"#!          clipROut.x   .yz, nRSmoothing:"<<endl;
-  cout<<"DistMapSettings:  "  <<_clipROutx <<"  "<< _clipROutyz <<"      "<< _nRSmoothing<<endl;
+     ) iss >> _clipROutx >> _clipROutyz >> _nRSmoothing;
+  cout<<"#!         clipROut.x   .yz    nRSmoothing:"<<endl;
+  cout<<"DistMapSettings: "  << _clipROutx<<"  " << _clipROutyz<< "           "<< _nRSmoothing  <<endl;
 
   invalidSeg.i0=-10000;
   invalidSeg.vv=255;
@@ -183,6 +182,13 @@ DistMap::DistMap(const InputFile& inp, VxlStrips& cfg, size_t ivVal)//, double v
 
 /// dj = nearest solid relative position ...
 float DistMap::calc_distmap(int i, int j, int k, int3& dj) {
+  if (dj.x >= 0 || dj.y >= 0 || dj.z >= 0) {
+    // FIXME: this is to avoid generating random big throats, probably something wrong elsewhere, 
+    // and also the logic below is wrong
+    dj.x = max(0, min(nx - 1, dj.x));
+    dj.y = max(0, min(ny - 1, dj.y));
+    dj.z = max(0, min(nz - 1, dj.z));
+  }
 
   int rSqr = sqr(dj.x-i)+sqr(dj.y-j)+sqr(dj.z-k);
 
@@ -243,6 +249,12 @@ float  DistMap::calc_distmapf(dbl3 mb, int3& dj) {
   int i=mb.x, j=mb.y, k=mb.z;
 
   if(const strip& sX = segX0(i, j, k); sX.vv!=inVxVal_) return 0.0f;
+
+  if (dj.x >= 0 || dj.y >= 0 || dj.z >= 0) {
+    dj.x = max(0, min(nx - 1, dj.x));
+    dj.y = max(0, min(ny - 1, dj.y));
+    dj.z = max(0, min(nz - 1, dj.z));
+  }
 
   int rSqr = sqr(dj.x-mb.x)+sqr(dj.y-mb.y)+sqr(dj.z-mb.z);
   float rrr = sqrtf(rSqr)+1.9f;
