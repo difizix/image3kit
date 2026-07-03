@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <cctype>
+#include <type_traits>
 
 #include "stb_image_write.h"
 #include "stb_image.h"
@@ -256,8 +257,7 @@ int sliceFromPng(voxelImageT<T>& vImage, std::string normalAxis, std::string fna
 
   double invZ = (double(endv)-bgnv)/255.0;
   for (int y=0 ; y<exp_h ; y++) {
-    for (int x=0 ; x<exp_w ; x++)
-    {
+    for (int x=0 ; x<exp_w ; x++) {
       size_t ind=0;
       switch (axis) {
         case 'x': ind=vImage.index(iSlice,y,x);  break;
@@ -268,9 +268,19 @@ int sliceFromPng(voxelImageT<T>& vImage, std::string normalAxis, std::string fna
       size_t ix = std::min(int(x * wFact+0.5), width-1);
       size_t iy = std::min(int(y * hFact+0.5), height-1);
       unsigned char* rgba = data + 4*(iy*width+ix);
-      int r=rgba[0], g=rgba[1], b=rgba[2], a=rgba[3];
-      int vv = std::max(((r*77) + (g*150) +  (29*b))*a + (255-a)*256*256, 0) >> 16;
-      // std::cout<<vv<<" "<<r<<" "<<g<<" "<<b<<" "<<a<<std::endl;
+      unsigned int r=rgba[0], g=rgba[1], b=rgba[2], a=rgba[3];
+
+      T vv;
+      if constexpr (std::is_same_v<T, unsigned char>) {
+        vv = (T)((std::max<unsigned int>(((r*77) + (g*150) +  (29*b))*a + (255-a)*256*256, 0) + 32768) >> 16);
+      }
+      else if constexpr (std::is_same_v<T, unsigned short>) {
+        vv = (T)((std::max<unsigned int>(((r*77) + (g*150) +  (29*b))*a + (255-a)*256*256, 0) + 128) >> 8);
+      }
+      else {
+        vv = (T)std::max<unsigned int>(((r*77) + (g*150) +  (29*b))*a + (255-a)*256*256, 0);
+      }
+
       vImage(ind) = (T)(vv*invZ + bgnv);
     }
   }

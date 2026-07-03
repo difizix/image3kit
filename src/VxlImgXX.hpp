@@ -99,14 +99,14 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     })
     .def(py::init([](py::tuple nxyz, VxT value) { return SelfT(tov3<int>(nxyz), value); }),
          arg("shape")=py::make_tuple(0,0,0), arg("value") = 0, "Initialize a new image of size tuple (nx, ny, nz) with the fill value.")
+    .def(py::init( // duplicate and convert, order of constructors matters!
+        [](voxelImageTBase *m)  { SelfT img; if (m) resetFromImageT<VxT, SupportedVoxTyps>(img, m);  return img; }),
+        arg("image"),
+        "Initialize (duplicate and convert) from another voxelImageT object")
     .def(py::init( // readConvertFromHeader
         [](py::object filepath, bool processKeys)  { return SelfT(py::str(filepath).cast<std::string>(), processKeys? readOpt::procAndConvert : readOpt::justRead); }),
         arg("filepath"), arg("processKeys")=true,
         "Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw")
-    .def(py::init( // duplicate and convert
-        [](voxelImageTBase *m)  { SelfT img; if (m) resetFromImageT<VxT, SupportedVoxTyps>(img, m);  return img; }),
-        arg("image"),
-        "Initialize (duplicate and convert) from another voxelImageT object")
     .def("copy", [](SelfT &m) { return SelfT(m); }, "duplicate the image data")
     .def("__repr__", [VxTypS](const SelfT &m) {
         return "<" + std::string(VxTypS) + " shape=("+_s(m.size3())+")>";

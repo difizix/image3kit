@@ -860,7 +860,7 @@ array<double,5> otsu_th(const voxelImageT<T>& vImg, Tint  minvi, Tint  maxvi, do
   int3 nnn2=(1.000000000001-skipFrac)*vImg.size3();
   T  minv=minvi, maxv=maxvi;
 
-  const int nHist = std::min(minvi-maxvi, Tint(65536/10));
+  const int nHist = std::min(maxvi-minvi, Tint(65536/10));
   Tint delta = std::max((maxvi-minvi)/ nHist, Tint(T(1)));
 
   vars<long long> hist(nHist+1, 0l);
