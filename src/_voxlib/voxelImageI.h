@@ -93,7 +93,8 @@ T accumulateT(const voxelImage& vf, std::function<T(T, T)> operatorFunc, T resul
 }
 
 
-inline double covarianceDbl(const voxelImageT<unsigned short>& img1, const voxelImageT<unsigned short>& img2, int bgn, int end) {
+template<typename T1, typename T2>
+inline double covarianceDbl(const voxelImageT<T1>& img1, const voxelImageT<T2>& img2, int bgn, int end) {
   double sum1=0., sum2=0.; size_t count=0;
   OMPFor(reduction(+:sum1) reduction(+:sum2) reduction(+:count))
   forAlliii_seq(img1) {   int v1=img1(iii), v2=img2(iii);

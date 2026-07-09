@@ -140,7 +140,7 @@ set(CMAKE_WARN_DEPRECATED
 # Add a library using FindPython's tooling (pybind11 also provides a helper like
 # this)
 file(GLOB PyBind_SRCS CONFIGURE_DEPENDS "src/*.cpp")
-set(VOXLIB_SRC src/_voxlib/voxelImage.cpp src/_voxlib/VxlStrips.cpp)
+set(VOXLIB_SRC src/_voxlib/voxelImage.cpp src/_voxlib/VxlStrips.cpp src/_voxlib/VxlDifImg.cpp)
 set(VXL_TOOLS_SRC
     src/_vxlToFoam/voxelToFoam.cpp
     src/_vxlToFoam/voxelToFoamPar.cpp

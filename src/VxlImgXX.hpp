@@ -9,6 +9,8 @@
 #include "VxlStrips.h"
 #include "voxelImageProcess.h"
 #include "voxelNoise.h"
+#include "VxlDifImg.h"
+
 
 
 void vxlToFoam(voxelImage& vxlImg);
@@ -30,6 +32,25 @@ template<typename VxT>
 void addDodgyFuncsInt(py::class_<voxelImageT<VxT>, voxelImageTBase> &m) requires(sizeof(VxT)<=2) {
 
   using SelfT = voxelImageT<VxT>;
+
+  // TODO bind VxlDifShort and VxlMinizVar here, they should be generalized to support both u8 and u16 integers (6565535 and 65534 replaced with maxT(Typ) from _include/typses.h)
+  m.def("VxlDifShort",
+        [](SelfT &m, const SelfT &img2, std::string scaletype, double shift3, double scale3,
+           double shift1, double scale1, double shift2, double scale2) {
+          ::VxlDifShort(m, img2, scaletype, shift3, scale3, shift1, scale1, shift2, scale2);
+        },
+        arg("image2"), arg("scaletype") = "log",
+        arg("shift3") = 1.0, arg("scale3") = 1.0,
+        arg("shift1") = 0.0, arg("scale1") = 1.0,
+        arg("shift2") = 0.0, arg("scale2") = 1.0,
+        "Calculate difference between two images, linear or logarithmic scale")
+   .def("VxlMinizVar",
+        [](SelfT &m, const SelfT &img2, int bgn, int end, double shift, double span) {
+          ::VxlMinizVar(m, img2, bgn, end, shift, span);
+        },
+        arg("image2"), arg("bgn") = 0, arg("end") = imaxT(VxT),
+        arg("shift") = -1.0, arg("span") = 1.0,
+        "Search for an optimum weight, w, that minimizes variance of img1*w+(1-w)*img2");
 
   m.def("segment2",
        [](SelfT &m, std::vector<intOr<VxT>> th, std::vector<int> minSizs,
