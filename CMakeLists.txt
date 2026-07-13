@@ -137,21 +137,18 @@ set(CMAKE_WARN_DEPRECATED
     ON
     CACHE BOOL "" FORCE)
 
+# Add targets for local includes to ensure they appear in compile_commands.json
+add_subdirectory(common)
+add_subdirectory(voxlib)
+add_subdirectory(vxlToFoam)
+add_subdirectory(vxlToSurf)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Add a library using FindPython's tooling (pybind11 also provides a helper like
 # this)
 file(GLOB PyBind_SRCS CONFIGURE_DEPENDS "src/*.cpp")
-set(VOXLIB_SRC src/_voxlib/voxelImage.cpp src/_voxlib/VxlStrips.cpp src/_voxlib/VxlDifImg.cpp)
-set(VXL_TOOLS_SRC
-    src/_vxlToFoam/voxelToFoam.cpp
-    src/_vxlToFoam/voxelToFoamPar.cpp
-    src/_vxlToFoam/voxelToFoamPar_seq.cpp
-    src/_vxlToSurf/voxelToSurfMesh.cpp
-    src/_vxlToSurf/voxelSurface.cpp
-    src/_vxlToSurf/voxelSurface_write.cpp
-    src/_vxlToSurf/smoothGauss.cpp)
 
-python_add_library(_core MODULE ${VOXLIB_SRC} ${PyBind_SRCS} ${VXL_TOOLS_SRC}
-                   WITH_SOABI)
+python_add_library(_core MODULE ${PyBind_SRCS} WITH_SOABI)
 
 target_compile_definitions(
   _core
@@ -166,10 +163,11 @@ target_compile_definitions(
 
 target_link_libraries(_core PRIVATE pybind11::headers)
 
-target_include_directories(_core PRIVATE src/_include)
-target_include_directories(_core PRIVATE src/_voxlib)
-target_include_directories(_core PRIVATE src/_vxlToFoam)
-target_include_directories(_core PRIVATE src/_vxlToSurf)
+target_include_directories(_core PRIVATE common)
+target_include_directories(_core PRIVATE voxlib)
+target_include_directories(_core PRIVATE vxlToFoam)
+target_include_directories(_core PRIVATE vxlToSurf)
+target_include_directories(_core PRIVATE src)
 target_include_directories(_core PRIVATE pkgs/optim)
 target_include_directories(_core PRIVATE pkgs/optim/primitives)
 target_include_directories(_core PRIVATE pkgs/stb)
@@ -187,7 +185,7 @@ else()
   target_compile_options(_core PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-target_link_libraries(_core PRIVATE Python::Module ZLIB::ZLIB TIFF::tiff
+target_link_libraries(_core PRIVATE voxlib vxlToFoam vxlToSurf Python::Module ZLIB::ZLIB TIFF::tiff
                                     OpenMP::OpenMP_CXX)
 
 # The install directory is the output (wheel) directory
@@ -203,6 +201,3 @@ install(
 include(cmake/PackageConfig.cmake)
 
 # Add targets for local includes to ensure they appear in compile_commands.json
-add_subdirectory(src/_include)
-add_subdirectory(src/_voxlib)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

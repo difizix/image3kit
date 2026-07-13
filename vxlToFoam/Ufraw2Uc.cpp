@@ -60,17 +60,17 @@ int main(int argc, char** argv)  {
 
 	int3 n;
 	{
-		voxelImage vimage(headerName);
+		voxelImage vimage(headerName, readOpt::procAndConvert);
 		ensure(vimage.nz(), headerName+" not read",-1);
 		n = vimage.size3();
 		if(writeFrmt=="dat") vimage.write("vxlImage.dat");
 	}
 
 	voxelImageT<float> Umg;
-	if (wUmag[0]=='U') Umg.reset(n[0],n[1],n[2],0.);
+	if (wUmag[0]=='U') Umg.reset(n,0.f);
 
 	{
-		voxelImageT<float> fField(n[0]+1,n[1],n[2],0.);
+		voxelImageT<float> fField(int3(n[0]+1,n[1],n[2]),0.f);
 		fField.readBin("Ufx"+imgExt());
 		if(writeFrmt!=imgExt())  fField.writeBin("Ufx"+writeFrmt);
 
@@ -84,7 +84,7 @@ int main(int argc, char** argv)  {
 			forAllkji(Umg) Umg(i,j,k) += sqr(fField(i,j,k));
 	}
 	{
-		voxelImageT<float> fField(n[0],n[1]+1,n[2],0.);
+		voxelImageT<float> fField(int3(n[0],n[1]+1,n[2]),0.f);
 		fField.readBin("Ufy"+imgExt());
 		if(writeFrmt!=imgExt())  fField.writeBin("Ufy"+writeFrmt);
 
@@ -98,7 +98,7 @@ int main(int argc, char** argv)  {
 			forAllkji(Umg) Umg(i,j,k) += sqr(fField(i,j,k));
 	}
 	{
-		voxelImageT<float> fField(n[0],n[1],n[2]+1,0.);
+		voxelImageT<float> fField(int3(n[0],n[1],n[2]+1),0.f);
 		fField.readBin("Ufz"+imgExt());
 		if(writeFrmt!=imgExt())  fField.writeBin("Ufz"+writeFrmt);
 
@@ -118,7 +118,7 @@ int main(int argc, char** argv)  {
 
 	if(writeFrmt!=imgExt())
 	{
-		voxelImageT<float> pField(n[0],n[1],n[2],0.);
+		voxelImageT<float> pField(int3(n[0],n[1],n[2]),0.f);
 		pField.readBin("p"+imgExt());
 		pField.writeBin("p"+writeFrmt);
 

@@ -8,12 +8,12 @@ install(
   FILES_MATCHING
   PATTERN "*.hpp")
 
-install(FILES src/_voxlib/voxelImage.h src/_voxlib/voxelImageI.h
-        DESTINATION image3kit/_voxlib)
+install(FILES voxlib/voxelImage.h voxlib/voxelImageI.h
+        DESTINATION image3kit/voxlib)
 
 install(
-  DIRECTORY src/_include/
-  DESTINATION image3kit/_include
+  DIRECTORY common/
+  DESTINATION image3kit/common
   FILES_MATCHING
   PATTERN "*.h")
 
@@ -24,11 +24,11 @@ include(CMakePackageConfigHelpers)
 add_library(image3kit_headers INTERFACE)
 target_include_directories(
   image3kit_headers
-  INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/_include>
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/_voxlib>
+  INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/common>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/voxlib>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-            $<INSTALL_INTERFACE:image3kit/_include>
-            $<INSTALL_INTERFACE:image3kit/_voxlib>
+            $<INSTALL_INTERFACE:image3kit/common>
+            $<INSTALL_INTERFACE:image3kit/voxlib>
             $<INSTALL_INTERFACE:image3kit>)
 
 # Export the target
