@@ -90,10 +90,10 @@ void addDodgyFuncsU8(py::class_<voxelImageT<VxT>, voxelImageTBase> &m) requires(
         "Extrude proportional to distance map"
     )
     .def("vxlToFoam", [](voxelImage& m) { vxlToFoam(m); }, "Convert image to OpenFOAM mesh")
-    .def("vxlToFoamPar", [](voxelImage& m, int3 nPar, bool resetX0, bool keepBCs) { vxlToFoamPar(m, tov3<int>(nPar), resetX0, keepBCs); },
+    .def("vxlToFoamPar", [](voxelImage& m, int3 nPar, bool resetX0, bool keepBCs) { vxlToFoamPar(m, nPar, resetX0, keepBCs); },
         arg("nPar")=int3(1,1,1), arg("resetX0")=false, arg("keepBCs")=false,
         "Convert image to a parallel OpenFOAM mesh")
-    .def("vxlToFoamPar_seq", [](voxelImage& m, int3 nPar, bool resetX0) { vxlToFoamPar_seq(m, tov3<int>(nPar), resetX0); },
+    .def("vxlToFoamPar_seq", [](voxelImage& m, int3 nPar, bool resetX0) { vxlToFoamPar_seq(m, nPar, resetX0); },
         arg("nPar")=int3(1,1,1), arg("resetX0")=false,
         "Convert image to a parallel OpenFOAM mesh sequentially (one processor mesh at a time)")
     .def("vxlToSurfMesh", [](voxelImage& m, py::dict inpDic, std::string outputSurface) {
@@ -118,7 +118,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
             { long(sizeof(VxT)), long(sizeof(VxT)*m.nx()), long(sizeof(VxT) * m.nxy()) } // Strides (in bytes)
         );
     })
-    .def(py::init([](int3 nxyz, VxT value) { return SelfT(tov3<int>(nxyz), value); }),
+    .def(py::init([](int3 nxyz, VxT value) { return SelfT(nxyz, value); }),
          arg("shape")=int3(0,0,0), arg("value") = 0, "Initialize a new image of size (nx, ny, nz) with the fill value.")
     .def(py::init( // duplicate and convert, order of constructors matters!
         [](voxelImageTBase *m)  { SelfT img; if (m) resetFromImageT<VxT, SupportedVoxTyps>(img, m);  return img; }),
@@ -142,17 +142,17 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
         return self.attr("__array__")();
         }, "Get the raw data buffer as a numpy array.")
     .def("__getitem__", [](SelfT &m, int3 idx) {
-        return m(idx[0].cast<int>(), idx[1].cast<int>(), idx[2].cast<int>());
+        return m(idx[0], idx[1], idx[2]);
     })
     .def("__setitem__", [](SelfT &m, int3 idx, VxT val) {
-        m(idx[0].cast<int>(), idx[1].cast<int>(), idx[2].cast<int>()) = val;
+        m(idx[0], idx[1], idx[2]) = val;
     })
     .def_property_readonly("shape", [&](SelfT &m) { return to3(m.size3()); })
     .def_property_readonly("nx", &SelfT::nx)
     .def_property_readonly("ny", &SelfT::ny)
     .def_property_readonly("nz", &SelfT::nz)
-    .def_property("voxelSize", [](SelfT &m) { return to3(m.dx()); }, [](SelfT &m, int3 v) { m.dxCh() = tov3<double>(v); }, "Get/set the voxel size (dx, dy, dz).")
-    .def_property("origin", [](SelfT &m) { return to3(m.X0()); }, [](SelfT &m, int3 v) { m.X0Ch() = tov3<double>(v); }, "Get/set the origin value (x0, y0, z0).")
+    .def_property("voxelSize", [](SelfT &m) { return to3(m.dx()); }, [](SelfT &m, dbl3 v) { m.dxCh() = v; }, "Get/set the voxel size (dx, dy, dz).")
+    .def_property("origin", [](SelfT &m) { return to3(m.X0()); }, [](SelfT &m, dbl3 v) { m.X0Ch() = v; }, "Get/set the origin value (x0, y0, z0).")
     .def("printInfo", &SelfT::printInfo)
     .def("write", &SelfT::write, arg("filename"), "Write the image to a file (.mhd, .raw, .ra.gz formats).")
     .def("writeNoHeader", &SelfT::writeNoHdr, arg("filename"), "Write the raw image data without a header.")
