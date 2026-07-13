@@ -39,7 +39,28 @@ def test_writePng():
     print(lnt * rad * rad * 4)
 
 
+def test_implicit_conversion():
+    from image3kit._core.sirun import int3, dbl3
+    
+    # Test initialization from list and tuple
+    i1 = int3((1, 2, 3))
+    i2 = int3([4, 5, 6])
+    assert i1.x == 1 and i1.y == 2 and i1.z == 3
+    assert i2.x == 4 and i2.y == 5 and i2.z == 6
+
+    d1 = dbl3((1.5, 2.5, 3.5))
+    d2 = dbl3([4.5, 5.5, 6.5])
+    assert d1.x == 1.5 and d1.y == 2.5 and d1.z == 3.5
+    assert d2.x == 4.5 and d2.y == 5.5 and d2.z == 6.5
+
+    # Test implicit conversion in functions like cropD
+    img = ik.VxlImgU8((20, 20, 1), 22)
+    img.cropD((2, 2, 0), [18, 18, 1])
+    assert img.shape == (16, 16, 1)
+
+
 if __name__ == "__main__":
     test_version()
     test_voxlibI()
     test_writePng()
+    test_implicit_conversion()

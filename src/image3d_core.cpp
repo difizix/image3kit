@@ -22,7 +22,7 @@ PYBIND11_MODULE(_core, mod, py::mod_gil_not_used()) {
     py::class_<var3<int>>(sirun, "int3")
     .def(py::init<>())
     .def(py::init<int, int, int>())
-    .def(py::init([](py::tuple t) { return tov3<int>(t); }))
+    .def(py::init([](py::sequence s) { return tov3<int>(s); }))
     .def_readwrite("x", &var3<int>::x)
     .def_readwrite("y", &var3<int>::y)
     .def_readwrite("z", &var3<int>::z)
@@ -36,11 +36,13 @@ PYBIND11_MODULE(_core, mod, py::mod_gil_not_used()) {
     .def("__len__", [](const var3<int> &) { return 3; })
     .def("__repr__", [](const var3<int> &v) { return "int3(" + _s(v) + ")"; })
     ;
+    py::implicitly_convertible<py::tuple, var3<int>>();
+    py::implicitly_convertible<py::list, var3<int>>();
 
     py::class_<var3<double>>(sirun, "dbl3")
     .def(py::init<>())
     .def(py::init<double, double, double>())
-    .def(py::init([](py::tuple t) { return tov3<double>(t); }))
+    .def(py::init([](py::sequence s) { return tov3<double>(s); }))
     .def_readwrite("x", &var3<double>::x)
     .def_readwrite("y", &var3<double>::y)
     .def_readwrite("z", &var3<double>::z)
@@ -54,6 +56,8 @@ PYBIND11_MODULE(_core, mod, py::mod_gil_not_used()) {
     .def("__len__", [](const var3<double> &) { return 3; })
     .def("__repr__", [](const var3<double> &v) { return "dbl3(" + _s(v) + ")"; })
     ;
+    py::implicitly_convertible<py::tuple, var3<double>>();
+    py::implicitly_convertible<py::list, var3<double>>();
 
 
     py::class_<InputFile>(sirun, "Input")
