@@ -18,7 +18,7 @@ def test_bitwise_not():
     assert img2[2, 2, 2] == 100
     assert img2[3, 3, 3] == 1
 
-    img.NOT(img2)
+    img.not_(img2)
 
     # Check logical inversion
     assert img[0, 0, 0] == 1

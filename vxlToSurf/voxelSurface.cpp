@@ -409,7 +409,7 @@ surfMsh createSurface(InputFile& inp, const voxelImage & vxlImg, const int nVVs,
 
   std::array<int,256> iFaces; iFaces.fill(-1);
 
-  for (int iz=1;iz<=n[2];iz++)  { 
+  for (int iz=1;iz<=n[2];iz++)  {
     if(iz%20==9) { (cout<<(iz%100 ? '.' : '\n')).flush(); }
     for (int iy=1;iy<=n[1];iy++)
       for (int ix=1; ix<=n[0]; ix++) {

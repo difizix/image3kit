@@ -3,12 +3,18 @@ target_include_directories(sirun_utils PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # clangd/vscode mess:
 target_link_libraries(sirun_utils PRIVATE pybind11::headers Python::Module)
-target_include_directories(sirun_utils PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../src")
-target_include_directories(sirun_utils PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../voxlib")
-target_include_directories(sirun_utils PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../pkgs/stb")
-target_include_directories(sirun_utils PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../pkgs/svplot")
-target_include_directories(sirun_utils PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../pkgs/optim")
-target_include_directories(sirun_utils PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../pkgs/zlib")
+target_include_directories(sirun_utils
+                           PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../src")
+target_include_directories(sirun_utils
+                           PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../voxlib")
+target_include_directories(sirun_utils
+                           PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../pkgs/stb")
+target_include_directories(sirun_utils
+                           PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../pkgs/svplot")
+target_include_directories(sirun_utils
+                           PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../pkgs/optim")
+target_include_directories(sirun_utils
+                           PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../pkgs/zlib")
 target_compile_features(sirun_utils PUBLIC cxx_std_23)
 
 target_include_directories(

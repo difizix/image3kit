@@ -20,7 +20,7 @@ def test_readPng():
     assert np.asarray(img2).shape == (72, 54, 1)
     assert img2.data.shape == (72, 54, 1)
     assert img2.shape == (72, 54, 1)
-    img2.plotSlice(filename="fig/piskelapp2", normal_axis="z")
+    img2.plot_slice(filename="fig/piskelapp2", normal_axis="z")
 
 
 if __name__ == "__main__":
