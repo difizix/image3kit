@@ -183,7 +183,7 @@ DistMap::DistMap(const InputFile& inp, VxlStrips& cfg, size_t ivVal)//, double v
 /// dj = nearest solid relative position ...
 float DistMap::calc_distmap(int i, int j, int k, int3& dj) {
   if (dj.x >= 0 || dj.y >= 0 || dj.z >= 0) {
-    // FIXME: this is to avoid generating random big throats, probably something wrong elsewhere, 
+    // FIXME: this is to avoid generating random big throats, probably something wrong elsewhere,
     // and also the logic below is wrong
     dj.x = max(0, min(nx - 1, dj.x));
     dj.y = max(0, min(ny - 1, dj.y));

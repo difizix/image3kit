@@ -34,7 +34,7 @@ PYBIND11_MODULE(_core, mod, py::mod_gil_not_used()) {
     })
     .def("__setitem__", [](var3<int> &v, int i, int val) { v[i] = val; })
     .def("__len__", [](const var3<int> &) { return 3; })
-    .def("__repr__", [](const var3<int> &v) { return "int3(" + _s(v) + ")"; })
+    .def("__repr__", [](const var3<int> &v) { return "int3(" + _s(v.x) + ", " + _s(v.y) + ", " + _s(v.z) + ")"; })
     ;
     py::implicitly_convertible<py::tuple, var3<int>>();
     py::implicitly_convertible<py::list, var3<int>>();
@@ -54,7 +54,7 @@ PYBIND11_MODULE(_core, mod, py::mod_gil_not_used()) {
     })
     .def("__setitem__", [](var3<double> &v, int i, double val) { v[i] = val; })
     .def("__len__", [](const var3<double> &) { return 3; })
-    .def("__repr__", [](const var3<double> &v) { return "dbl3(" + _s(v) + ")"; })
+    .def("__repr__", [](const var3<double> &v) { return "dbl3(" + _s(v.x) + ", " + _s(v.y) + ", " + _s(v.z) + ")"; })
     ;
     py::implicitly_convertible<py::tuple, var3<double>>();
     py::implicitly_convertible<py::list, var3<double>>();
@@ -106,13 +106,14 @@ PYBIND11_MODULE(_core, mod, py::mod_gil_not_used()) {
     bind_VxlImgI32(voxlib, "VxlImgI32");
     bind_VxlImgF32(voxlib, "VxlImgF32");
 
-    voxlib.def("labelImage", [](voxelImage &m, double minvv, double maxvv) {
+    voxlib.def("connected_components", [](voxelImage &m, double minvv, double maxvv) {
         auto lbls = labelImage(m, (unsigned char)(minvv), (unsigned char)(maxvv));
         compressLabelImage(lbls);
         return lbls;
     });
 
-    voxlib.def("readImageBase",
+    // TODO: What does it return ? casted image or a base-class, we shall create an adaptor that does the cast automatically
+    voxlib.def("read_image",
         [](py::object filename) {
             return readImage(py::str(filename).cast<std::string>(), 0);
         }, py::arg("filename"),

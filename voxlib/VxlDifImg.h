@@ -4,6 +4,8 @@
 
 template <typename T> class voxelImageT;
 
+namespace VoxLib {
+
 template<typename VxT>
 void VxlDifShort(voxelImageT<VxT>& img1, const voxelImageT<VxT>& img2,
                  std::string scaletype, double shift3, double scale3,
@@ -14,3 +16,5 @@ void VxlMinizVar(voxelImageT<VxT>& img1, const voxelImageT<VxT>& img2,
                  int bgn, int end, double shift, double span);
 
 void mergePlots(const std::string& outnam, const std::string& key, const std::vector<std::string>& fnames);
+
+} // namespace VoxLib

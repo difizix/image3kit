@@ -10,43 +10,24 @@ import typing
 import numpy
 import numpy.typing
 
+import image3kit._core.sirun
+
 __all__: list[str] = [
     "VxlImgF32",
     "VxlImgI32",
     "VxlImgU8",
     "VxlImgU16",
+    "connected_components",
     "cube",
     "cylinder",
-    "labelImage",
-    "readImageBase",
+    "read_image",
     "shape",
     "sphere",
     "voxelImageTBase",
 ]
 
 class VxlImgF32(voxelImageTBase):
-    def AND(self, image2: VxlImgF32) -> None:
-        """
-        Voxel-by-voxel inplace AND operation.
-        """
-    def FaceMedian06(
-        self, nAdj0: typing.SupportsInt | typing.SupportsIndex, nAdj1: typing.SupportsInt | typing.SupportsIndex
-    ) -> int:
-        """
-        Set voxel value to 0/1 if it has more than nAdj0/1 neighbours with value 0/1, in its 6 nearest voxels
-        """
-    def NOT(self, image2: VxlImgF32) -> None:
-        """
-        Voxel-by-voxel inplace NOT operation, alias for img = img & !img2.
-        """
-    def OR(self, image2: VxlImgF32) -> None:
-        """
-        Voxel-by-voxel inplace OR operation.
-        """
-    def XOR(self, image2: VxlImgF32) -> None:
-        """
-        Voxel-by-voxel inplace XOR operation.
-        """
+    def __add__(self, arg0: VxlImgF32) -> VxlImgF32: ...
     def __array__(self) -> numpy.typing.NDArray[numpy.float32]:
         """
         Get the raw data buffer as a numpy array.
@@ -55,29 +36,36 @@ class VxlImgF32(voxelImageTBase):
         """
         Return a buffer object that exposes the underlying memory of the object.
         """
-    def __getitem__(self, arg0: tuple) -> float: ...
+    def __getitem__(self, arg0: image3kit._core.sirun.int3) -> float: ...
+    def __iadd__(self, arg0: VxlImgF32) -> VxlImgF32: ...
     @typing.overload
-    def __init__(self, shape: tuple = (0, 0, 0), value: typing.SupportsFloat | typing.SupportsIndex = 0) -> None:
+    def __init__(
+        self, shape: image3kit._core.sirun.int3 = ..., value: typing.SupportsFloat | typing.SupportsIndex = 0
+    ) -> None:
         """
-        Initialize a new image of size tuple (nx, ny, nz) with the fill value.
-        """
-    @typing.overload
-    def __init__(self, filepath: typing.Any, processKeys: bool = True) -> None:
-        """
-        Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw
+        Initialize a new image of size (nx, ny, nz) with the fill value.
         """
     @typing.overload
     def __init__(self, image: voxelImageTBase) -> None:
         """
         Initialize (duplicate and convert) from another voxelImageT object
         """
+    @typing.overload
+    def __init__(self, filepath: typing.Any, processKeys: bool = True) -> None:
+        """
+        Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw
+        """
+    def __isub__(self, arg0: VxlImgF32) -> VxlImgF32: ...
     def __release_buffer__(self, buffer):
         """
         Release the buffer object that exposes the underlying memory of the object.
         """
     def __repr__(self) -> str: ...
-    def __setitem__(self, arg0: tuple, arg1: typing.SupportsFloat | typing.SupportsIndex) -> None: ...
-    def addSurfNoise(
+    def __setitem__(
+        self, arg0: image3kit._core.sirun.int3, arg1: typing.SupportsFloat | typing.SupportsIndex
+    ) -> None: ...
+    def __sub__(self, arg0: VxlImgF32) -> VxlImgF32: ...
+    def add_surf_noise(
         self,
         mask1: typing.SupportsInt | typing.SupportsIndex,
         mask2: typing.SupportsInt | typing.SupportsIndex,
@@ -87,8 +75,8 @@ class VxlImgF32(voxelImageTBase):
         """
         Add surface noise.
         """
-    def adjustBrightnessWith(self, image_file: str) -> bool: ...
-    def adjustSliceBrightness(
+    def adjust_brightness_with(self, image_file: str) -> bool: ...
+    def adjust_slice_brightness(
         self,
         mask_a: VxlImgU8,
         mask_b: VxlImgU8,
@@ -96,9 +84,16 @@ class VxlImgF32(voxelImageTBase):
         smooth_iter: typing.SupportsInt | typing.SupportsIndex = 3,
         smooth_kernel: typing.SupportsInt | typing.SupportsIndex = 20,
     ) -> bool: ...
-    def averageWith(self, arg0: str) -> bool: ...
-    def averageWith_mBE(self, arg0: str) -> bool: ...
-    def bilateralGauss(
+    def and_(self, image2: VxlImgF32) -> None:
+        """
+        Voxel-by-voxel inplace AND operation.
+        """
+    def average_with(self, arg0: collections.abc.Sequence[str]) -> bool: ...
+    def average_with_skip_extremes(self, filenames: collections.abc.Sequence[str]) -> bool:
+        """
+        average image with list of other images (read from disk) while skipping the two outliers in color range, per voxel
+        """
+    def bilateral_gauss(
         self,
         iterations: typing.SupportsInt | typing.SupportsIndex = 1,
         kernel_radius: typing.SupportsInt | typing.SupportsIndex = 1,
@@ -106,7 +101,7 @@ class VxlImgF32(voxelImageTBase):
         sharpness: typing.SupportsFloat | typing.SupportsIndex = 0.1,
         sigma_spatial: typing.SupportsFloat | typing.SupportsIndex = 2.0,
     ) -> bool: ...
-    def bilateralX(
+    def bilateral_wide(
         self,
         iterations: typing.SupportsInt | typing.SupportsIndex = 1,
         kernel_radius: typing.SupportsInt | typing.SupportsIndex = 1,
@@ -118,7 +113,7 @@ class VxlImgF32(voxelImageTBase):
         """
         Bilateral filter with Xtra large kernel radius, actual kernel size is: kernel_radius * x_step cubed.
         """
-    def circleOut(
+    def circle_out(
         self,
         x: typing.SupportsInt | typing.SupportsIndex,
         y: typing.SupportsInt | typing.SupportsIndex,
@@ -133,10 +128,10 @@ class VxlImgF32(voxelImageTBase):
         """
         duplicate the image data
         """
-    def cropD(
+    def crop(
         self,
-        begin: tuple,
-        end: tuple,
+        begin: image3kit._core.sirun.int3,
+        end: image3kit._core.sirun.int3,
         emptyLayers: typing.SupportsInt | typing.SupportsIndex = 0,
         emptyLayersValue: typing.SupportsFloat | typing.SupportsIndex = 1,
         verbose: bool = False,
@@ -144,7 +139,7 @@ class VxlImgF32(voxelImageTBase):
         """
         Crop the image (inplace) from begin index tupe ix,iy,iz (inclusive) to and and end index (not inclusive) tuple.
         """
-    def cutOutside(
+    def cut_outside(
         self,
         axis: str = "z",
         extra_out: typing.SupportsInt | typing.SupportsIndex = 0,
@@ -177,38 +172,50 @@ class VxlImgF32(voxelImageTBase):
         ntheta: typing.SupportsInt | typing.SupportsIndex = 18,
         nz: typing.SupportsInt | typing.SupportsIndex = 0,
         scale_dif_val: typing.SupportsFloat | typing.SupportsIndex = 1,
-        bilateral_sharpen: typing.SupportsFloat | typing.SupportsIndex = 0.05,
-        nGrowBox: typing.SupportsInt | typing.SupportsIndex = 10,
+        bilateral_shape: typing.SupportsFloat | typing.SupportsIndex = 0.05,
+        n_grow_box: typing.SupportsInt | typing.SupportsIndex = 10,
         write_dumps: bool = True,
     ) -> None: ...
     def direction(self, arg0: str) -> None:
         """
         Get direction?
         """
-    def faceMedNgrowToFrom(
+    def face_median06(
+        self, nAdj0: typing.SupportsInt | typing.SupportsIndex, nAdj1: typing.SupportsInt | typing.SupportsIndex
+    ) -> int:
+        """
+        Set voxel value to 0/1 if it has more than nAdj0/1 neighbours with value 0/1, in its 6 nearest voxels
+        """
+    def face_median_grow(
         self,
-        labelTo: typing.SupportsFloat | typing.SupportsIndex,
-        labelFrom: typing.SupportsFloat | typing.SupportsIndex,
-        nDiff: typing.SupportsInt | typing.SupportsIndex,
+        label_to: typing.SupportsFloat | typing.SupportsIndex,
+        label_from: typing.SupportsFloat | typing.SupportsIndex,
+        n_diff: typing.SupportsInt | typing.SupportsIndex,
     ) -> None:
         """
         Face median grow to/from labels.
         """
-    def fillHoles(self, maxHoleRadius: typing.SupportsInt | typing.SupportsIndex) -> None:
+    def fill_holes(self, maxHoleRadius: typing.SupportsInt | typing.SupportsIndex) -> None:
         """
         Fill closed holes in the image.
         """
-    def flipEndian(self) -> None: ...
+    def flip_endian(self) -> None: ...
     def grow0(self) -> None:
         """
         Grow pore phase (voxel values of 0).
         """
-    def growBox(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
+    def grow_box(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
         """
         Expand the image boundaries, increasing its size by `num_layers` in all directions
         """
-    def growLabel(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None: ...
-    def growingThreshold(
+    def grow_label(self, arg0: typing.SupportsFloat | typing.SupportsIndex) -> None: ...
+    def grow_outside_value(
+        self,
+        val_old: typing.SupportsInt | typing.SupportsIndex = 0,
+        val_new: typing.SupportsInt | typing.SupportsIndex = 2,
+        hole_size: typing.SupportsInt | typing.SupportsIndex = 5,
+    ) -> bool: ...
+    def growing_threshold(
         self,
         startMin: typing.SupportsFloat | typing.SupportsIndex,
         startMax: typing.SupportsFloat | typing.SupportsIndex,
@@ -216,15 +223,15 @@ class VxlImgF32(voxelImageTBase):
         finalMax: typing.SupportsFloat | typing.SupportsIndex,
         iterations: typing.SupportsInt | typing.SupportsIndex = 4,
     ) -> None: ...
-    def keepLargest(
+    def keep_largest(
         self, min: typing.SupportsFloat | typing.SupportsIndex, max: typing.SupportsFloat | typing.SupportsIndex
     ) -> None:
         """
         Keep largest singly-connected region with values in [min, max].
         """
-    def mapFrom(
+    def map_from(
         self,
-        sourceImage: VxlImgF32,
+        source_image: VxlImgF32,
         vmin: typing.SupportsFloat | typing.SupportsIndex,
         vmax: typing.SupportsFloat | typing.SupportsIndex,
         scale: typing.SupportsFloat | typing.SupportsIndex,
@@ -233,7 +240,7 @@ class VxlImgF32(voxelImageTBase):
         """
         Map values from another image.
         """
-    def meanWide(
+    def mean_wide(
         self,
         width: typing.SupportsInt | typing.SupportsIndex = 0,
         noise_val: typing.SupportsInt | typing.SupportsIndex = 4,
@@ -245,26 +252,34 @@ class VxlImgF32(voxelImageTBase):
         """
         computes a background image, used to correct for lens artifacts
         """
-    def medianFilter(self) -> None:
+    def median_filter(self) -> None:
         """
         Apply a 1+6-neighbour median filter.
         """
-    def medianX(self) -> None:
+    def median_x(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in x-direction
         """
-    def medianY(self) -> None:
+    def median_y(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in y-direction
         """
-    def medianZ(self) -> None:
+    def median_z(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in z-direction
         """
     def mode26(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
-    def modeNSames(self, nSameNeighbors: typing.SupportsInt | typing.SupportsIndex) -> int:
+    def mode6(self, n_same_neighbors: typing.SupportsInt | typing.SupportsIndex) -> int:
         """
         Apply mode filter based on nearest 6 neighbor voxels.
+        """
+    def not_(self, image2: VxlImgF32) -> None:
+        """
+        Voxel-by-voxel inplace NOT operation, alias for img = img & !img2.
+        """
+    def or_(self, image2: VxlImgF32) -> None:
+        """
+        Voxel-by-voxel inplace OR operation.
         """
     def otsu_threshold(
         self,
@@ -275,27 +290,27 @@ class VxlImgF32(voxelImageTBase):
         """
         Paint (set values of) a shape into the image.
         """
-    def paintAdd(self, shape: shape) -> None:
+    def paint_add(self, shape: shape) -> None:
         """
         Add (+) a shape's value to the image.
         """
-    def paintAddAfter(self, shape: shape) -> None:
+    def paint_add_after(self, shape: shape) -> None:
         """
         Add (+) a shape's value after the shape (plane...)
         """
-    def paintAddBefore(self, shape: shape) -> None:
+    def paint_add_before(self, shape: shape) -> None:
         """
         Add (+) a shape's value before the shape (plane...)
         """
-    def paintAfter(self, shape: shape) -> None:
+    def paint_after(self, shape: shape) -> None:
         """
         Paint after the shape (plane...)
         """
-    def paintBefore(self, shape: shape) -> None:
+    def paint_before(self, shape: shape) -> None:
         """
         Paint before the shape (plane...)
         """
-    def plotAll(
+    def plot_all(
         self,
         filename: str = "pltAll",
         min_val: typing.SupportsInt | typing.SupportsIndex = 0,
@@ -314,14 +329,14 @@ class VxlImgF32(voxelImageTBase):
         """
         Plot all visualizations (Histogram, ZProfile, Slices) with various options, hackish for debugging
         """
-    def plotHistogramSvg(
+    def plot_histogram(
         self,
         filename: str = "aa.svg",
         bins: typing.SupportsInt | typing.SupportsIndex = 128,
         min_val: typing.SupportsFloat | typing.SupportsIndex = 3e38,
         max_val: typing.SupportsFloat | typing.SupportsIndex = -3e38,
     ) -> int: ...
-    def plotSlice(
+    def plot_slice(
         self,
         filename: str,
         normal_axis: str = "xyz",
@@ -335,13 +350,13 @@ class VxlImgF32(voxelImageTBase):
         normalAxis can be 'x', 'y', 'z', 'xy', 'xz', 'yz', 'xyz'.
         color_map can be 'gray' or 'RGB'
         """
-    def plotZProfileSvg(
+    def plot_z_profile(
         self,
         filename: str = "aa.svg",
         min_val: typing.SupportsFloat | typing.SupportsIndex = 0,
         max_val: typing.SupportsFloat | typing.SupportsIndex = 255,
     ) -> int: ...
-    def pointMedian032(
+    def point_median032(
         self,
         nAdj0: typing.SupportsInt | typing.SupportsIndex,
         nAdj1: typing.SupportsInt | typing.SupportsIndex,
@@ -351,8 +366,8 @@ class VxlImgF32(voxelImageTBase):
         """
         Set voxel value to lbl0/1 if it has more than nAdj0/1 neighbours with value lbl0/1, in its 6+26 nearest voxels
         """
-    def printInfo(self) -> None: ...
-    def rangeTo(
+    def print_info(self) -> None: ...
+    def range_to(
         self,
         min: typing.SupportsFloat | typing.SupportsIndex,
         max: typing.SupportsFloat | typing.SupportsIndex,
@@ -361,21 +376,21 @@ class VxlImgF32(voxelImageTBase):
         """
         Set values in range [min, max] to val.
         """
-    def readAscii(self, filename: str, nSkipBytes: typing.SupportsInt | typing.SupportsIndex = 0) -> bool:
+    def read_ascii(self, filename: str, n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0) -> bool:
         """
         Read image data from an ASCII file.
         """
-    def readBin(self, filename: str, nSkipBytes: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+    def read_bin(self, filename: str, n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
         """
         Read image data from  a .raw, .raw/.raw.gz, or reset and read from a .am or .tif file.
         """
-    def readFromFloat(
+    def read_from_float(
         self,
-        header: str,
+        filename: str,
         scale: typing.SupportsFloat | typing.SupportsIndex = 1.0,
         shift: typing.SupportsFloat | typing.SupportsIndex = 0.0,
     ) -> bool: ...
-    def readFromHeader(self, filename: str) -> None:
+    def read_from_header(self, filename: str) -> None:
         """
         Reset and read image from file.
         """
@@ -383,19 +398,13 @@ class VxlImgF32(voxelImageTBase):
         """
         Swap X axis with the given axis (y or z).
         """
-    def replaceByImageRange(
+    def replace_by_image_range(
         self,
         min_val: typing.SupportsFloat | typing.SupportsIndex,
         max_val: typing.SupportsFloat | typing.SupportsIndex,
         image_file: str,
     ) -> None: ...
-    def replaceOutSideValue(
-        self,
-        val_old: typing.SupportsInt | typing.SupportsIndex = 0,
-        val_new: typing.SupportsInt | typing.SupportsIndex = 2,
-        hole_size: typing.SupportsInt | typing.SupportsIndex = 5,
-    ) -> bool: ...
-    def replaceRange(
+    def replace_range(
         self,
         min: typing.SupportsFloat | typing.SupportsIndex,
         max: typing.SupportsFloat | typing.SupportsIndex,
@@ -404,7 +413,7 @@ class VxlImgF32(voxelImageTBase):
         """
         Replace values in range [min, max] with val.
         """
-    def replaceRangeByImage(
+    def replace_range_by_image(
         self,
         min_val: typing.SupportsFloat | typing.SupportsIndex,
         max_val: typing.SupportsFloat | typing.SupportsIndex,
@@ -414,25 +423,25 @@ class VxlImgF32(voxelImageTBase):
         """
         Resample image by factor f, using averaging (downsampling, f>1) or nearest when upsampling (f<1)
         """
-    def resampleMax(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgF32:
+    def resample_max(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgF32:
         """
         Downsample the image, setting voxel values to maximum of original encompassing voxel values.
         """
-    def resampleMean(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgF32:
+    def resample_mean(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgF32:
         """
         Resample the image using mean interpolation.
         """
-    def resampleMode(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgF32:
+    def resample_mode(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgF32:
         """
         Downsample the image, setting voxel values to mode of original encompassing voxel values.
         """
-    def rescaleValues(
+    def rescale_values(
         self, min: typing.SupportsFloat | typing.SupportsIndex, max: typing.SupportsFloat | typing.SupportsIndex
     ) -> None:
         """
         Rescale image values to [min, max].
         """
-    def resliceZ(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgF32:
+    def reslice_z(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgF32:
         """
         Reslice along the Z axis.
         """
@@ -440,11 +449,11 @@ class VxlImgF32(voxelImageTBase):
         """
         Shrink pore phase (voxel values of 0).
         """
-    def shrinkBox(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
+    def shrink_box(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
         """
         Shrink the image boundaries, decreasing its size by the given num_layers in all directions
         """
-    def smooth(
+    def smooth_bilateral(
         self,
         iterations: typing.SupportsInt | typing.SupportsIndex = 1,
         kernel_radius: typing.SupportsInt | typing.SupportsIndex = 1,
@@ -472,7 +481,7 @@ class VxlImgF32(voxelImageTBase):
         """
         Write the image to a file (.mhd, .raw, .ra.gz formats).
         """
-    def write8bit(
+    def write_8bit(
         self,
         filename: str,
         min: typing.SupportsFloat | typing.SupportsIndex = 0.0,
@@ -481,17 +490,21 @@ class VxlImgF32(voxelImageTBase):
         """
         Write as 8-bit image scaled between min(=>0) and max(=>255).
         """
-    def writeAConnectedPoreVoxel(self, filename: str) -> None:
+    def write_a_connected_void_voxel(self, filename: str) -> None:
         """
         Write a specific connected pore voxel to file.
         """
-    def writeContour(self, outSurf: str) -> None:
+    def write_contour(self, out_surf: str) -> None:
         """
         Write contour extraction to a surface file.
         """
-    def writeNoHeader(self, filename: str) -> None:
+    def write_no_header(self, filename: str) -> None:
         """
         Write the raw image data without a header.
+        """
+    def xor_(self, image2: VxlImgF32) -> None:
+        """
+        Voxel-by-voxel inplace XOR operation.
         """
     @property
     def data(self) -> typing.Any:
@@ -510,40 +523,19 @@ class VxlImgF32(voxelImageTBase):
         Get/set the origin value (x0, y0, z0).
         """
     @origin.setter
-    def origin(self, arg1: tuple) -> None: ...
+    def origin(self, arg1: image3kit._core.sirun.dbl3) -> None: ...
     @property
     def shape(self) -> tuple: ...
     @property
-    def voxelSize(self) -> tuple:
+    def spacing(self) -> tuple:
         """
         Get/set the voxel size (dx, dy, dz).
         """
-    @voxelSize.setter
-    def voxelSize(self, arg1: tuple) -> None: ...
+    @spacing.setter
+    def spacing(self, arg1: image3kit._core.sirun.dbl3) -> None: ...
 
 class VxlImgI32(voxelImageTBase):
-    def AND(self, image2: VxlImgI32) -> None:
-        """
-        Voxel-by-voxel inplace AND operation.
-        """
-    def FaceMedian06(
-        self, nAdj0: typing.SupportsInt | typing.SupportsIndex, nAdj1: typing.SupportsInt | typing.SupportsIndex
-    ) -> int:
-        """
-        Set voxel value to 0/1 if it has more than nAdj0/1 neighbours with value 0/1, in its 6 nearest voxels
-        """
-    def NOT(self, image2: VxlImgI32) -> None:
-        """
-        Voxel-by-voxel inplace NOT operation, alias for img = img & !img2.
-        """
-    def OR(self, image2: VxlImgI32) -> None:
-        """
-        Voxel-by-voxel inplace OR operation.
-        """
-    def XOR(self, image2: VxlImgI32) -> None:
-        """
-        Voxel-by-voxel inplace XOR operation.
-        """
+    def __add__(self, arg0: VxlImgI32) -> VxlImgI32: ...
     def __array__(self) -> numpy.typing.NDArray[numpy.int32]:
         """
         Get the raw data buffer as a numpy array.
@@ -552,29 +544,36 @@ class VxlImgI32(voxelImageTBase):
         """
         Return a buffer object that exposes the underlying memory of the object.
         """
-    def __getitem__(self, arg0: tuple) -> int: ...
+    def __getitem__(self, arg0: image3kit._core.sirun.int3) -> int: ...
+    def __iadd__(self, arg0: VxlImgI32) -> VxlImgI32: ...
     @typing.overload
-    def __init__(self, shape: tuple = (0, 0, 0), value: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+    def __init__(
+        self, shape: image3kit._core.sirun.int3 = ..., value: typing.SupportsInt | typing.SupportsIndex = 0
+    ) -> None:
         """
-        Initialize a new image of size tuple (nx, ny, nz) with the fill value.
-        """
-    @typing.overload
-    def __init__(self, filepath: typing.Any, processKeys: bool = True) -> None:
-        """
-        Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw
+        Initialize a new image of size (nx, ny, nz) with the fill value.
         """
     @typing.overload
     def __init__(self, image: voxelImageTBase) -> None:
         """
         Initialize (duplicate and convert) from another voxelImageT object
         """
+    @typing.overload
+    def __init__(self, filepath: typing.Any, processKeys: bool = True) -> None:
+        """
+        Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw
+        """
+    def __isub__(self, arg0: VxlImgI32) -> VxlImgI32: ...
     def __release_buffer__(self, buffer):
         """
         Release the buffer object that exposes the underlying memory of the object.
         """
     def __repr__(self) -> str: ...
-    def __setitem__(self, arg0: tuple, arg1: typing.SupportsInt | typing.SupportsIndex) -> None: ...
-    def addSurfNoise(
+    def __setitem__(
+        self, arg0: image3kit._core.sirun.int3, arg1: typing.SupportsInt | typing.SupportsIndex
+    ) -> None: ...
+    def __sub__(self, arg0: VxlImgI32) -> VxlImgI32: ...
+    def add_surf_noise(
         self,
         mask1: typing.SupportsInt | typing.SupportsIndex,
         mask2: typing.SupportsInt | typing.SupportsIndex,
@@ -584,8 +583,8 @@ class VxlImgI32(voxelImageTBase):
         """
         Add surface noise.
         """
-    def adjustBrightnessWith(self, image_file: str) -> bool: ...
-    def adjustSliceBrightness(
+    def adjust_brightness_with(self, image_file: str) -> bool: ...
+    def adjust_slice_brightness(
         self,
         mask_a: VxlImgU8,
         mask_b: VxlImgU8,
@@ -593,9 +592,16 @@ class VxlImgI32(voxelImageTBase):
         smooth_iter: typing.SupportsInt | typing.SupportsIndex = 3,
         smooth_kernel: typing.SupportsInt | typing.SupportsIndex = 20,
     ) -> bool: ...
-    def averageWith(self, arg0: str) -> bool: ...
-    def averageWith_mBE(self, arg0: str) -> bool: ...
-    def bilateralGauss(
+    def and_(self, image2: VxlImgI32) -> None:
+        """
+        Voxel-by-voxel inplace AND operation.
+        """
+    def average_with(self, arg0: collections.abc.Sequence[str]) -> bool: ...
+    def average_with_skip_extremes(self, filenames: collections.abc.Sequence[str]) -> bool:
+        """
+        average image with list of other images (read from disk) while skipping the two outliers in color range, per voxel
+        """
+    def bilateral_gauss(
         self,
         iterations: typing.SupportsInt | typing.SupportsIndex = 1,
         kernel_radius: typing.SupportsInt | typing.SupportsIndex = 1,
@@ -603,7 +609,7 @@ class VxlImgI32(voxelImageTBase):
         sharpness: typing.SupportsFloat | typing.SupportsIndex = 0.1,
         sigma_spatial: typing.SupportsFloat | typing.SupportsIndex = 2.0,
     ) -> bool: ...
-    def bilateralX(
+    def bilateral_wide(
         self,
         iterations: typing.SupportsInt | typing.SupportsIndex = 1,
         kernel_radius: typing.SupportsInt | typing.SupportsIndex = 1,
@@ -615,7 +621,7 @@ class VxlImgI32(voxelImageTBase):
         """
         Bilateral filter with Xtra large kernel radius, actual kernel size is: kernel_radius * x_step cubed.
         """
-    def circleOut(
+    def circle_out(
         self,
         x: typing.SupportsInt | typing.SupportsIndex,
         y: typing.SupportsInt | typing.SupportsIndex,
@@ -630,10 +636,10 @@ class VxlImgI32(voxelImageTBase):
         """
         duplicate the image data
         """
-    def cropD(
+    def crop(
         self,
-        begin: tuple,
-        end: tuple,
+        begin: image3kit._core.sirun.int3,
+        end: image3kit._core.sirun.int3,
         emptyLayers: typing.SupportsInt | typing.SupportsIndex = 0,
         emptyLayersValue: typing.SupportsInt | typing.SupportsIndex = 1,
         verbose: bool = False,
@@ -641,7 +647,7 @@ class VxlImgI32(voxelImageTBase):
         """
         Crop the image (inplace) from begin index tupe ix,iy,iz (inclusive) to and and end index (not inclusive) tuple.
         """
-    def cutOutside(
+    def cut_outside(
         self,
         axis: str = "z",
         extra_out: typing.SupportsInt | typing.SupportsIndex = 0,
@@ -674,38 +680,50 @@ class VxlImgI32(voxelImageTBase):
         ntheta: typing.SupportsInt | typing.SupportsIndex = 18,
         nz: typing.SupportsInt | typing.SupportsIndex = 0,
         scale_dif_val: typing.SupportsFloat | typing.SupportsIndex = 1,
-        bilateral_sharpen: typing.SupportsFloat | typing.SupportsIndex = 0.05,
-        nGrowBox: typing.SupportsInt | typing.SupportsIndex = 10,
+        bilateral_shape: typing.SupportsFloat | typing.SupportsIndex = 0.05,
+        n_grow_box: typing.SupportsInt | typing.SupportsIndex = 10,
         write_dumps: bool = True,
     ) -> None: ...
     def direction(self, arg0: str) -> None:
         """
         Get direction?
         """
-    def faceMedNgrowToFrom(
+    def face_median06(
+        self, nAdj0: typing.SupportsInt | typing.SupportsIndex, nAdj1: typing.SupportsInt | typing.SupportsIndex
+    ) -> int:
+        """
+        Set voxel value to 0/1 if it has more than nAdj0/1 neighbours with value 0/1, in its 6 nearest voxels
+        """
+    def face_median_grow(
         self,
-        labelTo: typing.SupportsInt | typing.SupportsIndex,
-        labelFrom: typing.SupportsInt | typing.SupportsIndex,
-        nDiff: typing.SupportsInt | typing.SupportsIndex,
+        label_to: typing.SupportsInt | typing.SupportsIndex,
+        label_from: typing.SupportsInt | typing.SupportsIndex,
+        n_diff: typing.SupportsInt | typing.SupportsIndex,
     ) -> None:
         """
         Face median grow to/from labels.
         """
-    def fillHoles(self, maxHoleRadius: typing.SupportsInt | typing.SupportsIndex) -> None:
+    def fill_holes(self, maxHoleRadius: typing.SupportsInt | typing.SupportsIndex) -> None:
         """
         Fill closed holes in the image.
         """
-    def flipEndian(self) -> None: ...
+    def flip_endian(self) -> None: ...
     def grow0(self) -> None:
         """
         Grow pore phase (voxel values of 0).
         """
-    def growBox(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
+    def grow_box(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
         """
         Expand the image boundaries, increasing its size by `num_layers` in all directions
         """
-    def growLabel(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
-    def growingThreshold(
+    def grow_label(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
+    def grow_outside_value(
+        self,
+        val_old: typing.SupportsInt | typing.SupportsIndex = 0,
+        val_new: typing.SupportsInt | typing.SupportsIndex = 2,
+        hole_size: typing.SupportsInt | typing.SupportsIndex = 5,
+    ) -> bool: ...
+    def growing_threshold(
         self,
         startMin: typing.SupportsInt | typing.SupportsIndex,
         startMax: typing.SupportsInt | typing.SupportsIndex,
@@ -713,15 +731,15 @@ class VxlImgI32(voxelImageTBase):
         finalMax: typing.SupportsInt | typing.SupportsIndex,
         iterations: typing.SupportsInt | typing.SupportsIndex = 4,
     ) -> None: ...
-    def keepLargest(
+    def keep_largest(
         self, min: typing.SupportsInt | typing.SupportsIndex, max: typing.SupportsInt | typing.SupportsIndex
     ) -> None:
         """
         Keep largest singly-connected region with values in [min, max].
         """
-    def mapFrom(
+    def map_from(
         self,
-        sourceImage: VxlImgI32,
+        source_image: VxlImgI32,
         vmin: typing.SupportsInt | typing.SupportsIndex,
         vmax: typing.SupportsInt | typing.SupportsIndex,
         scale: typing.SupportsFloat | typing.SupportsIndex,
@@ -730,7 +748,7 @@ class VxlImgI32(voxelImageTBase):
         """
         Map values from another image.
         """
-    def meanWide(
+    def mean_wide(
         self,
         width: typing.SupportsInt | typing.SupportsIndex = 0,
         noise_val: typing.SupportsInt | typing.SupportsIndex = 4,
@@ -742,26 +760,34 @@ class VxlImgI32(voxelImageTBase):
         """
         computes a background image, used to correct for lens artifacts
         """
-    def medianFilter(self) -> None:
+    def median_filter(self) -> None:
         """
         Apply a 1+6-neighbour median filter.
         """
-    def medianX(self) -> None:
+    def median_x(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in x-direction
         """
-    def medianY(self) -> None:
+    def median_y(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in y-direction
         """
-    def medianZ(self) -> None:
+    def median_z(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in z-direction
         """
     def mode26(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
-    def modeNSames(self, nSameNeighbors: typing.SupportsInt | typing.SupportsIndex) -> int:
+    def mode6(self, n_same_neighbors: typing.SupportsInt | typing.SupportsIndex) -> int:
         """
         Apply mode filter based on nearest 6 neighbor voxels.
+        """
+    def not_(self, image2: VxlImgI32) -> None:
+        """
+        Voxel-by-voxel inplace NOT operation, alias for img = img & !img2.
+        """
+    def or_(self, image2: VxlImgI32) -> None:
+        """
+        Voxel-by-voxel inplace OR operation.
         """
     def otsu_threshold(
         self,
@@ -772,27 +798,27 @@ class VxlImgI32(voxelImageTBase):
         """
         Paint (set values of) a shape into the image.
         """
-    def paintAdd(self, shape: shape) -> None:
+    def paint_add(self, shape: shape) -> None:
         """
         Add (+) a shape's value to the image.
         """
-    def paintAddAfter(self, shape: shape) -> None:
+    def paint_add_after(self, shape: shape) -> None:
         """
         Add (+) a shape's value after the shape (plane...)
         """
-    def paintAddBefore(self, shape: shape) -> None:
+    def paint_add_before(self, shape: shape) -> None:
         """
         Add (+) a shape's value before the shape (plane...)
         """
-    def paintAfter(self, shape: shape) -> None:
+    def paint_after(self, shape: shape) -> None:
         """
         Paint after the shape (plane...)
         """
-    def paintBefore(self, shape: shape) -> None:
+    def paint_before(self, shape: shape) -> None:
         """
         Paint before the shape (plane...)
         """
-    def plotAll(
+    def plot_all(
         self,
         filename: str = "pltAll",
         min_val: typing.SupportsInt | typing.SupportsIndex = 0,
@@ -811,14 +837,14 @@ class VxlImgI32(voxelImageTBase):
         """
         Plot all visualizations (Histogram, ZProfile, Slices) with various options, hackish for debugging
         """
-    def plotHistogramSvg(
+    def plot_histogram(
         self,
         filename: str = "aa.svg",
         bins: typing.SupportsInt | typing.SupportsIndex = 128,
         min_val: typing.SupportsFloat | typing.SupportsIndex = 3e38,
         max_val: typing.SupportsFloat | typing.SupportsIndex = -3e38,
     ) -> int: ...
-    def plotSlice(
+    def plot_slice(
         self,
         filename: str,
         normal_axis: str = "xyz",
@@ -832,13 +858,13 @@ class VxlImgI32(voxelImageTBase):
         normalAxis can be 'x', 'y', 'z', 'xy', 'xz', 'yz', 'xyz'.
         color_map can be 'gray' or 'RGB'
         """
-    def plotZProfileSvg(
+    def plot_z_profile(
         self,
         filename: str = "aa.svg",
         min_val: typing.SupportsFloat | typing.SupportsIndex = 0,
         max_val: typing.SupportsFloat | typing.SupportsIndex = 255,
     ) -> int: ...
-    def pointMedian032(
+    def point_median032(
         self,
         nAdj0: typing.SupportsInt | typing.SupportsIndex,
         nAdj1: typing.SupportsInt | typing.SupportsIndex,
@@ -848,8 +874,8 @@ class VxlImgI32(voxelImageTBase):
         """
         Set voxel value to lbl0/1 if it has more than nAdj0/1 neighbours with value lbl0/1, in its 6+26 nearest voxels
         """
-    def printInfo(self) -> None: ...
-    def rangeTo(
+    def print_info(self) -> None: ...
+    def range_to(
         self,
         min: typing.SupportsInt | typing.SupportsIndex,
         max: typing.SupportsInt | typing.SupportsIndex,
@@ -858,21 +884,21 @@ class VxlImgI32(voxelImageTBase):
         """
         Set values in range [min, max] to val.
         """
-    def readAscii(self, filename: str, nSkipBytes: typing.SupportsInt | typing.SupportsIndex = 0) -> bool:
+    def read_ascii(self, filename: str, n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0) -> bool:
         """
         Read image data from an ASCII file.
         """
-    def readBin(self, filename: str, nSkipBytes: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+    def read_bin(self, filename: str, n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
         """
         Read image data from  a .raw, .raw/.raw.gz, or reset and read from a .am or .tif file.
         """
-    def readFromFloat(
+    def read_from_float(
         self,
-        header: str,
+        filename: str,
         scale: typing.SupportsFloat | typing.SupportsIndex = 1.0,
         shift: typing.SupportsFloat | typing.SupportsIndex = 0.0,
     ) -> bool: ...
-    def readFromHeader(self, filename: str) -> None:
+    def read_from_header(self, filename: str) -> None:
         """
         Reset and read image from file.
         """
@@ -880,19 +906,13 @@ class VxlImgI32(voxelImageTBase):
         """
         Swap X axis with the given axis (y or z).
         """
-    def replaceByImageRange(
+    def replace_by_image_range(
         self,
         min_val: typing.SupportsFloat | typing.SupportsIndex,
         max_val: typing.SupportsFloat | typing.SupportsIndex,
         image_file: str,
     ) -> None: ...
-    def replaceOutSideValue(
-        self,
-        val_old: typing.SupportsInt | typing.SupportsIndex = 0,
-        val_new: typing.SupportsInt | typing.SupportsIndex = 2,
-        hole_size: typing.SupportsInt | typing.SupportsIndex = 5,
-    ) -> bool: ...
-    def replaceRange(
+    def replace_range(
         self,
         min: typing.SupportsInt | typing.SupportsIndex,
         max: typing.SupportsInt | typing.SupportsIndex,
@@ -901,7 +921,7 @@ class VxlImgI32(voxelImageTBase):
         """
         Replace values in range [min, max] with val.
         """
-    def replaceRangeByImage(
+    def replace_range_by_image(
         self,
         min_val: typing.SupportsFloat | typing.SupportsIndex,
         max_val: typing.SupportsFloat | typing.SupportsIndex,
@@ -911,25 +931,25 @@ class VxlImgI32(voxelImageTBase):
         """
         Resample image by factor f, using averaging (downsampling, f>1) or nearest when upsampling (f<1)
         """
-    def resampleMax(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgI32:
+    def resample_max(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgI32:
         """
         Downsample the image, setting voxel values to maximum of original encompassing voxel values.
         """
-    def resampleMean(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgI32:
+    def resample_mean(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgI32:
         """
         Resample the image using mean interpolation.
         """
-    def resampleMode(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgI32:
+    def resample_mode(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgI32:
         """
         Downsample the image, setting voxel values to mode of original encompassing voxel values.
         """
-    def rescaleValues(
+    def rescale_values(
         self, min: typing.SupportsInt | typing.SupportsIndex, max: typing.SupportsInt | typing.SupportsIndex
     ) -> None:
         """
         Rescale image values to [min, max].
         """
-    def resliceZ(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgI32:
+    def reslice_z(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgI32:
         """
         Reslice along the Z axis.
         """
@@ -937,11 +957,11 @@ class VxlImgI32(voxelImageTBase):
         """
         Shrink pore phase (voxel values of 0).
         """
-    def shrinkBox(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
+    def shrink_box(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
         """
         Shrink the image boundaries, decreasing its size by the given num_layers in all directions
         """
-    def smooth(
+    def smooth_bilateral(
         self,
         iterations: typing.SupportsInt | typing.SupportsIndex = 1,
         kernel_radius: typing.SupportsInt | typing.SupportsIndex = 1,
@@ -969,7 +989,7 @@ class VxlImgI32(voxelImageTBase):
         """
         Write the image to a file (.mhd, .raw, .ra.gz formats).
         """
-    def write8bit(
+    def write_8bit(
         self,
         filename: str,
         min: typing.SupportsFloat | typing.SupportsIndex = 0.0,
@@ -978,17 +998,21 @@ class VxlImgI32(voxelImageTBase):
         """
         Write as 8-bit image scaled between min(=>0) and max(=>255).
         """
-    def writeAConnectedPoreVoxel(self, filename: str) -> None:
+    def write_a_connected_void_voxel(self, filename: str) -> None:
         """
         Write a specific connected pore voxel to file.
         """
-    def writeContour(self, outSurf: str) -> None:
+    def write_contour(self, out_surf: str) -> None:
         """
         Write contour extraction to a surface file.
         """
-    def writeNoHeader(self, filename: str) -> None:
+    def write_no_header(self, filename: str) -> None:
         """
         Write the raw image data without a header.
+        """
+    def xor_(self, image2: VxlImgI32) -> None:
+        """
+        Voxel-by-voxel inplace XOR operation.
         """
     @property
     def data(self) -> typing.Any:
@@ -1007,40 +1031,19 @@ class VxlImgI32(voxelImageTBase):
         Get/set the origin value (x0, y0, z0).
         """
     @origin.setter
-    def origin(self, arg1: tuple) -> None: ...
+    def origin(self, arg1: image3kit._core.sirun.dbl3) -> None: ...
     @property
     def shape(self) -> tuple: ...
     @property
-    def voxelSize(self) -> tuple:
+    def spacing(self) -> tuple:
         """
         Get/set the voxel size (dx, dy, dz).
         """
-    @voxelSize.setter
-    def voxelSize(self, arg1: tuple) -> None: ...
+    @spacing.setter
+    def spacing(self, arg1: image3kit._core.sirun.dbl3) -> None: ...
 
 class VxlImgU16(voxelImageTBase):
-    def AND(self, image2: VxlImgU16) -> None:
-        """
-        Voxel-by-voxel inplace AND operation.
-        """
-    def FaceMedian06(
-        self, nAdj0: typing.SupportsInt | typing.SupportsIndex, nAdj1: typing.SupportsInt | typing.SupportsIndex
-    ) -> int:
-        """
-        Set voxel value to 0/1 if it has more than nAdj0/1 neighbours with value 0/1, in its 6 nearest voxels
-        """
-    def NOT(self, image2: VxlImgU16) -> None:
-        """
-        Voxel-by-voxel inplace NOT operation, alias for img = img & !img2.
-        """
-    def OR(self, image2: VxlImgU16) -> None:
-        """
-        Voxel-by-voxel inplace OR operation.
-        """
-    def XOR(self, image2: VxlImgU16) -> None:
-        """
-        Voxel-by-voxel inplace XOR operation.
-        """
+    def __add__(self, arg0: VxlImgU16) -> VxlImgU16: ...
     def __array__(self) -> numpy.typing.NDArray[numpy.uint16]:
         """
         Get the raw data buffer as a numpy array.
@@ -1049,29 +1052,36 @@ class VxlImgU16(voxelImageTBase):
         """
         Return a buffer object that exposes the underlying memory of the object.
         """
-    def __getitem__(self, arg0: tuple) -> int: ...
+    def __getitem__(self, arg0: image3kit._core.sirun.int3) -> int: ...
+    def __iadd__(self, arg0: VxlImgU16) -> VxlImgU16: ...
     @typing.overload
-    def __init__(self, shape: tuple = (0, 0, 0), value: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+    def __init__(
+        self, shape: image3kit._core.sirun.int3 = ..., value: typing.SupportsInt | typing.SupportsIndex = 0
+    ) -> None:
         """
-        Initialize a new image of size tuple (nx, ny, nz) with the fill value.
-        """
-    @typing.overload
-    def __init__(self, filepath: typing.Any, processKeys: bool = True) -> None:
-        """
-        Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw
+        Initialize a new image of size (nx, ny, nz) with the fill value.
         """
     @typing.overload
     def __init__(self, image: voxelImageTBase) -> None:
         """
         Initialize (duplicate and convert) from another voxelImageT object
         """
+    @typing.overload
+    def __init__(self, filepath: typing.Any, processKeys: bool = True) -> None:
+        """
+        Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw
+        """
+    def __isub__(self, arg0: VxlImgU16) -> VxlImgU16: ...
     def __release_buffer__(self, buffer):
         """
         Release the buffer object that exposes the underlying memory of the object.
         """
     def __repr__(self) -> str: ...
-    def __setitem__(self, arg0: tuple, arg1: typing.SupportsInt | typing.SupportsIndex) -> None: ...
-    def addSurfNoise(
+    def __setitem__(
+        self, arg0: image3kit._core.sirun.int3, arg1: typing.SupportsInt | typing.SupportsIndex
+    ) -> None: ...
+    def __sub__(self, arg0: VxlImgU16) -> VxlImgU16: ...
+    def add_surf_noise(
         self,
         mask1: typing.SupportsInt | typing.SupportsIndex,
         mask2: typing.SupportsInt | typing.SupportsIndex,
@@ -1081,8 +1091,8 @@ class VxlImgU16(voxelImageTBase):
         """
         Add surface noise.
         """
-    def adjustBrightnessWith(self, image_file: str) -> bool: ...
-    def adjustSliceBrightness(
+    def adjust_brightness_with(self, image_file: str) -> bool: ...
+    def adjust_slice_brightness(
         self,
         mask_a: VxlImgU8,
         mask_b: VxlImgU8,
@@ -1090,9 +1100,16 @@ class VxlImgU16(voxelImageTBase):
         smooth_iter: typing.SupportsInt | typing.SupportsIndex = 3,
         smooth_kernel: typing.SupportsInt | typing.SupportsIndex = 20,
     ) -> bool: ...
-    def averageWith(self, arg0: str) -> bool: ...
-    def averageWith_mBE(self, arg0: str) -> bool: ...
-    def bilateralGauss(
+    def and_(self, image2: VxlImgU16) -> None:
+        """
+        Voxel-by-voxel inplace AND operation.
+        """
+    def average_with(self, arg0: collections.abc.Sequence[str]) -> bool: ...
+    def average_with_skip_extremes(self, filenames: collections.abc.Sequence[str]) -> bool:
+        """
+        average image with list of other images (read from disk) while skipping the two outliers in color range, per voxel
+        """
+    def bilateral_gauss(
         self,
         iterations: typing.SupportsInt | typing.SupportsIndex = 1,
         kernel_radius: typing.SupportsInt | typing.SupportsIndex = 1,
@@ -1100,7 +1117,7 @@ class VxlImgU16(voxelImageTBase):
         sharpness: typing.SupportsFloat | typing.SupportsIndex = 0.1,
         sigma_spatial: typing.SupportsFloat | typing.SupportsIndex = 2.0,
     ) -> bool: ...
-    def bilateralX(
+    def bilateral_wide(
         self,
         iterations: typing.SupportsInt | typing.SupportsIndex = 1,
         kernel_radius: typing.SupportsInt | typing.SupportsIndex = 1,
@@ -1112,7 +1129,18 @@ class VxlImgU16(voxelImageTBase):
         """
         Bilateral filter with Xtra large kernel radius, actual kernel size is: kernel_radius * x_step cubed.
         """
-    def circleOut(
+    def blend_min_variance(
+        self,
+        image2: VxlImgU16,
+        bgn: typing.SupportsInt | typing.SupportsIndex = 0,
+        end: typing.SupportsInt | typing.SupportsIndex = 65535,
+        shift: typing.SupportsFloat | typing.SupportsIndex = -1.0,
+        span: typing.SupportsFloat | typing.SupportsIndex = 1.0,
+    ) -> None:
+        """
+        Search for an optimum weight, w, that minimizes variance of img1*w+(1-w)*img2
+        """
+    def circle_out(
         self,
         x: typing.SupportsInt | typing.SupportsIndex,
         y: typing.SupportsInt | typing.SupportsIndex,
@@ -1127,10 +1155,10 @@ class VxlImgU16(voxelImageTBase):
         """
         duplicate the image data
         """
-    def cropD(
+    def crop(
         self,
-        begin: tuple,
-        end: tuple,
+        begin: image3kit._core.sirun.int3,
+        end: image3kit._core.sirun.int3,
         emptyLayers: typing.SupportsInt | typing.SupportsIndex = 0,
         emptyLayersValue: typing.SupportsInt | typing.SupportsIndex = 1,
         verbose: bool = False,
@@ -1138,7 +1166,7 @@ class VxlImgU16(voxelImageTBase):
         """
         Crop the image (inplace) from begin index tupe ix,iy,iz (inclusive) to and and end index (not inclusive) tuple.
         """
-    def cutOutside(
+    def cut_outside(
         self,
         axis: str = "z",
         extra_out: typing.SupportsInt | typing.SupportsIndex = 0,
@@ -1171,38 +1199,50 @@ class VxlImgU16(voxelImageTBase):
         ntheta: typing.SupportsInt | typing.SupportsIndex = 18,
         nz: typing.SupportsInt | typing.SupportsIndex = 0,
         scale_dif_val: typing.SupportsFloat | typing.SupportsIndex = 1,
-        bilateral_sharpen: typing.SupportsFloat | typing.SupportsIndex = 0.05,
-        nGrowBox: typing.SupportsInt | typing.SupportsIndex = 10,
+        bilateral_shape: typing.SupportsFloat | typing.SupportsIndex = 0.05,
+        n_grow_box: typing.SupportsInt | typing.SupportsIndex = 10,
         write_dumps: bool = True,
     ) -> None: ...
     def direction(self, arg0: str) -> None:
         """
         Get direction?
         """
-    def faceMedNgrowToFrom(
+    def face_median06(
+        self, nAdj0: typing.SupportsInt | typing.SupportsIndex, nAdj1: typing.SupportsInt | typing.SupportsIndex
+    ) -> int:
+        """
+        Set voxel value to 0/1 if it has more than nAdj0/1 neighbours with value 0/1, in its 6 nearest voxels
+        """
+    def face_median_grow(
         self,
-        labelTo: typing.SupportsInt | typing.SupportsIndex,
-        labelFrom: typing.SupportsInt | typing.SupportsIndex,
-        nDiff: typing.SupportsInt | typing.SupportsIndex,
+        label_to: typing.SupportsInt | typing.SupportsIndex,
+        label_from: typing.SupportsInt | typing.SupportsIndex,
+        n_diff: typing.SupportsInt | typing.SupportsIndex,
     ) -> None:
         """
         Face median grow to/from labels.
         """
-    def fillHoles(self, maxHoleRadius: typing.SupportsInt | typing.SupportsIndex) -> None:
+    def fill_holes(self, maxHoleRadius: typing.SupportsInt | typing.SupportsIndex) -> None:
         """
         Fill closed holes in the image.
         """
-    def flipEndian(self) -> None: ...
+    def flip_endian(self) -> None: ...
     def grow0(self) -> None:
         """
         Grow pore phase (voxel values of 0).
         """
-    def growBox(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
+    def grow_box(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
         """
         Expand the image boundaries, increasing its size by `num_layers` in all directions
         """
-    def growLabel(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
-    def growingThreshold(
+    def grow_label(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
+    def grow_outside_value(
+        self,
+        val_old: typing.SupportsInt | typing.SupportsIndex = 0,
+        val_new: typing.SupportsInt | typing.SupportsIndex = 2,
+        hole_size: typing.SupportsInt | typing.SupportsIndex = 5,
+    ) -> bool: ...
+    def growing_threshold(
         self,
         startMin: typing.SupportsInt | typing.SupportsIndex,
         startMax: typing.SupportsInt | typing.SupportsIndex,
@@ -1210,15 +1250,15 @@ class VxlImgU16(voxelImageTBase):
         finalMax: typing.SupportsInt | typing.SupportsIndex,
         iterations: typing.SupportsInt | typing.SupportsIndex = 4,
     ) -> None: ...
-    def keepLargest(
+    def keep_largest(
         self, min: typing.SupportsInt | typing.SupportsIndex, max: typing.SupportsInt | typing.SupportsIndex
     ) -> None:
         """
         Keep largest singly-connected region with values in [min, max].
         """
-    def mapFrom(
+    def map_from(
         self,
-        sourceImage: VxlImgU16,
+        source_image: VxlImgU16,
         vmin: typing.SupportsInt | typing.SupportsIndex,
         vmax: typing.SupportsInt | typing.SupportsIndex,
         scale: typing.SupportsFloat | typing.SupportsIndex,
@@ -1227,7 +1267,7 @@ class VxlImgU16(voxelImageTBase):
         """
         Map values from another image.
         """
-    def meanWide(
+    def mean_wide(
         self,
         width: typing.SupportsInt | typing.SupportsIndex = 0,
         noise_val: typing.SupportsInt | typing.SupportsIndex = 4,
@@ -1239,26 +1279,34 @@ class VxlImgU16(voxelImageTBase):
         """
         computes a background image, used to correct for lens artifacts
         """
-    def medianFilter(self) -> None:
+    def median_filter(self) -> None:
         """
         Apply a 1+6-neighbour median filter.
         """
-    def medianX(self) -> None:
+    def median_x(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in x-direction
         """
-    def medianY(self) -> None:
+    def median_y(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in y-direction
         """
-    def medianZ(self) -> None:
+    def median_z(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in z-direction
         """
     def mode26(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
-    def modeNSames(self, nSameNeighbors: typing.SupportsInt | typing.SupportsIndex) -> int:
+    def mode6(self, n_same_neighbors: typing.SupportsInt | typing.SupportsIndex) -> int:
         """
         Apply mode filter based on nearest 6 neighbor voxels.
+        """
+    def not_(self, image2: VxlImgU16) -> None:
+        """
+        Voxel-by-voxel inplace NOT operation, alias for img = img & !img2.
+        """
+    def or_(self, image2: VxlImgU16) -> None:
+        """
+        Voxel-by-voxel inplace OR operation.
         """
     def otsu_threshold(
         self,
@@ -1269,27 +1317,27 @@ class VxlImgU16(voxelImageTBase):
         """
         Paint (set values of) a shape into the image.
         """
-    def paintAdd(self, shape: shape) -> None:
+    def paint_add(self, shape: shape) -> None:
         """
         Add (+) a shape's value to the image.
         """
-    def paintAddAfter(self, shape: shape) -> None:
+    def paint_add_after(self, shape: shape) -> None:
         """
         Add (+) a shape's value after the shape (plane...)
         """
-    def paintAddBefore(self, shape: shape) -> None:
+    def paint_add_before(self, shape: shape) -> None:
         """
         Add (+) a shape's value before the shape (plane...)
         """
-    def paintAfter(self, shape: shape) -> None:
+    def paint_after(self, shape: shape) -> None:
         """
         Paint after the shape (plane...)
         """
-    def paintBefore(self, shape: shape) -> None:
+    def paint_before(self, shape: shape) -> None:
         """
         Paint before the shape (plane...)
         """
-    def plotAll(
+    def plot_all(
         self,
         filename: str = "pltAll",
         min_val: typing.SupportsInt | typing.SupportsIndex = 0,
@@ -1308,14 +1356,14 @@ class VxlImgU16(voxelImageTBase):
         """
         Plot all visualizations (Histogram, ZProfile, Slices) with various options, hackish for debugging
         """
-    def plotHistogramSvg(
+    def plot_histogram(
         self,
         filename: str = "aa.svg",
         bins: typing.SupportsInt | typing.SupportsIndex = 128,
         min_val: typing.SupportsFloat | typing.SupportsIndex = 3e38,
         max_val: typing.SupportsFloat | typing.SupportsIndex = -3e38,
     ) -> int: ...
-    def plotSlice(
+    def plot_slice(
         self,
         filename: str,
         normal_axis: str = "xyz",
@@ -1329,13 +1377,13 @@ class VxlImgU16(voxelImageTBase):
         normalAxis can be 'x', 'y', 'z', 'xy', 'xz', 'yz', 'xyz'.
         color_map can be 'gray' or 'RGB'
         """
-    def plotZProfileSvg(
+    def plot_z_profile(
         self,
         filename: str = "aa.svg",
         min_val: typing.SupportsFloat | typing.SupportsIndex = 0,
         max_val: typing.SupportsFloat | typing.SupportsIndex = 255,
     ) -> int: ...
-    def pointMedian032(
+    def point_median032(
         self,
         nAdj0: typing.SupportsInt | typing.SupportsIndex,
         nAdj1: typing.SupportsInt | typing.SupportsIndex,
@@ -1345,8 +1393,8 @@ class VxlImgU16(voxelImageTBase):
         """
         Set voxel value to lbl0/1 if it has more than nAdj0/1 neighbours with value lbl0/1, in its 6+26 nearest voxels
         """
-    def printInfo(self) -> None: ...
-    def rangeTo(
+    def print_info(self) -> None: ...
+    def range_to(
         self,
         min: typing.SupportsInt | typing.SupportsIndex,
         max: typing.SupportsInt | typing.SupportsIndex,
@@ -1355,21 +1403,21 @@ class VxlImgU16(voxelImageTBase):
         """
         Set values in range [min, max] to val.
         """
-    def readAscii(self, filename: str, nSkipBytes: typing.SupportsInt | typing.SupportsIndex = 0) -> bool:
+    def read_ascii(self, filename: str, n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0) -> bool:
         """
         Read image data from an ASCII file.
         """
-    def readBin(self, filename: str, nSkipBytes: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+    def read_bin(self, filename: str, n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
         """
         Read image data from  a .raw, .raw/.raw.gz, or reset and read from a .am or .tif file.
         """
-    def readFromFloat(
+    def read_from_float(
         self,
-        header: str,
+        filename: str,
         scale: typing.SupportsFloat | typing.SupportsIndex = 1.0,
         shift: typing.SupportsFloat | typing.SupportsIndex = 0.0,
     ) -> bool: ...
-    def readFromHeader(self, filename: str) -> None:
+    def read_from_header(self, filename: str) -> None:
         """
         Reset and read image from file.
         """
@@ -1377,19 +1425,13 @@ class VxlImgU16(voxelImageTBase):
         """
         Swap X axis with the given axis (y or z).
         """
-    def replaceByImageRange(
+    def replace_by_image_range(
         self,
         min_val: typing.SupportsFloat | typing.SupportsIndex,
         max_val: typing.SupportsFloat | typing.SupportsIndex,
         image_file: str,
     ) -> None: ...
-    def replaceOutSideValue(
-        self,
-        val_old: typing.SupportsInt | typing.SupportsIndex = 0,
-        val_new: typing.SupportsInt | typing.SupportsIndex = 2,
-        hole_size: typing.SupportsInt | typing.SupportsIndex = 5,
-    ) -> bool: ...
-    def replaceRange(
+    def replace_range(
         self,
         min: typing.SupportsInt | typing.SupportsIndex,
         max: typing.SupportsInt | typing.SupportsIndex,
@@ -1398,7 +1440,7 @@ class VxlImgU16(voxelImageTBase):
         """
         Replace values in range [min, max] with val.
         """
-    def replaceRangeByImage(
+    def replace_range_by_image(
         self,
         min_val: typing.SupportsFloat | typing.SupportsIndex,
         max_val: typing.SupportsFloat | typing.SupportsIndex,
@@ -1408,27 +1450,41 @@ class VxlImgU16(voxelImageTBase):
         """
         Resample image by factor f, using averaging (downsampling, f>1) or nearest when upsampling (f<1)
         """
-    def resampleMax(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU16:
+    def resample_max(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU16:
         """
         Downsample the image, setting voxel values to maximum of original encompassing voxel values.
         """
-    def resampleMean(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU16:
+    def resample_mean(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU16:
         """
         Resample the image using mean interpolation.
         """
-    def resampleMode(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU16:
+    def resample_mode(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU16:
         """
         Downsample the image, setting voxel values to mode of original encompassing voxel values.
         """
-    def rescaleValues(
+    def rescale_values(
         self, min: typing.SupportsInt | typing.SupportsIndex, max: typing.SupportsInt | typing.SupportsIndex
     ) -> None:
         """
         Rescale image values to [min, max].
         """
-    def resliceZ(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU16:
+    def reslice_z(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU16:
         """
         Reslice along the Z axis.
+        """
+    def scaled_diff(
+        self,
+        image2: VxlImgU16,
+        scaletype: str = "log",
+        shift3: typing.SupportsFloat | typing.SupportsIndex = 1.0,
+        scale3: typing.SupportsFloat | typing.SupportsIndex = 1.0,
+        shift1: typing.SupportsFloat | typing.SupportsIndex = 0.0,
+        scale1: typing.SupportsFloat | typing.SupportsIndex = 1.0,
+        shift2: typing.SupportsFloat | typing.SupportsIndex = 0.0,
+        scale2: typing.SupportsFloat | typing.SupportsIndex = 1.0,
+    ) -> None:
+        """
+        Calculate difference between two images, linear or logarithmic scale
         """
     def segment(
         self,
@@ -1457,11 +1513,11 @@ class VxlImgU16(voxelImageTBase):
         """
         Shrink pore phase (voxel values of 0).
         """
-    def shrinkBox(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
+    def shrink_box(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
         """
         Shrink the image boundaries, decreasing its size by the given num_layers in all directions
         """
-    def smooth(
+    def smooth_bilateral(
         self,
         iterations: typing.SupportsInt | typing.SupportsIndex = 1,
         kernel_radius: typing.SupportsInt | typing.SupportsIndex = 1,
@@ -1489,7 +1545,7 @@ class VxlImgU16(voxelImageTBase):
         """
         Write the image to a file (.mhd, .raw, .ra.gz formats).
         """
-    def write8bit(
+    def write_8bit(
         self,
         filename: str,
         min: typing.SupportsFloat | typing.SupportsIndex = 0.0,
@@ -1498,17 +1554,21 @@ class VxlImgU16(voxelImageTBase):
         """
         Write as 8-bit image scaled between min(=>0) and max(=>255).
         """
-    def writeAConnectedPoreVoxel(self, filename: str) -> None:
+    def write_a_connected_void_voxel(self, filename: str) -> None:
         """
         Write a specific connected pore voxel to file.
         """
-    def writeContour(self, outSurf: str) -> None:
+    def write_contour(self, out_surf: str) -> None:
         """
         Write contour extraction to a surface file.
         """
-    def writeNoHeader(self, filename: str) -> None:
+    def write_no_header(self, filename: str) -> None:
         """
         Write the raw image data without a header.
+        """
+    def xor_(self, image2: VxlImgU16) -> None:
+        """
+        Voxel-by-voxel inplace XOR operation.
         """
     @property
     def data(self) -> typing.Any:
@@ -1527,40 +1587,19 @@ class VxlImgU16(voxelImageTBase):
         Get/set the origin value (x0, y0, z0).
         """
     @origin.setter
-    def origin(self, arg1: tuple) -> None: ...
+    def origin(self, arg1: image3kit._core.sirun.dbl3) -> None: ...
     @property
     def shape(self) -> tuple: ...
     @property
-    def voxelSize(self) -> tuple:
+    def spacing(self) -> tuple:
         """
         Get/set the voxel size (dx, dy, dz).
         """
-    @voxelSize.setter
-    def voxelSize(self, arg1: tuple) -> None: ...
+    @spacing.setter
+    def spacing(self, arg1: image3kit._core.sirun.dbl3) -> None: ...
 
 class VxlImgU8(voxelImageTBase):
-    def AND(self, image2: VxlImgU8) -> None:
-        """
-        Voxel-by-voxel inplace AND operation.
-        """
-    def FaceMedian06(
-        self, nAdj0: typing.SupportsInt | typing.SupportsIndex, nAdj1: typing.SupportsInt | typing.SupportsIndex
-    ) -> int:
-        """
-        Set voxel value to 0/1 if it has more than nAdj0/1 neighbours with value 0/1, in its 6 nearest voxels
-        """
-    def NOT(self, image2: VxlImgU8) -> None:
-        """
-        Voxel-by-voxel inplace NOT operation, alias for img = img & !img2.
-        """
-    def OR(self, image2: VxlImgU8) -> None:
-        """
-        Voxel-by-voxel inplace OR operation.
-        """
-    def XOR(self, image2: VxlImgU8) -> None:
-        """
-        Voxel-by-voxel inplace XOR operation.
-        """
+    def __add__(self, arg0: VxlImgU8) -> VxlImgU8: ...
     def __array__(self) -> numpy.typing.NDArray[numpy.uint8]:
         """
         Get the raw data buffer as a numpy array.
@@ -1569,29 +1608,36 @@ class VxlImgU8(voxelImageTBase):
         """
         Return a buffer object that exposes the underlying memory of the object.
         """
-    def __getitem__(self, arg0: tuple) -> int: ...
+    def __getitem__(self, arg0: image3kit._core.sirun.int3) -> int: ...
+    def __iadd__(self, arg0: VxlImgU8) -> VxlImgU8: ...
     @typing.overload
-    def __init__(self, shape: tuple = (0, 0, 0), value: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+    def __init__(
+        self, shape: image3kit._core.sirun.int3 = ..., value: typing.SupportsInt | typing.SupportsIndex = 0
+    ) -> None:
         """
-        Initialize a new image of size tuple (nx, ny, nz) with the fill value.
-        """
-    @typing.overload
-    def __init__(self, filepath: typing.Any, processKeys: bool = True) -> None:
-        """
-        Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw
+        Initialize a new image of size (nx, ny, nz) with the fill value.
         """
     @typing.overload
     def __init__(self, image: voxelImageTBase) -> None:
         """
         Initialize (duplicate and convert) from another voxelImageT object
         """
+    @typing.overload
+    def __init__(self, filepath: typing.Any, processKeys: bool = True) -> None:
+        """
+        Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw
+        """
+    def __isub__(self, arg0: VxlImgU8) -> VxlImgU8: ...
     def __release_buffer__(self, buffer):
         """
         Release the buffer object that exposes the underlying memory of the object.
         """
     def __repr__(self) -> str: ...
-    def __setitem__(self, arg0: tuple, arg1: typing.SupportsInt | typing.SupportsIndex) -> None: ...
-    def addSurfNoise(
+    def __setitem__(
+        self, arg0: image3kit._core.sirun.int3, arg1: typing.SupportsInt | typing.SupportsIndex
+    ) -> None: ...
+    def __sub__(self, arg0: VxlImgU8) -> VxlImgU8: ...
+    def add_surf_noise(
         self,
         mask1: typing.SupportsInt | typing.SupportsIndex,
         mask2: typing.SupportsInt | typing.SupportsIndex,
@@ -1601,8 +1647,8 @@ class VxlImgU8(voxelImageTBase):
         """
         Add surface noise.
         """
-    def adjustBrightnessWith(self, image_file: str) -> bool: ...
-    def adjustSliceBrightness(
+    def adjust_brightness_with(self, image_file: str) -> bool: ...
+    def adjust_slice_brightness(
         self,
         mask_a: VxlImgU8,
         mask_b: VxlImgU8,
@@ -1610,9 +1656,16 @@ class VxlImgU8(voxelImageTBase):
         smooth_iter: typing.SupportsInt | typing.SupportsIndex = 3,
         smooth_kernel: typing.SupportsInt | typing.SupportsIndex = 20,
     ) -> bool: ...
-    def averageWith(self, arg0: str) -> bool: ...
-    def averageWith_mBE(self, arg0: str) -> bool: ...
-    def bilateralGauss(
+    def and_(self, image2: VxlImgU8) -> None:
+        """
+        Voxel-by-voxel inplace AND operation.
+        """
+    def average_with(self, arg0: collections.abc.Sequence[str]) -> bool: ...
+    def average_with_skip_extremes(self, filenames: collections.abc.Sequence[str]) -> bool:
+        """
+        average image with list of other images (read from disk) while skipping the two outliers in color range, per voxel
+        """
+    def bilateral_gauss(
         self,
         iterations: typing.SupportsInt | typing.SupportsIndex = 1,
         kernel_radius: typing.SupportsInt | typing.SupportsIndex = 1,
@@ -1620,7 +1673,7 @@ class VxlImgU8(voxelImageTBase):
         sharpness: typing.SupportsFloat | typing.SupportsIndex = 0.1,
         sigma_spatial: typing.SupportsFloat | typing.SupportsIndex = 2.0,
     ) -> bool: ...
-    def bilateralX(
+    def bilateral_wide(
         self,
         iterations: typing.SupportsInt | typing.SupportsIndex = 1,
         kernel_radius: typing.SupportsInt | typing.SupportsIndex = 1,
@@ -1632,7 +1685,18 @@ class VxlImgU8(voxelImageTBase):
         """
         Bilateral filter with Xtra large kernel radius, actual kernel size is: kernel_radius * x_step cubed.
         """
-    def circleOut(
+    def blend_min_variance(
+        self,
+        image2: VxlImgU8,
+        bgn: typing.SupportsInt | typing.SupportsIndex = 0,
+        end: typing.SupportsInt | typing.SupportsIndex = 255,
+        shift: typing.SupportsFloat | typing.SupportsIndex = -1.0,
+        span: typing.SupportsFloat | typing.SupportsIndex = 1.0,
+    ) -> None:
+        """
+        Search for an optimum weight, w, that minimizes variance of img1*w+(1-w)*img2
+        """
+    def circle_out(
         self,
         x: typing.SupportsInt | typing.SupportsIndex,
         y: typing.SupportsInt | typing.SupportsIndex,
@@ -1647,10 +1711,10 @@ class VxlImgU8(voxelImageTBase):
         """
         duplicate the image data
         """
-    def cropD(
+    def crop(
         self,
-        begin: tuple,
-        end: tuple,
+        begin: image3kit._core.sirun.int3,
+        end: image3kit._core.sirun.int3,
         emptyLayers: typing.SupportsInt | typing.SupportsIndex = 0,
         emptyLayersValue: typing.SupportsInt | typing.SupportsIndex = 1,
         verbose: bool = False,
@@ -1658,7 +1722,7 @@ class VxlImgU8(voxelImageTBase):
         """
         Crop the image (inplace) from begin index tupe ix,iy,iz (inclusive) to and and end index (not inclusive) tuple.
         """
-    def cutOutside(
+    def cut_outside(
         self,
         axis: str = "z",
         extra_out: typing.SupportsInt | typing.SupportsIndex = 0,
@@ -1691,17 +1755,17 @@ class VxlImgU8(voxelImageTBase):
         ntheta: typing.SupportsInt | typing.SupportsIndex = 18,
         nz: typing.SupportsInt | typing.SupportsIndex = 0,
         scale_dif_val: typing.SupportsFloat | typing.SupportsIndex = 1,
-        bilateral_sharpen: typing.SupportsFloat | typing.SupportsIndex = 0.05,
-        nGrowBox: typing.SupportsInt | typing.SupportsIndex = 10,
+        bilateral_shape: typing.SupportsFloat | typing.SupportsIndex = 0.05,
+        n_grow_box: typing.SupportsInt | typing.SupportsIndex = 10,
         write_dumps: bool = True,
     ) -> None: ...
     def direction(self, arg0: str) -> None:
         """
         Get direction?
         """
-    def distMapExtrude(
+    def extrude_dist_map(
         self,
-        distMapDict: dict = {},
+        config: dict = {},
         offset: typing.SupportsFloat | typing.SupportsIndex = 0.5,
         scale: typing.SupportsFloat | typing.SupportsIndex = 1.0,
         power: typing.SupportsFloat | typing.SupportsIndex = 1.0,
@@ -1709,30 +1773,42 @@ class VxlImgU8(voxelImageTBase):
         """
         Extrude proportional to distance map
         """
-    def faceMedNgrowToFrom(
+    def face_median06(
+        self, nAdj0: typing.SupportsInt | typing.SupportsIndex, nAdj1: typing.SupportsInt | typing.SupportsIndex
+    ) -> int:
+        """
+        Set voxel value to 0/1 if it has more than nAdj0/1 neighbours with value 0/1, in its 6 nearest voxels
+        """
+    def face_median_grow(
         self,
-        labelTo: typing.SupportsInt | typing.SupportsIndex,
-        labelFrom: typing.SupportsInt | typing.SupportsIndex,
-        nDiff: typing.SupportsInt | typing.SupportsIndex,
+        label_to: typing.SupportsInt | typing.SupportsIndex,
+        label_from: typing.SupportsInt | typing.SupportsIndex,
+        n_diff: typing.SupportsInt | typing.SupportsIndex,
     ) -> None:
         """
         Face median grow to/from labels.
         """
-    def fillHoles(self, maxHoleRadius: typing.SupportsInt | typing.SupportsIndex) -> None:
+    def fill_holes(self, maxHoleRadius: typing.SupportsInt | typing.SupportsIndex) -> None:
         """
         Fill closed holes in the image.
         """
-    def flipEndian(self) -> None: ...
+    def flip_endian(self) -> None: ...
     def grow0(self) -> None:
         """
         Grow pore phase (voxel values of 0).
         """
-    def growBox(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
+    def grow_box(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
         """
         Expand the image boundaries, increasing its size by `num_layers` in all directions
         """
-    def growLabel(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
-    def growingThreshold(
+    def grow_label(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
+    def grow_outside_value(
+        self,
+        val_old: typing.SupportsInt | typing.SupportsIndex = 0,
+        val_new: typing.SupportsInt | typing.SupportsIndex = 2,
+        hole_size: typing.SupportsInt | typing.SupportsIndex = 5,
+    ) -> bool: ...
+    def growing_threshold(
         self,
         startMin: typing.SupportsInt | typing.SupportsIndex,
         startMax: typing.SupportsInt | typing.SupportsIndex,
@@ -1740,15 +1816,15 @@ class VxlImgU8(voxelImageTBase):
         finalMax: typing.SupportsInt | typing.SupportsIndex,
         iterations: typing.SupportsInt | typing.SupportsIndex = 4,
     ) -> None: ...
-    def keepLargest(
+    def keep_largest(
         self, min: typing.SupportsInt | typing.SupportsIndex, max: typing.SupportsInt | typing.SupportsIndex
     ) -> None:
         """
         Keep largest singly-connected region with values in [min, max].
         """
-    def mapFrom(
+    def map_from(
         self,
-        sourceImage: VxlImgU8,
+        source_image: VxlImgU8,
         vmin: typing.SupportsInt | typing.SupportsIndex,
         vmax: typing.SupportsInt | typing.SupportsIndex,
         scale: typing.SupportsFloat | typing.SupportsIndex,
@@ -1757,7 +1833,7 @@ class VxlImgU8(voxelImageTBase):
         """
         Map values from another image.
         """
-    def meanWide(
+    def mean_wide(
         self,
         width: typing.SupportsInt | typing.SupportsIndex = 0,
         noise_val: typing.SupportsInt | typing.SupportsIndex = 4,
@@ -1769,26 +1845,34 @@ class VxlImgU8(voxelImageTBase):
         """
         computes a background image, used to correct for lens artifacts
         """
-    def medianFilter(self) -> None:
+    def median_filter(self) -> None:
         """
         Apply a 1+6-neighbour median filter.
         """
-    def medianX(self) -> None:
+    def median_x(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in x-direction
         """
-    def medianY(self) -> None:
+    def median_y(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in y-direction
         """
-    def medianZ(self) -> None:
+    def median_z(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in z-direction
         """
     def mode26(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
-    def modeNSames(self, nSameNeighbors: typing.SupportsInt | typing.SupportsIndex) -> int:
+    def mode6(self, n_same_neighbors: typing.SupportsInt | typing.SupportsIndex) -> int:
         """
         Apply mode filter based on nearest 6 neighbor voxels.
+        """
+    def not_(self, image2: VxlImgU8) -> None:
+        """
+        Voxel-by-voxel inplace NOT operation, alias for img = img & !img2.
+        """
+    def or_(self, image2: VxlImgU8) -> None:
+        """
+        Voxel-by-voxel inplace OR operation.
         """
     def otsu_threshold(
         self,
@@ -1799,27 +1883,27 @@ class VxlImgU8(voxelImageTBase):
         """
         Paint (set values of) a shape into the image.
         """
-    def paintAdd(self, shape: shape) -> None:
+    def paint_add(self, shape: shape) -> None:
         """
         Add (+) a shape's value to the image.
         """
-    def paintAddAfter(self, shape: shape) -> None:
+    def paint_add_after(self, shape: shape) -> None:
         """
         Add (+) a shape's value after the shape (plane...)
         """
-    def paintAddBefore(self, shape: shape) -> None:
+    def paint_add_before(self, shape: shape) -> None:
         """
         Add (+) a shape's value before the shape (plane...)
         """
-    def paintAfter(self, shape: shape) -> None:
+    def paint_after(self, shape: shape) -> None:
         """
         Paint after the shape (plane...)
         """
-    def paintBefore(self, shape: shape) -> None:
+    def paint_before(self, shape: shape) -> None:
         """
         Paint before the shape (plane...)
         """
-    def plotAll(
+    def plot_all(
         self,
         filename: str = "pltAll",
         min_val: typing.SupportsInt | typing.SupportsIndex = 0,
@@ -1838,14 +1922,14 @@ class VxlImgU8(voxelImageTBase):
         """
         Plot all visualizations (Histogram, ZProfile, Slices) with various options, hackish for debugging
         """
-    def plotHistogramSvg(
+    def plot_histogram(
         self,
         filename: str = "aa.svg",
         bins: typing.SupportsInt | typing.SupportsIndex = 128,
         min_val: typing.SupportsFloat | typing.SupportsIndex = 3e38,
         max_val: typing.SupportsFloat | typing.SupportsIndex = -3e38,
     ) -> int: ...
-    def plotSlice(
+    def plot_slice(
         self,
         filename: str,
         normal_axis: str = "xyz",
@@ -1859,13 +1943,13 @@ class VxlImgU8(voxelImageTBase):
         normalAxis can be 'x', 'y', 'z', 'xy', 'xz', 'yz', 'xyz'.
         color_map can be 'gray' or 'RGB'
         """
-    def plotZProfileSvg(
+    def plot_z_profile(
         self,
         filename: str = "aa.svg",
         min_val: typing.SupportsFloat | typing.SupportsIndex = 0,
         max_val: typing.SupportsFloat | typing.SupportsIndex = 255,
     ) -> int: ...
-    def pointMedian032(
+    def point_median032(
         self,
         nAdj0: typing.SupportsInt | typing.SupportsIndex,
         nAdj1: typing.SupportsInt | typing.SupportsIndex,
@@ -1875,8 +1959,8 @@ class VxlImgU8(voxelImageTBase):
         """
         Set voxel value to lbl0/1 if it has more than nAdj0/1 neighbours with value lbl0/1, in its 6+26 nearest voxels
         """
-    def printInfo(self) -> None: ...
-    def rangeTo(
+    def print_info(self) -> None: ...
+    def range_to(
         self,
         min: typing.SupportsInt | typing.SupportsIndex,
         max: typing.SupportsInt | typing.SupportsIndex,
@@ -1885,21 +1969,21 @@ class VxlImgU8(voxelImageTBase):
         """
         Set values in range [min, max] to val.
         """
-    def readAscii(self, filename: str, nSkipBytes: typing.SupportsInt | typing.SupportsIndex = 0) -> bool:
+    def read_ascii(self, filename: str, n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0) -> bool:
         """
         Read image data from an ASCII file.
         """
-    def readBin(self, filename: str, nSkipBytes: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+    def read_bin(self, filename: str, n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
         """
         Read image data from  a .raw, .raw/.raw.gz, or reset and read from a .am or .tif file.
         """
-    def readFromFloat(
+    def read_from_float(
         self,
-        header: str,
+        filename: str,
         scale: typing.SupportsFloat | typing.SupportsIndex = 1.0,
         shift: typing.SupportsFloat | typing.SupportsIndex = 0.0,
     ) -> bool: ...
-    def readFromHeader(self, filename: str) -> None:
+    def read_from_header(self, filename: str) -> None:
         """
         Reset and read image from file.
         """
@@ -1907,19 +1991,13 @@ class VxlImgU8(voxelImageTBase):
         """
         Swap X axis with the given axis (y or z).
         """
-    def replaceByImageRange(
+    def replace_by_image_range(
         self,
         min_val: typing.SupportsFloat | typing.SupportsIndex,
         max_val: typing.SupportsFloat | typing.SupportsIndex,
         image_file: str,
     ) -> None: ...
-    def replaceOutSideValue(
-        self,
-        val_old: typing.SupportsInt | typing.SupportsIndex = 0,
-        val_new: typing.SupportsInt | typing.SupportsIndex = 2,
-        hole_size: typing.SupportsInt | typing.SupportsIndex = 5,
-    ) -> bool: ...
-    def replaceRange(
+    def replace_range(
         self,
         min: typing.SupportsInt | typing.SupportsIndex,
         max: typing.SupportsInt | typing.SupportsIndex,
@@ -1928,7 +2006,7 @@ class VxlImgU8(voxelImageTBase):
         """
         Replace values in range [min, max] with val.
         """
-    def replaceRangeByImage(
+    def replace_range_by_image(
         self,
         min_val: typing.SupportsFloat | typing.SupportsIndex,
         max_val: typing.SupportsFloat | typing.SupportsIndex,
@@ -1938,27 +2016,41 @@ class VxlImgU8(voxelImageTBase):
         """
         Resample image by factor f, using averaging (downsampling, f>1) or nearest when upsampling (f<1)
         """
-    def resampleMax(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU8:
+    def resample_max(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU8:
         """
         Downsample the image, setting voxel values to maximum of original encompassing voxel values.
         """
-    def resampleMean(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU8:
+    def resample_mean(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU8:
         """
         Resample the image using mean interpolation.
         """
-    def resampleMode(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU8:
+    def resample_mode(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU8:
         """
         Downsample the image, setting voxel values to mode of original encompassing voxel values.
         """
-    def rescaleValues(
+    def rescale_values(
         self, min: typing.SupportsInt | typing.SupportsIndex, max: typing.SupportsInt | typing.SupportsIndex
     ) -> None:
         """
         Rescale image values to [min, max].
         """
-    def resliceZ(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU8:
+    def reslice_z(self, factor: typing.SupportsFloat | typing.SupportsIndex) -> VxlImgU8:
         """
         Reslice along the Z axis.
+        """
+    def scaled_diff(
+        self,
+        image2: VxlImgU8,
+        scaletype: str = "log",
+        shift3: typing.SupportsFloat | typing.SupportsIndex = 1.0,
+        scale3: typing.SupportsFloat | typing.SupportsIndex = 1.0,
+        shift1: typing.SupportsFloat | typing.SupportsIndex = 0.0,
+        scale1: typing.SupportsFloat | typing.SupportsIndex = 1.0,
+        shift2: typing.SupportsFloat | typing.SupportsIndex = 0.0,
+        scale2: typing.SupportsFloat | typing.SupportsIndex = 1.0,
+    ) -> None:
+        """
+        Calculate difference between two images, linear or logarithmic scale
         """
     def segment(
         self,
@@ -1987,11 +2079,11 @@ class VxlImgU8(voxelImageTBase):
         """
         Shrink pore phase (voxel values of 0).
         """
-    def shrinkBox(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
+    def shrink_box(self, num_layers: typing.SupportsInt | typing.SupportsIndex) -> None:
         """
         Shrink the image boundaries, decreasing its size by the given num_layers in all directions
         """
-    def smooth(
+    def smooth_bilateral(
         self,
         iterations: typing.SupportsInt | typing.SupportsIndex = 1,
         kernel_radius: typing.SupportsInt | typing.SupportsIndex = 1,
@@ -2007,6 +2099,24 @@ class VxlImgU8(voxelImageTBase):
         """
         Apply a threshold to binarize the image, set voxel-values to convert to 0 in between the min and max thresholds and 1 outside of it
         """
+    def to_foam(self) -> None:
+        """
+        Convert image to OpenFOAM mesh
+        """
+    def to_foam_par(
+        self, n_par: image3kit._core.sirun.int3 = ..., reset_x0: bool = False, keep_bcs: bool = False
+    ) -> None:
+        """
+        Convert image to a parallel OpenFOAM mesh
+        """
+    def to_foam_par_incremental(self, n_par: image3kit._core.sirun.int3 = ..., reset_x0: bool = False) -> None:
+        """
+        Convert image to a parallel OpenFOAM mesh sequentially (one processor mesh at a time)
+        """
+    def to_surf_mesh(self, inp: dict = {}, outputSurface: str = "surface.obj") -> None:
+        """
+        Convert image to surface mesh
+        """
     def variance(
         self,
         min_val: typing.SupportsInt | typing.SupportsIndex = 0,
@@ -2015,27 +2125,11 @@ class VxlImgU8(voxelImageTBase):
         """
         Set outer tubing of a circular core-holder image to fill_val
         """
-    def vxlToFoam(self) -> None:
-        """
-        Convert image to OpenFOAM mesh
-        """
-    def vxlToFoamPar(self, nPar: tuple = (1, 1, 1), resetX0: bool = False, keepBCs: bool = False) -> None:
-        """
-        Convert image to a parallel OpenFOAM mesh
-        """
-    def vxlToFoamPar_seq(self, nPar: tuple = (1, 1, 1), resetX0: bool = False) -> None:
-        """
-        Convert image to a parallel OpenFOAM mesh sequentially (one processor mesh at a time)
-        """
-    def vxlToSurfMesh(self, inp: dict = {}, outputSurface: str = "surface.obj") -> None:
-        """
-        Convert image to surface mesh
-        """
     def write(self, filename: str) -> None:
         """
         Write the image to a file (.mhd, .raw, .ra.gz formats).
         """
-    def write8bit(
+    def write_8bit(
         self,
         filename: str,
         min: typing.SupportsFloat | typing.SupportsIndex = 0.0,
@@ -2044,17 +2138,21 @@ class VxlImgU8(voxelImageTBase):
         """
         Write as 8-bit image scaled between min(=>0) and max(=>255).
         """
-    def writeAConnectedPoreVoxel(self, filename: str) -> None:
+    def write_a_connected_void_voxel(self, filename: str) -> None:
         """
         Write a specific connected pore voxel to file.
         """
-    def writeContour(self, outSurf: str) -> None:
+    def write_contour(self, out_surf: str) -> None:
         """
         Write contour extraction to a surface file.
         """
-    def writeNoHeader(self, filename: str) -> None:
+    def write_no_header(self, filename: str) -> None:
         """
         Write the raw image data without a header.
+        """
+    def xor_(self, image2: VxlImgU8) -> None:
+        """
+        Voxel-by-voxel inplace XOR operation.
         """
     @property
     def data(self) -> typing.Any:
@@ -2073,16 +2171,16 @@ class VxlImgU8(voxelImageTBase):
         Get/set the origin value (x0, y0, z0).
         """
     @origin.setter
-    def origin(self, arg1: tuple) -> None: ...
+    def origin(self, arg1: image3kit._core.sirun.dbl3) -> None: ...
     @property
     def shape(self) -> tuple: ...
     @property
-    def voxelSize(self) -> tuple:
+    def spacing(self) -> tuple:
         """
         Get/set the voxel size (dx, dy, dz).
         """
-    @voxelSize.setter
-    def voxelSize(self, arg1: tuple) -> None: ...
+    @spacing.setter
+    def spacing(self, arg1: image3kit._core.sirun.dbl3) -> None: ...
 
 class cube(shape):
     def __init__(self, p1: tuple, size: tuple, val: typing.SupportsInt | typing.SupportsIndex) -> None:
@@ -2116,10 +2214,10 @@ class sphere(shape):
 class voxelImageTBase:
     pass
 
-def labelImage(
+def connected_components(
     arg0: VxlImgU8, arg1: typing.SupportsFloat | typing.SupportsIndex, arg2: typing.SupportsFloat | typing.SupportsIndex
 ) -> VxlImgI32: ...
-def readImageBase(filename: typing.Any) -> voxelImageTBase:
+def read_image(filename: typing.Any) -> voxelImageTBase:
     """
     Global helper to read an image from a file, use VxlImg..() constructors instead.
     """

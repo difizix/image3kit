@@ -185,8 +185,15 @@ else()
   target_compile_options(_core PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-target_link_libraries(_core PRIVATE voxlib vxlToFoam vxlToSurf Python::Module ZLIB::ZLIB TIFF::tiff
-                                    OpenMP::OpenMP_CXX)
+target_link_libraries(
+  _core
+  PRIVATE voxlib
+          vxlToFoam
+          vxlToSurf
+          Python::Module
+          ZLIB::ZLIB
+          TIFF::tiff
+          OpenMP::OpenMP_CXX)
 
 # The install directory is the output (wheel) directory
 install(TARGETS _core DESTINATION image3kit)
