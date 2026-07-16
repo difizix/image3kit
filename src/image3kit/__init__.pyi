@@ -31,4 +31,4 @@ __all__: list = [
     "read_image",
     "sphere",
 ]
-__version__: str = "0.0.3"
+__version__: str = "0.1.0"

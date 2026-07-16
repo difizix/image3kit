@@ -5,7 +5,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "image3kit"
-version = "0.0.3"
+version = "0.1.0"
 license = "BSD-3-Clause"
 license-files = ["LICENSE", "pkgs/pybind11/LICENSE"]
 description="image3kit - 3D image processing toolkit"

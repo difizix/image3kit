@@ -7,4 +7,4 @@ from __future__ import annotations
 from . import sirun, voxlib
 
 __all__: list[str] = ["sirun", "voxlib"]
-__version__: str = "0.0.3"
+__version__: str = "0.1.0"

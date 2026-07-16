@@ -184,8 +184,6 @@ target_compile_definitions(_core PRIVATE VERSION_INFO=${PROJECT_VERSION})
 
 set_property(TARGET _core PROPERTY CXX_STANDARD 23)
 
-
-
 target_link_libraries(
   _core
   PRIVATE voxlib
