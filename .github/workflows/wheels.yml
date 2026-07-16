@@ -55,6 +55,13 @@ jobs:
 
     - uses: astral-sh/setup-uv@v7
 
+    - name: Add Windows Defender exclusions
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+        Add-MpPreference -ExclusionPath $env:TEMP
+
     - name: Install dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
@@ -105,17 +112,20 @@ jobs:
         }
       shell: pwsh
 
-    - uses: pypa/cibuildwheel@v3.4
+    - uses: pypa/cibuildwheel@v4.1
       env:
         CIBW_ENABLE: cpython-prerelease
-        CIBW_SKIP: "cp39-win_arm64 cp310-win_arm64 cp311-win_arm64 cp39-win32 cp310-win32 cp311-win32 cp312-win32"
+        CIBW_SKIP: "cp39-* cp310-* cp311-win_arm64 cp311-win32 cp312-win32"
+        CIBW_TEST_SKIP: "cp315*"  # numpy has no cp315/cp315t wheels yet (3.15 is still beta); skip tests, still build the wheel
         CIBW_ARCHS_WINDOWS: ${{ matrix.os == 'windows-11-arm' && 'ARM64' || 'AMD64' }}
         MACOSX_DEPLOYMENT_TARGET: "11.0"
         CIBW_ENVIRONMENT_WINDOWS: SKBUILD_CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
         CIBW_ENVIRONMENT_MACOS: OpenMP_ROOT=$OpenMP_ROOT
 
     - name: Verify clean directory
-      run: git diff --exit-code
+      run: |
+        git status
+        git diff --exit-code
       shell: bash
 
     - uses: actions/upload-artifact@v7
