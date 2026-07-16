@@ -138,6 +138,12 @@ set(CMAKE_WARN_DEPRECATED
     CACHE BOOL "" FORCE)
 
 # Add targets for local includes to ensure they appear in compile_commands.json
+if(MSVC)
+  add_compile_options(/openmp:llvm /diagnostics:caret /bigobj)
+else()
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
 add_subdirectory(common)
 add_subdirectory(voxlib)
 add_subdirectory(vxlToFoam)
@@ -178,12 +184,7 @@ target_compile_definitions(_core PRIVATE VERSION_INFO=${PROJECT_VERSION})
 
 set_property(TARGET _core PROPERTY CXX_STANDARD 23)
 
-if(MSVC)
-  target_compile_options(_core PRIVATE /openmp:llvm /diagnostics:caret /bigobj)
-  target_compile_definitions(_core PRIVATE NOMINMAX)
-else()
-  target_compile_options(_core PRIVATE -Wall -Wextra -Wpedantic)
-endif()
+
 
 target_link_libraries(
   _core
