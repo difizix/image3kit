@@ -230,8 +230,9 @@ inline void getAmiraHeaderSize(const std::string& fnam, int3& nnn, dbl3& dx_, db
       if (tmp != "Lattice") std::cout<<" Warning: define != Lattice n3, read: "<<tmp<<std::endl;
     }
     else if (tmpStr == "BoundingBox")  {
-      ss >> X0_.x>>dx_.x>> X0_.y>>dx_.y>> X0_.z>>dx_.z;
-      int3 nn=nnn; for(int i:{0,1,2}) nn[i]=std::max(nn[i]-1,1);// Why nnn-1? well it seems Avizo cannot even properly convert voxel size to bounding box, or something else is wrong in Abdollah way of doing things!!!
+      ss >> X0_.x >> dx_.x >> X0_.y >> dx_.y >> X0_.z >> dx_.z;
+      int3 nn=nnn;
+      for (int i:{0,1,2})  nn[i] = std::max(nn[i]-1, 1); // Why nnn-1? either Avizo did not properly convert voxel size to bounding box, or its users made a mistake!
       dx_=(dx_-X0_)/nn;
     }
     else if (tmpStr=="@1")     break;
@@ -240,26 +241,27 @@ inline void getAmiraHeaderSize(const std::string& fnam, int3& nnn, dbl3& dx_, db
       RLE = tmpStr.size()>11 && tmpStr.compare(3,9,"HxByteRLE") == 0;
     }
   }
-  if (nnn.z>1.1*maxNz+2) nnn.z=maxNz;
   nSkipBytes = hdr.tellg(); ++nSkipBytes; //++ is for '\n' after "@1"
 }
 
-template<typename T>   int voxelField<T>::readBin(std::string fnam, int nSkipBytes)  {
+template<typename T>   int voxelField<T>::readBin(std::string fnam, int nSkipBytes, int maxNz)  {
   int3 nnn = size3();
   int RLEcompressed=0;
 
   #ifdef TIFLIB
-  if(hasExt(fnam,".tif"))      return readTif(*this, fnam);
+  if(hasExt(fnam,".tif"))      return readTif(*this, fnam, maxNz);
   #endif
 
   (std::cout<<"  Reading "<<fnam<<" ").flush();
 
   if(hasExt(fnam,".am")) {
     dbl3  X0, dx;
-    getAmiraHeaderSize(fnam, nnn,dx,X0,nSkipBytes,RLEcompressed);
+    getAmiraHeaderSize(fnam, nnn, dx, X0, nSkipBytes, RLEcompressed);
     (std::cout<<", .am  format").flush();
+    if (maxNz > 0 && nnn.z > maxNz)  nnn.z = maxNz;
     this->reset(nnn);
   }
+  else if (maxNz > 0 && nnn.z > maxNz)  nnn.z = maxNz;
 
   (std::cout<<", size:"<<size_t(nnn.x)<<'*'<<nnn.y<<'*'<<nnn.z<<"*"<<sizeof(T)).flush();
 
@@ -293,7 +295,7 @@ template<typename T>   int voxelField<T>::readBin(std::string fnam, int nSkipByt
     //ensure(sizeof(T)==1,"Only 8bit .am files are supported");
     char* vp = reinterpret_cast<char*>(&*voxelField<T>::data_.begin());
     char* const ve =reinterpret_cast<char*>(&*voxelField<T>::data_.end());
-    while(vp<ve)  { // this requires data_ has reserved extra memory  when maxNz is set, sync: XADSDAS
+    while(vp<ve)  { // this requires data_ has reserved extra memory  when maxNzGlobal is set, sync: XADSDAS
       in.get(count); in.get(val);
       if(count & static_cast<char>(0x80)) {
         *vp=val;
@@ -741,7 +743,7 @@ int resetFromImageT(voxelImageT<T>& vImg, const voxelImageTBase* imgPtr) { //! c
 }
 
 template<typename T> inline // inline is needed for crap macOS clang++
-voxelImageT<T>::voxelImageT(const std::string& fname, readOpt procConvert)
+voxelImageT<T>::voxelImageT(const std::string& fname, readOpt procConvert, int maxNz)
 : X0_(0.,0.,0.),dx_(1,1,1)
 { //! read image and if needed convert its type // readConvertFromHeader
   #ifdef _VoxBasic8
@@ -750,10 +752,10 @@ voxelImageT<T>::voxelImageT(const std::string& fname, readOpt procConvert)
 
   if (hasExt(fname,".raw.gz") || hasExt(fname,".raw") || hasExt(fname,".dat") || hasExt(fname,".txt")) {
     std::cout<<"Reading "<<fname<<" as "<<_s(typeid(T).name()) << ", figuring out image size from file name." <<std::endl;
-    readFromHeader(fname);
+    readFromHeader(fname, 1, maxNz);
     return;
   }
-  std::unique_ptr<voxelImageTBase> vImgUptr = readImage(fname, procConvert != readOpt::justRead);
+  std::unique_ptr<voxelImageTBase> vImgUptr = readImage(fname, procConvert != readOpt::justRead, maxNz);
   voxelImageTBase* imgPtr = vImgUptr.get();
   if  (auto img = dynamic_cast<voxelImageT<T>*>(imgPtr)) {
     *this = std::move(*img);

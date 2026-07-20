@@ -124,9 +124,9 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
         arg("image"),
         "Initialize (duplicate and convert) from another voxelImageT object")
     .def(py::init( // readConvertFromHeader
-        [](py::object filepath, bool processKeys)  { return SelfT(py::str(filepath).cast<std::string>(), processKeys? readOpt::procAndConvert : readOpt::justRead); }),
-        arg("filepath"), arg("processKeys")=true,
-        "Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw")
+        [](py::object filepath, bool processKeys, int maxNz)  { return SelfT(py::str(filepath).cast<std::string>(), processKeys? readOpt::procAndConvert : readOpt::justRead, maxNz); }),
+        arg("filepath"), arg("processKeys")=true, arg("max_nz")=-1,
+        "Read image dimensions/metadata from a (header) file. Supported file types are .am, .raw")
     .def("copy", [](SelfT &m) { return SelfT(m); }, "duplicate the image data")
     .def("__repr__", [VxTypS](const SelfT &m) {
         return "<" + std::string(VxTypS) + " shape=("+_s(m.size3())+")>";
@@ -213,8 +213,8 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     .def("write_8bit", [](SelfT &m, std::string outName, double minv, double maxv) { _write8bit(m, outName, minv, maxv); },
          arg("filename"), arg("min")=0.0, arg("max")=-0.5,
          "Write as 8-bit image scaled between min(=>0) and max(=>255).")
-    .def("read_from_header", [](SelfT &m, std::string s) { m.reset(int3(0), 0); m.readFromHeader(s); }, arg("filename"), "Reset and read image from file.")
-    .def("read_bin", [](SelfT &m, std::string s, int nSkipBytes) { m.readBin(s, nSkipBytes); }, arg("filename"), arg("n_skip_bytes")=0,
+    .def("read_from_header", [](SelfT &m, std::string s, int maxNz) { m.reset(int3(0), 0); m.readFromHeader(s, 1, maxNz); }, arg("filename"), arg("max_nz")=-1, "Reset and read image from file.")
+    .def("read_bin", [](SelfT &m, std::string s, int nSkipBytes, int maxNz) { m.readBin(s, nSkipBytes, maxNz); }, arg("filename"), arg("n_skip_bytes")=0, arg("max_nz")=-1,
          "Read image data from  a .raw, .raw/.raw.gz, or reset and read from a .am or .tif file.")
     // //.def("readAtZ", &SelfT::readAtZ)
     .def("mode6", [](SelfT &m, const short n_same_nei) { return modeNSames(m, n_same_nei); }, arg("n_same_neighbors"),

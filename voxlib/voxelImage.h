@@ -63,7 +63,7 @@ template<typename T>
 using intOr = typename std::conditional<(sizeof(T) > sizeof(short)),T,int>::type;
 #define Tint  intOr<T> // cast to int or larger type
 
-extern int maxNz;
+extern int maxNzGlobal;
 
 enum class readOpt {
   procAndConvert = 1,
@@ -93,7 +93,7 @@ class voxelField {
   void reset(int n1, int n2, int n3, T value) {  reset(int3(n1,n2,n3), value);  }
   bool readAscii(std::string fileName);
   void readAscii(std::ifstream& in);
-  int  readBin(std::string fileName, int nSkipBytes=0);
+  int  readBin(std::string fileName, int nSkipBytes=0, int maxNz=-1);
   int  readBir(std::string fileName,int iBgn,int iEndp1 , int jBgn,int jEndp1 , int kBgn,int kEndp1, int nSkipBytes=0);
   void writeNoHdr(std::string fileName) const;
   void writeBin(std::string fileName) const;
@@ -178,9 +178,9 @@ class voxelImageT: public voxelImageTBase, public voxelField<T>  {
   voxelImageT(int3 n, T value=0, dbl3 dx=dbl3(1.,1.,1.), dbl3 xmin=dbl3(0.,0.,0.))
   : voxelField<T>( n,  value), X0_(xmin),dx_(dx) {}
 
-  voxelImageT(const std::string& fileName, readOpt procConvert); // readConvertFromHeader
+  voxelImageT(const std::string& fileName, readOpt procConvert, int maxNz=-1); // readConvertFromHeader
 
-  void readFromHeader(const std::string& fileName, int processKeys=1);
+  void readFromHeader(const std::string& fileName, int processKeys=1, int maxNz=-1);
 
   template<typename T2> void resetFrom(const voxelImageT<T2>&Values);
   void setFrom(const voxelImageT<T>&Values, int n1, int n2, int n3);
@@ -262,7 +262,7 @@ class voxelImageT: public voxelImageTBase, public voxelField<T>  {
 //template<typename T> voxelImageT<T> growBounds(const voxelImageT<T>& vxls, int nLayers)
 
 
-std::unique_ptr<voxelImageTBase> readImage(std::string hdrNam /*headername or image type*/, int procesKeys = 1 );
+std::unique_ptr<voxelImageTBase> readImage(std::string hdrNam /*headername or image type*/, int procesKeys = 1, int maxNz = -1);
 
 
 template<class T> voxelImageT<T>*

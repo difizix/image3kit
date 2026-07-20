@@ -114,10 +114,10 @@ PYBIND11_MODULE(_core, mod, py::mod_gil_not_used()) {
 
     // TODO: What does it return ? casted image or a base-class, we shall create an adaptor that does the cast automatically
     voxlib.def("read_image",
-        [](py::object filename) {
-            return readImage(py::str(filename).cast<std::string>(), 0);
-        }, py::arg("filename"),
-        "Global helper to read an image from a file, use VxlImg..() constructors instead.");
+        [](py::object filename, int max_nz) {
+            return readImage(py::str(filename).cast<std::string>(), 0, max_nz);
+        }, py::arg("filename"), py::arg("max_nz") = -1,
+        "Global helper to read an image from a file, use VxlImg..() constructors if you know image type.");
 
 
     // Bind docstrings or versions to the main module or submodules as needed

@@ -51,9 +51,11 @@ class VxlImgF32(voxelImageTBase):
         Initialize (duplicate and convert) from another voxelImageT object
         """
     @typing.overload
-    def __init__(self, filepath: typing.Any, processKeys: bool = True) -> None:
+    def __init__(
+        self, filepath: typing.Any, processKeys: bool = True, max_nz: typing.SupportsInt | typing.SupportsIndex = -1
+    ) -> None:
         """
-        Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw
+        Read image dimensions/metadata from a (header) file. Supported file types are .am, .raw
         """
     def __isub__(self, arg0: VxlImgF32) -> VxlImgF32: ...
     def __release_buffer__(self, buffer):
@@ -380,7 +382,12 @@ class VxlImgF32(voxelImageTBase):
         """
         Read image data from an ASCII file.
         """
-    def read_bin(self, filename: str, n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+    def read_bin(
+        self,
+        filename: str,
+        n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0,
+        max_nz: typing.SupportsInt | typing.SupportsIndex = -1,
+    ) -> None:
         """
         Read image data from  a .raw, .raw/.raw.gz, or reset and read from a .am or .tif file.
         """
@@ -390,7 +397,7 @@ class VxlImgF32(voxelImageTBase):
         scale: typing.SupportsFloat | typing.SupportsIndex = 1.0,
         shift: typing.SupportsFloat | typing.SupportsIndex = 0.0,
     ) -> bool: ...
-    def read_from_header(self, filename: str) -> None:
+    def read_from_header(self, filename: str, max_nz: typing.SupportsInt | typing.SupportsIndex = -1) -> None:
         """
         Reset and read image from file.
         """
@@ -559,9 +566,11 @@ class VxlImgI32(voxelImageTBase):
         Initialize (duplicate and convert) from another voxelImageT object
         """
     @typing.overload
-    def __init__(self, filepath: typing.Any, processKeys: bool = True) -> None:
+    def __init__(
+        self, filepath: typing.Any, processKeys: bool = True, max_nz: typing.SupportsInt | typing.SupportsIndex = -1
+    ) -> None:
         """
-        Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw
+        Read image dimensions/metadata from a (header) file. Supported file types are .am, .raw
         """
     def __isub__(self, arg0: VxlImgI32) -> VxlImgI32: ...
     def __release_buffer__(self, buffer):
@@ -888,7 +897,12 @@ class VxlImgI32(voxelImageTBase):
         """
         Read image data from an ASCII file.
         """
-    def read_bin(self, filename: str, n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+    def read_bin(
+        self,
+        filename: str,
+        n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0,
+        max_nz: typing.SupportsInt | typing.SupportsIndex = -1,
+    ) -> None:
         """
         Read image data from  a .raw, .raw/.raw.gz, or reset and read from a .am or .tif file.
         """
@@ -898,7 +912,7 @@ class VxlImgI32(voxelImageTBase):
         scale: typing.SupportsFloat | typing.SupportsIndex = 1.0,
         shift: typing.SupportsFloat | typing.SupportsIndex = 0.0,
     ) -> bool: ...
-    def read_from_header(self, filename: str) -> None:
+    def read_from_header(self, filename: str, max_nz: typing.SupportsInt | typing.SupportsIndex = -1) -> None:
         """
         Reset and read image from file.
         """
@@ -1067,9 +1081,11 @@ class VxlImgU16(voxelImageTBase):
         Initialize (duplicate and convert) from another voxelImageT object
         """
     @typing.overload
-    def __init__(self, filepath: typing.Any, processKeys: bool = True) -> None:
+    def __init__(
+        self, filepath: typing.Any, processKeys: bool = True, max_nz: typing.SupportsInt | typing.SupportsIndex = -1
+    ) -> None:
         """
-        Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw
+        Read image dimensions/metadata from a (header) file. Supported file types are .am, .raw
         """
     def __isub__(self, arg0: VxlImgU16) -> VxlImgU16: ...
     def __release_buffer__(self, buffer):
@@ -1407,7 +1423,12 @@ class VxlImgU16(voxelImageTBase):
         """
         Read image data from an ASCII file.
         """
-    def read_bin(self, filename: str, n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+    def read_bin(
+        self,
+        filename: str,
+        n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0,
+        max_nz: typing.SupportsInt | typing.SupportsIndex = -1,
+    ) -> None:
         """
         Read image data from  a .raw, .raw/.raw.gz, or reset and read from a .am or .tif file.
         """
@@ -1417,7 +1438,7 @@ class VxlImgU16(voxelImageTBase):
         scale: typing.SupportsFloat | typing.SupportsIndex = 1.0,
         shift: typing.SupportsFloat | typing.SupportsIndex = 0.0,
     ) -> bool: ...
-    def read_from_header(self, filename: str) -> None:
+    def read_from_header(self, filename: str, max_nz: typing.SupportsInt | typing.SupportsIndex = -1) -> None:
         """
         Reset and read image from file.
         """
@@ -1623,9 +1644,11 @@ class VxlImgU8(voxelImageTBase):
         Initialize (duplicate and convert) from another voxelImageT object
         """
     @typing.overload
-    def __init__(self, filepath: typing.Any, processKeys: bool = True) -> None:
+    def __init__(
+        self, filepath: typing.Any, processKeys: bool = True, max_nz: typing.SupportsInt | typing.SupportsIndex = -1
+    ) -> None:
         """
-        Read image dimensions/metadata from a (header) file. SUpported file types are .am, .raw
+        Read image dimensions/metadata from a (header) file. Supported file types are .am, .raw
         """
     def __isub__(self, arg0: VxlImgU8) -> VxlImgU8: ...
     def __release_buffer__(self, buffer):
@@ -1973,7 +1996,12 @@ class VxlImgU8(voxelImageTBase):
         """
         Read image data from an ASCII file.
         """
-    def read_bin(self, filename: str, n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0) -> None:
+    def read_bin(
+        self,
+        filename: str,
+        n_skip_bytes: typing.SupportsInt | typing.SupportsIndex = 0,
+        max_nz: typing.SupportsInt | typing.SupportsIndex = -1,
+    ) -> None:
         """
         Read image data from  a .raw, .raw/.raw.gz, or reset and read from a .am or .tif file.
         """
@@ -1983,7 +2011,7 @@ class VxlImgU8(voxelImageTBase):
         scale: typing.SupportsFloat | typing.SupportsIndex = 1.0,
         shift: typing.SupportsFloat | typing.SupportsIndex = 0.0,
     ) -> bool: ...
-    def read_from_header(self, filename: str) -> None:
+    def read_from_header(self, filename: str, max_nz: typing.SupportsInt | typing.SupportsIndex = -1) -> None:
         """
         Reset and read image from file.
         """
@@ -2217,7 +2245,7 @@ class voxelImageTBase:
 def connected_components(
     arg0: VxlImgU8, arg1: typing.SupportsFloat | typing.SupportsIndex, arg2: typing.SupportsFloat | typing.SupportsIndex
 ) -> VxlImgI32: ...
-def read_image(filename: typing.Any) -> voxelImageTBase:
+def read_image(filename: typing.Any, max_nz: typing.SupportsInt | typing.SupportsIndex = -1) -> voxelImageTBase:
     """
-    Global helper to read an image from a file, use VxlImg..() constructors instead.
+    Global helper to read an image from a file, use VxlImg..() constructors if you know image type.
     """

@@ -82,8 +82,7 @@ inline void setTifTags(const dbl3& X0_, const dbl3& dx_, TIFF *tif) {
 
 
 template<typename T>
-int readTif( voxelField<T>&  aa, std::string fnam )
-{
+int readTif(voxelField<T>&  aa, std::string fnam, int maxNz=-1) {
   (std::cout<<  " reading tif file "<<fnam<<" ").flush();
 
   uint32_t nx, ny;
@@ -94,7 +93,8 @@ int readTif( voxelField<T>&  aa, std::string fnam )
   TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &nx);
   TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &ny);
   int npages=TIFFNumberOfDirectories(tif);
-  if (npages>1.1*maxNz+2) npages=maxNz;
+  int maxNzVal = maxNz>0 ? std::min(maxNzGlobal, maxNz) : maxNzGlobal;
+  if (npages > 1.1*maxNzVal+2)  npages=maxNzVal;
 
   (std::cout<<"size: ("<<nx<<", "<<ny<<", "<<npages<<") * "<<sizeof(T)).flush();
   if (voxelImageT<T>* vxls = dynamic_cast<voxelImageT<T>*>(&aa)) {
@@ -179,13 +179,13 @@ int writeTif(const voxelField<T>&  aa, std::string fnam, int iStart,int iEnd , i
 }
 
 template<class T>
-std::unique_ptr<voxelImageTBase> _readTiffToPtr(const std::string& fnam) {
+std::unique_ptr<voxelImageTBase> _readTiffToPtr(const std::string& fnam, int maxNz=-1) {
   voxelImageT<T> vImg;
-  readTif(vImg, fnam);
+  readTif(vImg, fnam, maxNz);
   return std::make_unique<voxelImageT<T>>(std::move(vImg));
 }
 
-inline std::unique_ptr<voxelImageTBase>  readTifAnyT(std::string fnam) {
+inline std::unique_ptr<voxelImageTBase>  readTifAnyT(std::string fnam, int maxNz=-1) {
   TIFF *tif = (TIFF *) NULL;
   tif = TIFFOpen(fnam.c_str(), "r");
   if (tif == NULL)  return std::unique_ptr<voxelImageTBase>(nullptr);
@@ -198,25 +198,25 @@ inline std::unique_ptr<voxelImageTBase>  readTifAnyT(std::string fnam) {
   switch (frmt) {
     case SAMPLEFORMAT_UINT:
     default:
-      if (nbits==8)  return _readTiffToPtr<unsigned char>(fnam);
+      if (nbits==8)  return _readTiffToPtr<unsigned char>(fnam, maxNz);
   #ifndef _VoxBasic8
-      if (nbits==16) return _readTiffToPtr<unsigned short>(fnam);
+      if (nbits==16) return _readTiffToPtr<unsigned short>(fnam, maxNz);
 #ifdef _ExtraVxlTypes
-      if (nbits==32) return _readTiffToPtr<unsigned int>(fnam);
+      if (nbits==32) return _readTiffToPtr<unsigned int>(fnam, maxNz);
 #endif
       break;
     case SAMPLEFORMAT_INT:
 #ifdef _ExtraVxlTypes
-      if (nbits==16) return _readTiffToPtr<short>(fnam);
-      if (nbits==8)  return _readTiffToPtr<char>(fnam);
+      if (nbits==16) return _readTiffToPtr<short>(fnam, maxNz);
+      if (nbits==8)  return _readTiffToPtr<char>(fnam, maxNz);
 #endif
-      if (nbits==32) return _readTiffToPtr<int>(fnam);
+      if (nbits==32) return _readTiffToPtr<int>(fnam, maxNz);
       break;
     case SAMPLEFORMAT_IEEEFP:
 #ifdef _ExtraVxlTypes
-      if (nbits==64) return _readTiffToPtr<double>(fnam);
+      if (nbits==64) return _readTiffToPtr<double>(fnam, maxNz);
 #endif
-      if (nbits==32) return _readTiffToPtr<float>(fnam);
+      if (nbits==32) return _readTiffToPtr<float>(fnam, maxNz);
       break;
   #endif
     }
