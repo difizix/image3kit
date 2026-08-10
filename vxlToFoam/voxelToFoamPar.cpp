@@ -50,12 +50,23 @@ int main(int argc, char** argv)  {  //!- reads image, adds a boundary layers aro
   int3 nPar(1,1,1);   nPar.x= atoi(argv[++irg]);  nPar.y= atoi(argv[++irg]);  nPar.z= atoi(argv[++irg]);
   char resetX0_char = argc>1+irg ? argv[++irg][0] : 'F';
   char keepBCs_char = argc>1+irg ? argv[++irg][0] : 'F';
+  const char* unitIs = argc>1+irg ? argv[++irg] : "InMeters";
   if (nPar.z*nPar.y*nPar.x<1) { cout<<"\nError: nPar.z*nPar.y*nPar.x<1\n"; return usage(); }
 
   cout<<"voxelToFoamPar  header        nPar       resetX0   keepBCs "<<endl;
   cout<<"voxelToFoamPar "<<hdr<<"  "<<nPar<<"  "<<resetX0_char<<"    "<<keepBCs_char<<endl;
 
   VoxelImage vimage(hdr, readOpt::procAndConvert);
+
+  if (std::string(unitIs) == "InVoxels") {
+      vimage.X0Ch() = dbl3(0.0);
+      vimage.dxCh() = dbl3(1.0);
+      cout<<"write unit: InVoxels, origin will be zero too "<<endl;
+    }
+    else if (std::string(unitIs) != "InMeters") {
+      cout<<"Bad mesh unit (="<<unitIs<<"), could be InVoxels or InMeters"<<endl;
+      return -1;
+    }
 
   bool resetX0 = (resetX0_char=='T' || resetX0_char=='t');
   bool keepBCs = (keepBCs_char=='T' || keepBCs_char=='t');
@@ -170,7 +181,7 @@ void vxlToFoamPar(VoxelImage& vimage, int3 nPar, bool resetX0, bool keepBCs)  {
 namespace {
 void toFoam(VoxelImage& vxlImg, int nVVs, const VoxelField<int>& procIsijk, int iPrc, int jPrc, int kPrc)  { //!- generate an openfaom (processor) mesh similar to voxelToFoamPar.cpp
   int myprocI=procIsijk(iPrc,jPrc,kPrc);
-  int3 n=vxlImg.size3();n.x-=2;n.y-=2;n.z-=2;
+  int3 n=vxlImg.size3(); n.x-=2; n.y-=2; n.z-=2;
   dbl3 X0=vxlImg.X0();
   dbl3 dx=vxlImg.dx();
   X0+=dx;

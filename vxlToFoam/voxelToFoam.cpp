@@ -45,11 +45,26 @@ int usage()  {
 
 int main(int argc, char** argv)  {
 
-    if(argc!=2)     return usage();
+    if (argc<2)
+      return usage();
+
     std::string headerName(argv[1]);
-    if(headerName.size()<4 || headerName.compare(headerName.size()-4,4,".mhd") != 0) return usage();
+    if(headerName.size()<4 || headerName.compare(headerName.size()-4,4,".mhd") != 0) 
+      return usage();
 
     VoxelImage vxlImg(headerName, readOpt::procAndConvert);
+
+    if (argc>2) {
+      if ( std::string(argv[2]) == "InVoxels") {
+        vxlImg.X0Ch() = dbl3(0.0);
+        vxlImg.dxCh() = dbl3(1.0);
+        cout<<"Write unit: InVoxels, origin will be zero too "<<endl;
+      }
+      else if ( std::string(argv[2]) != "InMeters")  {
+        cout<<"Bad mesh unit (="<<argv[2]<<"), could be InVoxels or InMeters"<<endl;
+        return -1;
+      }
+    }
 
     vxlToFoam(vxlImg);
 

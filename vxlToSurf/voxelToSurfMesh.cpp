@@ -17,7 +17,7 @@
 #include "surfUtils.h"
 
 
-surfMsh createSurface(const InputFile& inp,  const VoxelImage & vxlImg, const int nVVs, const std::string& outputSurface);
+surfMsh createSurface(const InputFile& inp,  const VoxelImage & vxlImg, bool unitIsVoxels);
 
 using namespace std;
 void vxlToSurfMesh(InputFile& inp, VoxelImage& vimage, std::string outputSurface)  {
@@ -84,9 +84,10 @@ void vxlToSurfMesh(InputFile& inp, VoxelImage& vimage, std::string outputSurface
 
   vimage.printInfo();
 
-  cout<<" createSurface { outputFileName: "<<outputSurface<<endl;
+  cout<<" Create-surface { outputFileName: "<<outputSurface<<endl;
   try {
-    surfMsh srfMsh = createSurface(inp, vimage,nVVs, outputSurface);//         XXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    bool unitIsVoxels = inp.getOr("SurfUnitIsVoxel", true);
+    surfMsh srfMsh = createSurface(inp, vimage, unitIsVoxels);//         XXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
     //piece<point> pointsp=piece<point>(srfMsh.points);
 
