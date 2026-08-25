@@ -49,7 +49,7 @@ int main(int argc, char** argv)  {
       return usage();
 
     std::string headerName(argv[1]);
-    if(headerName.size()<4 || headerName.compare(headerName.size()-4,4,".mhd") != 0) 
+    if(headerName.size()<4 || headerName.compare(headerName.size()-4,4,".mhd") != 0)
       return usage();
 
     VoxelImage vxlImg(headerName, readOpt::procAndConvert);

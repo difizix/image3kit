@@ -281,12 +281,12 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     .def("__setitem__", [](SelfT &m, int3 idx, VxT val) {
         m(idx[0], idx[1], idx[2]) = val;
     })
-    .def_property_readonly("shape", [](SelfT &m) { return m.size3(); })
+    .def_property_readonly("shape", [](SelfT &m) -> const int3& { return m.size3(); })
     .def_property_readonly("nx", &SelfT::nx)
     .def_property_readonly("ny", &SelfT::ny)
     .def_property_readonly("nz", &SelfT::nz)
-    .def_property("spacing", [](SelfT &m) { return m.dx(); }, [](SelfT &m, dbl3 v) { m.dxCh() = v; }, "Get/set the voxel size (dx, dy, dz).")
-    .def_property("origin", [](SelfT &m) { return m.X0(); }, [](SelfT &m, dbl3 v) { m.X0Ch() = v; }, "Get/set the origin value (x0, y0, z0).")
+    .def_property("spacing", [](SelfT &m) -> const dbl3& { return m.dx(); }, [](SelfT &m, dbl3 v) { m.dxCh() = v; }, "Get/set the voxel size (dx, dy, dz).")
+    .def_property("origin", [](SelfT &m) -> const dbl3& { return m.X0(); }, [](SelfT &m, dbl3 v) { m.X0Ch() = v; }, "Get/set the origin value (x0, y0, z0).")
     .def("print_info", &SelfT::printInfo)
     .def("write", &SelfT::write, arg("filename"), "Write the image to a file (.mhd, .raw, .ra.gz formats).")
     .def("write_no_header", &SelfT::writeNoHdr, arg("filename"), "Write the raw image data without a header.")

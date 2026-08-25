@@ -17,57 +17,9 @@ using namespace VoxLib;
 namespace py = pybind11;
 
 PYBIND11_EMBEDDED_MODULE(VxlPy, mod) {
-    py::class_<var3<int>>(mod, "int3")
-    .def(py::init<>())
-    .def(py::init<int, int, int>())
-    .def(py::init([](py::tuple s) { return tov3<int>(s); }))
-    .def_readwrite("x", &var3<int>::x)
-    .def_readwrite("y", &var3<int>::y)
-    .def_readwrite("z", &var3<int>::z)
-    ;
-
-    py::class_<var3<double>>(mod, "dbl3")
-    .def(py::init<>())
-    .def(py::init<double, double, double>())
-    .def(py::init([](py::tuple s) { return tov3<double>(s); }))
-    .def_readwrite("x", &var3<double>::x)
-    .def_readwrite("y", &var3<double>::y)
-    .def_readwrite("z", &var3<double>::z)
-    ;
-
-    py::class_<VoxelImagesBase>(mod, "VoxelImagesBase")
-    .def("write", &VoxelImagesBase::write, py::arg("filename"))
-    .def("print_info", &VoxelImagesBase::printInfo)
-    ;
-
-    py::class_<shape>(mod, "shape");
-
-    py::class_<sphere,shape>(mod, "sphere")
-    .def(py::init([](py::tuple tpl, double r, int val) {
-        return sphere(tov3<double>(tpl), r, val); }),
-        py::arg("center"), py::arg("r"), py::arg("val"))
-    ;
-
-    py::class_<cylinder,shape>(mod, "cylinder")
-    .def(py::init([](py::tuple p1, py::tuple p2, double r, int val) {
-        return cylinder(tov3<double>(p1), tov3<double>(p2), r, val); }),
-        py::arg("p1"), py::arg("p2"), py::arg("r"), py::arg("val"),
-        "p1: first point on axis, p2: second point on axis, r: radius, val: paint value")
-    ;
-
-    py::class_<kube,shape>(mod, "cube")
-    .def(py::init([](py::tuple p1, py::tuple size, int val) {
-        return kube(tov3<double>(p1), tov3<double>(size), val); }),
-        py::arg("p1"), py::arg("size"), py::arg("val"),
-        "p1: first point, size: size of cuboid sides, val: paint value")
-    ;
-
-    py::class_<triangular,shape>(mod, "triangular")
-    .def(py::init([](py::tuple po, double L1, double L2, double h, double Lt, double ch, int val) {
-        return triangular(tov3<double>(po), L1, L2, h, Lt, ch, val); }),
-        py::arg("po"), py::arg("L1"), py::arg("L2"), py::arg("h"), py::arg("Lt"), py::arg("ch"), py::arg("val"),
-        "po: apex point, L1/L2: half-widths, h: height, Lt: throat length, ch: contraction ratio, val: paint value")
-    ;
+    VxlPy::bind_var3<int>(mod, "int3");
+    VxlPy::bind_var3<double>(mod, "dbl3");
+    VxlPy::bind_shapes(mod);
 
     VxlPy::bind_VxlImg<unsigned char>(mod, "VxlImgU8");    VxlPy::bind_funcs<unsigned char>(mod);
     VxlPy::bind_VxlImg<int>(mod, "VxlImgI32");             VxlPy::bind_funcs<int>(mod);

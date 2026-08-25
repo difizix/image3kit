@@ -25,6 +25,7 @@ __all__: list[str] = [
     "shape",
     "sphere",
     "threshold01_otsu",
+    "triangular",
 ]
 
 class VoxelImagesBase:
@@ -1375,6 +1376,21 @@ class VxlImgU16(VoxelImagesBase):
         """
         Voxel-by-voxel inplace NOT operation, alias for img = img & !img2.
         """
+    @typing.overload
+    def operate(self, opr: str) -> None:
+        """
+        Apply unary operation to image in-place ('~', '!', '-')
+        """
+    @typing.overload
+    def operate(self, opr: str, image2: VxlImgU16, shift: typing.SupportsFloat | typing.SupportsIndex = 0.0) -> None:
+        """
+        In-place binary pixel-wise operation with another image ('+', '-', '*', '/', '&', '|', '%') and optional shift
+        """
+    @typing.overload
+    def operate(self, opr: str, val: typing.SupportsFloat | typing.SupportsIndex) -> None:
+        """
+        In-place scalar operation on image ('=', '+', '-', '*', '/', '&', '|', '%', 'b', 'e')
+        """
     def or_(self, image2: VxlImgU16) -> None:
         """
         Voxel-by-voxel inplace OR operation.
@@ -1963,6 +1979,21 @@ class VxlImgU8(VoxelImagesBase):
         """
         Voxel-by-voxel inplace NOT operation, alias for img = img & !img2.
         """
+    @typing.overload
+    def operate(self, opr: str) -> None:
+        """
+        Apply unary operation to image in-place ('~', '!', '-')
+        """
+    @typing.overload
+    def operate(self, opr: str, image2: VxlImgU8, shift: typing.SupportsFloat | typing.SupportsIndex = 0.0) -> None:
+        """
+        In-place binary pixel-wise operation with another image ('+', '-', '*', '/', '&', '|', '%') and optional shift
+        """
+    @typing.overload
+    def operate(self, opr: str, val: typing.SupportsFloat | typing.SupportsIndex) -> None:
+        """
+        In-place scalar operation on image ('=', '+', '-', '*', '/', '&', '|', '%', 'b', 'e')
+        """
     def or_(self, image2: VxlImgU8) -> None:
         """
         Voxel-by-voxel inplace OR operation.
@@ -2302,10 +2333,25 @@ class shape:
 class sphere(shape):
     def __init__(
         self,
-        arg0: tuple,
-        arg1: typing.SupportsFloat | typing.SupportsIndex,
-        arg2: typing.SupportsInt | typing.SupportsIndex,
+        center: tuple,
+        r: typing.SupportsFloat | typing.SupportsIndex,
+        val: typing.SupportsInt | typing.SupportsIndex,
     ) -> None: ...
+
+class triangular(shape):
+    def __init__(
+        self,
+        po: tuple,
+        L1: typing.SupportsFloat | typing.SupportsIndex,
+        L2: typing.SupportsFloat | typing.SupportsIndex,
+        h: typing.SupportsFloat | typing.SupportsIndex,
+        Lt: typing.SupportsFloat | typing.SupportsIndex,
+        ch: typing.SupportsFloat | typing.SupportsIndex,
+        val: typing.SupportsInt | typing.SupportsIndex,
+    ) -> None:
+        """
+        po: apex point, L1/L2: half-widths, h: height, Lt: throat length, ch: contraction ratio, val: paint value
+        """
 
 @typing.overload
 def connected_components(

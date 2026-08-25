@@ -120,7 +120,7 @@ string fileNameToElemType(const string& fname) {
     }
     if (data.find("lems_raw") != string::npos) return "MET_INT"; // _VElems.raw and Slems.raw(.gz) default to int
 
-    std::cout << "Warning, could not figure out Voxel value type from '" << fname << "', assuming MET_UCHAR" << endl;
+    std::cout << "Warning, could not detect image data type from '" << fname << "', assuming MET_UCHAR" << endl;
     return "MET_UCHAR";
 }
 
