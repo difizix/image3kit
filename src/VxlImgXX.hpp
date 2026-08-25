@@ -503,6 +503,13 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
          arg("axis")="z", arg("extra_out")=0, arg("threshold")=-1, arg("cut_highs")=false, arg("shift_x")=0, arg("shift_y")=0, arg("fill_val")=0)
     .def("variance", [](SelfT &m, int minV, int maxV) { return ::varianceDbl(m, minV, maxV); }, arg("min_val")=0, arg("max_val")=255,
     "Set outer tubing of a circular core-holder image to fill_val")
+    .def("stdev", [](SelfT &m, int minV, int maxV) { return ::stdevDbl(m, minV, maxV); }, arg("min_val")=0, arg("max_val")=255,
+        "Standard deviation of voxel values within [min_val, max_val].")
+    .def("mean", [](SelfT &m) { return ::meanDbl(m); }, "Mean voxel value.")
+    .def("min", [](SelfT &m) { return ::minDbl(m); }, "Minimum voxel value.")
+    .def("max", [](SelfT &m) { return ::maxDbl(m); }, "Maximum voxel value.")
+    .def("porosity", [](SelfT &m, VxT threshold) { return ::porosityDbl(m, threshold); }, arg("threshold")=VxT(0),
+        "Fraction of voxels with value<=threshold, out of the valid (non-sentinel) voxels.")
   #endif // VOX_BASIC
 
     ;

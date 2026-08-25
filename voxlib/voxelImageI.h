@@ -130,14 +130,48 @@ template<typename T> double varianceDbl(const VoxelImageT<T>& img, int bgn, int 
   return sum/(count-1);
 }
 
+template<typename T> double stdevDbl(const VoxelImageT<T>& img, int bgn, int end) {
+  return std::sqrt(varianceDbl(img, bgn, end));
+}
+
+template<typename T> double meanDbl(const VoxelImageT<T>& img) {
+  double sum=0.; size_t count=0;
+  OMPFor(reduction(+:sum) reduction(+:count))
+  forAllvp_seq(img) { sum+=double(*vp);  ++count; }
+  return count ? sum/count : 0.0;
+}
+
+template<typename T> double minDbl(const VoxelImageT<T>& img) {
+  double mn = std::numeric_limits<double>::max();
+  OMPFor(reduction(min:mn))
+  forAllvp_seq(img) { mn = std::min(mn, double(*vp)); }
+  return mn;
+}
+
+template<typename T> double maxDbl(const VoxelImageT<T>& img) {
+  double mx = std::numeric_limits<double>::lowest();
+  OMPFor(reduction(max:mx))
+  forAllvp_seq(img) { mx = std::max(mx, double(*vp)); }
+  return mx;
+}
+
+//! fraction of voxels with value<=threshold, out of the "valid" voxels -- i.e.
+//! excluding voxels holding the maxT(T) sentinel used to mark undefined/outside-mask
+//! regions -- matching printInfo()'s "valid_porosity" (see below).
+template<typename T> double porosityDbl(const VoxelImageT<T>& img, T threshold=0) {
+  size_t nPores=0, nTotal=0;
+  OMPFor(reduction(+:nPores) reduction(+:nTotal))
+  forAllcp(img) { nPores += (*cp<=threshold); nTotal += (*cp!=maxT(T)); }
+  return nTotal ? double(nPores)/double(nTotal) : 0.0;
+}
+
 
 
 #define dblfunc(M_func_) (double const & (*) (double const &, double const &))(M_func_<double>)
 
 
 template<class voxelFieldT>
-vars<dbls> vxlDist(const voxelFieldT& vf, int nsteps=32, double minV=3e38, double maxV=-3e38)
-{
+vars<dbls> vxlDist(const voxelFieldT& vf, int nsteps=32, double minV=3e38, double maxV=-3e38) {
   vars<dbls> distrib(2, dbls(nsteps+1, 0.));
 
   if(minV> 1e38) minV=accumulate(vf,dblfunc(std::min), 1e38);
