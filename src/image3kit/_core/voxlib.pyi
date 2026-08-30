@@ -243,6 +243,14 @@ class VxlImgF32(VoxelImagesBase):
         """
         Map values from another image.
         """
+    def max_value(self) -> float:
+        """
+        Maximum voxel value.
+        """
+    def mean_value(self) -> float:
+        """
+        Mean voxel value.
+        """
     def mean_wide(
         self,
         width: typing.SupportsInt | typing.SupportsIndex = 0,
@@ -295,6 +303,10 @@ class VxlImgF32(VoxelImagesBase):
     def median_z(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in z-direction
+        """
+    def min_value(self) -> float:
+        """
+        Minimum voxel value.
         """
     def mode26(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
     def mode6(self, n_same_neighbors: typing.SupportsInt | typing.SupportsIndex) -> int:
@@ -388,6 +400,10 @@ class VxlImgF32(VoxelImagesBase):
         min_val: typing.SupportsFloat | typing.SupportsIndex = 0,
         max_val: typing.SupportsFloat | typing.SupportsIndex = 255,
     ) -> None: ...
+    def porosity(self, threshold: typing.SupportsFloat | typing.SupportsIndex = 0.0) -> float:
+        """
+        Fraction of voxels with value<=threshold, out of the valid (non-sentinel) voxels.
+        """
     def print_info(self) -> None: ...
     def range_to(
         self,
@@ -490,6 +506,14 @@ class VxlImgF32(VoxelImagesBase):
         """
         bilateral smoothing filter
         """
+    def stdev(
+        self,
+        min_val: typing.SupportsInt | typing.SupportsIndex = 0,
+        max_val: typing.SupportsInt | typing.SupportsIndex = 255,
+    ) -> float:
+        """
+        Standard deviation of voxel values within [min_val, max_val].
+        """
     def threshold101(
         self, min: typing.SupportsFloat | typing.SupportsIndex, max: typing.SupportsFloat | typing.SupportsIndex
     ) -> None:
@@ -502,7 +526,7 @@ class VxlImgF32(VoxelImagesBase):
         max_val: typing.SupportsInt | typing.SupportsIndex = 255,
     ) -> float:
         """
-        Set outer tubing of a circular core-holder image to fill_val
+        Variance of voxel values within [min_val, max_val].
         """
     def write(self, filename: str) -> None:
         """
@@ -772,6 +796,14 @@ class VxlImgI32(VoxelImagesBase):
         """
         Map values from another image.
         """
+    def max_value(self) -> float:
+        """
+        Maximum voxel value.
+        """
+    def mean_value(self) -> float:
+        """
+        Mean voxel value.
+        """
     def mean_wide(
         self,
         width: typing.SupportsInt | typing.SupportsIndex = 0,
@@ -824,6 +856,10 @@ class VxlImgI32(VoxelImagesBase):
     def median_z(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in z-direction
+        """
+    def min_value(self) -> float:
+        """
+        Minimum voxel value.
         """
     def mode26(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
     def mode6(self, n_same_neighbors: typing.SupportsInt | typing.SupportsIndex) -> int:
@@ -917,6 +953,10 @@ class VxlImgI32(VoxelImagesBase):
         min_val: typing.SupportsFloat | typing.SupportsIndex = 0,
         max_val: typing.SupportsFloat | typing.SupportsIndex = 255,
     ) -> None: ...
+    def porosity(self, threshold: typing.SupportsInt | typing.SupportsIndex = 0) -> float:
+        """
+        Fraction of voxels with value<=threshold, out of the valid (non-sentinel) voxels.
+        """
     def print_info(self) -> None: ...
     def range_to(
         self,
@@ -1019,6 +1059,14 @@ class VxlImgI32(VoxelImagesBase):
         """
         bilateral smoothing filter
         """
+    def stdev(
+        self,
+        min_val: typing.SupportsInt | typing.SupportsIndex = 0,
+        max_val: typing.SupportsInt | typing.SupportsIndex = 255,
+    ) -> float:
+        """
+        Standard deviation of voxel values within [min_val, max_val].
+        """
     def threshold101(
         self, min: typing.SupportsInt | typing.SupportsIndex, max: typing.SupportsInt | typing.SupportsIndex
     ) -> None:
@@ -1031,7 +1079,7 @@ class VxlImgI32(VoxelImagesBase):
         max_val: typing.SupportsInt | typing.SupportsIndex = 255,
     ) -> float:
         """
-        Set outer tubing of a circular core-holder image to fill_val
+        Variance of voxel values within [min_val, max_val].
         """
     def write(self, filename: str) -> None:
         """
@@ -1313,6 +1361,14 @@ class VxlImgU16(VoxelImagesBase):
         """
         Map values from another image.
         """
+    def max_value(self) -> float:
+        """
+        Maximum voxel value.
+        """
+    def mean_value(self) -> float:
+        """
+        Mean voxel value.
+        """
     def mean_wide(
         self,
         width: typing.SupportsInt | typing.SupportsIndex = 0,
@@ -1365,6 +1421,10 @@ class VxlImgU16(VoxelImagesBase):
     def median_z(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in z-direction
+        """
+    def min_value(self) -> float:
+        """
+        Minimum voxel value.
         """
     def mode26(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
     def mode6(self, n_same_neighbors: typing.SupportsInt | typing.SupportsIndex) -> int:
@@ -1473,6 +1533,10 @@ class VxlImgU16(VoxelImagesBase):
         min_val: typing.SupportsFloat | typing.SupportsIndex = 0,
         max_val: typing.SupportsFloat | typing.SupportsIndex = 255,
     ) -> None: ...
+    def porosity(self, threshold: typing.SupportsInt | typing.SupportsIndex = 0) -> float:
+        """
+        Fraction of voxels with value<=threshold, out of the valid (non-sentinel) voxels.
+        """
     def print_info(self) -> None: ...
     def range_to(
         self,
@@ -1612,6 +1676,14 @@ class VxlImgU16(VoxelImagesBase):
         """
         bilateral smoothing filter
         """
+    def stdev(
+        self,
+        min_val: typing.SupportsInt | typing.SupportsIndex = 0,
+        max_val: typing.SupportsInt | typing.SupportsIndex = 255,
+    ) -> float:
+        """
+        Standard deviation of voxel values within [min_val, max_val].
+        """
     def threshold101(
         self, min: typing.SupportsInt | typing.SupportsIndex, max: typing.SupportsInt | typing.SupportsIndex
     ) -> None:
@@ -1624,7 +1696,7 @@ class VxlImgU16(VoxelImagesBase):
         max_val: typing.SupportsInt | typing.SupportsIndex = 255,
     ) -> float:
         """
-        Set outer tubing of a circular core-holder image to fill_val
+        Variance of voxel values within [min_val, max_val].
         """
     def write(self, filename: str) -> None:
         """
@@ -1916,6 +1988,14 @@ class VxlImgU8(VoxelImagesBase):
         """
         Map values from another image.
         """
+    def max_value(self) -> float:
+        """
+        Maximum voxel value.
+        """
+    def mean_value(self) -> float:
+        """
+        Mean voxel value.
+        """
     def mean_wide(
         self,
         width: typing.SupportsInt | typing.SupportsIndex = 0,
@@ -1968,6 +2048,10 @@ class VxlImgU8(VoxelImagesBase):
     def median_z(self) -> None:
         """
         Apply median filter with kernel size of 1 voxels in z-direction
+        """
+    def min_value(self) -> float:
+        """
+        Minimum voxel value.
         """
     def mode26(self, arg0: typing.SupportsInt | typing.SupportsIndex) -> None: ...
     def mode6(self, n_same_neighbors: typing.SupportsInt | typing.SupportsIndex) -> int:
@@ -2076,6 +2160,10 @@ class VxlImgU8(VoxelImagesBase):
         min_val: typing.SupportsFloat | typing.SupportsIndex = 0,
         max_val: typing.SupportsFloat | typing.SupportsIndex = 255,
     ) -> None: ...
+    def porosity(self, threshold: typing.SupportsInt | typing.SupportsIndex = 0) -> float:
+        """
+        Fraction of voxels with value<=threshold, out of the valid (non-sentinel) voxels.
+        """
     def print_info(self) -> None: ...
     def range_to(
         self,
@@ -2215,6 +2303,14 @@ class VxlImgU8(VoxelImagesBase):
         """
         bilateral smoothing filter
         """
+    def stdev(
+        self,
+        min_val: typing.SupportsInt | typing.SupportsIndex = 0,
+        max_val: typing.SupportsInt | typing.SupportsIndex = 255,
+    ) -> float:
+        """
+        Standard deviation of voxel values within [min_val, max_val].
+        """
     def threshold101(
         self, min: typing.SupportsInt | typing.SupportsIndex, max: typing.SupportsInt | typing.SupportsIndex
     ) -> None:
@@ -2250,7 +2346,7 @@ class VxlImgU8(VoxelImagesBase):
         max_val: typing.SupportsInt | typing.SupportsIndex = 255,
     ) -> float:
         """
-        Set outer tubing of a circular core-holder image to fill_val
+        Variance of voxel values within [min_val, max_val].
         """
     def write(self, filename: str) -> None:
         """

@@ -126,7 +126,7 @@ int main(int argc, char *argv[])  {
     std::string outputSurface = (argc>2) ? string(argv[2]) :
                   inp.getOr("outputSurface", basePath(fnam)+".obj");
 
-    VoxelImage vimage(fnam, readOpt::justRead);
+    VoxelImage vimage(fnam, readOpt::procOnly);
 
     vxlToSurfMesh(inp, vimage, outputSurface);
 
