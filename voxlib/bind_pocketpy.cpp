@@ -6,6 +6,7 @@ loaded. Replaces the old voxelplugins.cpp/vxlPro*.cpp keyword-command DSL.
 
 \*-------------------------------------------------------------------------*/
 
+#include <pybind11/embed.h>
 #include "VxlImgXX.hpp"
 #include "shapeToVoxel.h"
 #include <sstream>

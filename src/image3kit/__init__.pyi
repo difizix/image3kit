@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from image3kit._core.sirun import Input, dbl3, int3
 from image3kit._core.voxlib import (
+    VoxelImagesBase,
     VxlImgF32,
     VxlImgI32,
     VxlImgU8,
@@ -14,14 +15,17 @@ from image3kit._core.voxlib import (
     cube,
     cylinder,
     read_image,
+    shape,
     sphere,
     threshold01_otsu,
+    triangular,
 )
 
 from . import _core
 
 __all__: list = [
     "Input",
+    "VoxelImagesBase",
     "VxlImgF32",
     "VxlImgI32",
     "VxlImgU8",
@@ -35,7 +39,9 @@ __all__: list = [
     "dbl3",
     "int3",
     "read_image",
+    "shape",
     "sphere",
     "threshold01_otsu",
+    "triangular",
 ]
 __version__: str = "0.2.0"
