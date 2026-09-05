@@ -103,30 +103,40 @@ class triangular : public shape {
    // /_L1__po_L2__\.
   dbl3 po;
   double L1, L2, h_, hInv, LtInv, ch; // lt is throat length, ch is contraction ratio (<1)
+  double ctsInv; // how wider side throats (first and every other) are relative to mid one
  public:
   triangular(stringstream & ins) : shape(/*polyType*/'t') {
     //http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html
-    ins>>po >> L1 >>L2 >>h_ >>LtInv >>ch >>insidev;
-    cout <<"cylinder po="<<po<<", L1="<<L1<<" L2="<<L2<<" h="<<h_<<" Lt="<<LtInv<<" rt/rp="<<ch<<"   value="<<insidev;
-    ch = h_*(1.-1./ch);
+    double cpt = 2.0, cSideMid=1;
+    ins>>po >> L1 >>L2 >>h_ >>LtInv >>cpt;
+    if (!(ins >> cSideMid >> insidev)) {
+      insidev = static_cast<int>(cSideMid);
+      cSideMid = 1.0;
+    }
+    cout <<"cylinder po="<<po<<", L1="<<L1<<" L2="<<L2<<" h="<<h_<<" Lt="<<LtInv<<" rp/rt="<<cpt<<" rside/rt="<<cSideMid<<"   value="<<insidev;
+    ch = h_*(1.-1./(cpt/cSideMid));
+    if (cpt<cSideMid)
+      cout <<"Error in triangular, mid pore-throat contraction ratio cpt=Rp/Rt shall be bigger c_side_mid, got: cpt="<<cpt<<" & c_side_mid="<<cSideMid<<endl;
+    ctsInv = h_*(1.-1./cpt) - ch; // extra shrinkage at middle
     hInv = 1./h_;
     LtInv = 1./LtInv;
     L1 *= -1;
   }
-  triangular(dbl3 _po, double _L1, double _L2, double _h, double _Lt, double _ch, int _insidev):
+  triangular(dbl3 _po, double _L1, double _L2, double _h, double _Lt, double cpt, double c_side_mid, int _insidev):
       shape(/*polyType*/'t',_insidev),
-      po(_po), L1(-_L1), L2(_L2), h_(_h), hInv(1./_h), LtInv(1./_Lt), ch(_h*(1.-1./_ch))
+      po(_po), L1(-_L1), L2(_L2), h_(_h), hInv(1./_h), LtInv(1./_Lt), ch(h_*(1.-1./(cpt/c_side_mid)))
+      , ctsInv(h_*(1.-1./cpt) - ch)
     {}
   int value(dbl3 ij) const {
     double dx = LtInv*(ij.x-po.x);
-    if (ij.y<po.y-h_) return shape::invalidv;
-    if (ij.y>po.y) return shape::invalidv;
-    double dy = std::cos((0.5*PI)*dx);
-    dy =  hInv*(po.y - ch*dy*dy - ij.y);
-    double dz=ij.z-po.z;
-    if (dz <  L1*dy) return shape::invalidv;
-    if (dz >  L2*dy) return shape::invalidv;
-    return insidev; }
+    if (ij.y < po.y-h_ || ij.y > po.y)  return shape::invalidv;
+    double dyx = std::cos((0.5*PI)*dx);
+    double dy_mid = dyx * std::sin((0.25*PI)*dx);
+    double dy =  hInv*(po.y - ij.y - ch*dyx*dyx - ctsInv*dy_mid*dy_mid);
+    double dz = ij.z - po.z;
+    if (dz < L1*dy || dz > L2*dy)  return shape::invalidv;
+    return insidev;
+  }
 };
 
 

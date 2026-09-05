@@ -2435,6 +2435,22 @@ class sphere(shape):
     ) -> None: ...
 
 class triangular(shape):
+    @typing.overload
+    def __init__(
+        self,
+        po: tuple,
+        L1: typing.SupportsFloat | typing.SupportsIndex,
+        L2: typing.SupportsFloat | typing.SupportsIndex,
+        h: typing.SupportsFloat | typing.SupportsIndex,
+        Lt: typing.SupportsFloat | typing.SupportsIndex,
+        c_rp_rt: typing.SupportsFloat | typing.SupportsIndex,
+        c_side_mid: typing.SupportsFloat | typing.SupportsIndex = 1.0,
+        val: typing.SupportsInt | typing.SupportsIndex = 0,
+    ) -> None:
+        """
+        po: apex point, L1/L2: half-widths, h: height, Lt: throat length, c_rp_rt: Rp/Rt_mid contraction ratio, c_side_mid: Rt_side/Rt_mid, val: paint value
+        """
+    @typing.overload
     def __init__(
         self,
         po: tuple,
@@ -2443,10 +2459,10 @@ class triangular(shape):
         h: typing.SupportsFloat | typing.SupportsIndex,
         Lt: typing.SupportsFloat | typing.SupportsIndex,
         ch: typing.SupportsFloat | typing.SupportsIndex,
-        val: typing.SupportsInt | typing.SupportsIndex,
+        val: typing.SupportsInt | typing.SupportsIndex = 0,
     ) -> None:
         """
-        po: apex point, L1/L2: half-widths, h: height, Lt: throat length, ch: contraction ratio, val: paint value
+        Backward-compatible constructor: po, L1, L2, h, Lt, ch, val
         """
 
 @typing.overload

@@ -112,10 +112,14 @@ inline void bind_shapes(py::module_ &mod) {
   ;
 
   py::class_<VoxLib::triangular, VoxLib::shape>(mod, "triangular")
+  .def(py::init([](py::tuple po, double L1, double L2, double h, double Lt, double c_rp_rt, double c_side_mid, int val) {
+      return VoxLib::triangular(tov3<double>(po), L1, L2, h, Lt, c_rp_rt, c_side_mid, val); }),
+      py::arg("po"), py::arg("L1"), py::arg("L2"), py::arg("h"), py::arg("Lt"), py::arg("c_rp_rt"), py::arg("c_side_mid")=1., py::arg("val")=0,
+      "po: apex point, L1/L2: half-widths, h: height, Lt: throat length, c_rp_rt: Rp/Rt_mid contraction ratio, c_side_mid: Rt_side/Rt_mid, val: paint value")
   .def(py::init([](py::tuple po, double L1, double L2, double h, double Lt, double ch, int val) {
-      return VoxLib::triangular(tov3<double>(po), L1, L2, h, Lt, ch, val); }),
-      py::arg("po"), py::arg("L1"), py::arg("L2"), py::arg("h"), py::arg("Lt"), py::arg("ch"), py::arg("val"),
-      "po: apex point, L1/L2: half-widths, h: height, Lt: throat length, ch: contraction ratio, val: paint value")
+      return VoxLib::triangular(tov3<double>(po), L1, L2, h, Lt, ch, 1., val); }),
+      py::arg("po"), py::arg("L1"), py::arg("L2"), py::arg("h"), py::arg("Lt"), py::arg("ch"), py::arg("val")=0,
+      "Backward-compatible constructor: po, L1, L2, h, Lt, ch, val")
   ;
 }
 
