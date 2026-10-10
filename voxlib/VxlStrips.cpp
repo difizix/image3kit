@@ -21,8 +21,7 @@ VxlStrips::VxlStrips(const InputFile& inp)
   imgExt(imgfrmt);
   cout<<" DefaultImageFormat: "<<imgfrmt<<endl;
 
-  nBP6 = inp.getOr("multiDir",true) ? 6 : 2;
-  inp.giv("nOpenSides",nBP6);
+  nBP6 = inp.getOr("MultiDir",true) ? 6 : 2;
 
   cout<<" voxel indices:"<<endl;
   rockTypes_.push_back({0,0});
