@@ -23,6 +23,7 @@ Developed by:
 
 
 
+#include <numeric>
 #include "voxelImage.h"
 #include "voxelImgUtils.h"
 #include "globals.h"
