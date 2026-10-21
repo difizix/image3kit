@@ -264,8 +264,9 @@ template<typename T> inline  void VoxelField<T>::reset(int3 nnn)  {
 
 template<typename T> inline  void VoxelField<T>::reset(int3 nnn, T value)  {
   nij_=(long long)(nnn.x)*nnn.y;
-  this->data_.resize((long long)(nnn.z)*nij_+128,value); // 128 extra memory for readRLE, sync: XADSDAS
+  this->data_.resize((long long)(nnn.z)*nij_+128); // 128 extra memory for readRLE, sync: XADSDAS
   this->data_.resize((long long)(nnn.z)*nij_);
+  this->data_.fill(value); // resize(n, value) only sets the new elements
   nnn_=nnn;
 }
 
