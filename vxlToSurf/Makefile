@@ -1,5 +1,5 @@
 
-msSrc ?= $(abspath ../../../src)
+msSrc ?= $(abspath $(if $(wildcard ../../script/Makefile.in),../..,../../../src)) # flat porescale, or <root>/src
 
 all: msApp
 
