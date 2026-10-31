@@ -273,3 +273,134 @@ void writeMergeSurfaceFile(const facePieceList& facezsz, const piece<point> poin
 
 
 }
+
+
+void writeVTK(const std::string& fnam, const surfMsh& srf) {
+  ofstream fil(fnam);
+  ensure(fil.good(), "Cannot open file for writing: " + fnam, -1);
+
+  const auto& points = srf.points;
+  const auto& faces = srf.faces;
+
+  fil << "# vtk DataFile Version 2.0\n"
+      << "surface written by image3kit\n"
+      << "ASCII\n\n"
+      << "DATASET POLYDATA\n";
+
+  fil << "POINTS " << points.size() << " float\n";
+  for_(points, ptI) {
+    const point& pt = points[ptI];
+    fil << pt.x << ' ' << pt.y << ' ' << pt.z << '\n';
+  }
+
+  fil << "\nPOLYGONS " << faces.size() << ' ' << faces.size() * 5 << '\n';
+  for_(faces, fI) {
+    const face& f = faces[fI];
+    fil << 4 << ' ' << f[0] << ' ' << f[1] << ' ' << f[2] << ' ' << f[3] << " \n";
+  }
+
+  fil << '\n'
+      << "CELL_DATA " << faces.size() << '\n'
+      << "FIELD attributes 1\n"
+      << "zone 1 " << faces.size() << " int\n";
+
+  for_(faces, fI) {
+    if (fI) fil << ((fI % 20) ? ' ' : '\n');
+    fil << (faces[fI].zone ? faces[fI].zone : 1);
+  }
+  fil << '\n';
+}
+
+surfMsh readVTK(const std::string& fnam) {
+  surfMsh msh;
+  DynamicField<point>& points = msh.points;
+  std::vector<face>& faczz = msh.faces;
+
+  std::ifstream fil(fnam);
+  ensure(fil.good(), fnam + " not opened", -1);
+
+  std::string vtkdata;
+  getline(fil, vtkdata);
+  getline(fil, vtkdata);
+  fil >> vtkdata; ensure(vtkdata == "ASCII", "expected ASCII got " + vtkdata + " in " + fnam, -1);
+  fil >> vtkdata; ensure(vtkdata == "DATASET");
+  fil >> vtkdata; ensure(vtkdata == "POLYDATA");
+
+  size_t npoints(0);
+  fil >> vtkdata; ensure(vtkdata == "POINTS");
+  fil >> npoints; ensure(npoints);
+  fil >> vtkdata; ensure(vtkdata == "float" || vtkdata == "double");
+  points.resize(npoints);
+  for_(points, ptI) fil >> points[ptI];
+
+  while (fil >> vtkdata && vtkdata != "POLYGONS");
+  ensure(vtkdata == "POLYGONS");
+  int nFaces = 0, nNumbers = 0;
+  fil >> nFaces >> nNumbers;
+  ensure(nFaces > 0);
+
+  std::string nextTok;
+  fil >> nextTok;
+  if (nextTok == "OFFSETS") {
+    getline(fil, vtkdata);
+    for_i_(0, nFaces) fil >> vtkdata;
+    fil >> vtkdata; ensure(vtkdata == "CONNECTIVITY", "expected CONNECTIVITY got " + vtkdata);
+    getline(fil, vtkdata);
+    --nFaces;
+    faczz.resize(nFaces);
+    for (face& f : faczz) for (label& p : f) fil >> p;
+  }
+  else {
+    faczz.resize(nFaces);
+    for (int fI = 0; fI < nFaces; ++fI) {
+      int nv = (fI == 0) ? std::stoi(nextTok) : 0;
+      if (fI > 0) fil >> nv;
+      ensure(nv == 4, "Expected quad face with 4 vertices", -1);
+      for (int k = 0; k < 4; ++k) fil >> faczz[fI][k];
+    }
+  }
+
+  while (fil >> vtkdata) {
+    if (vtkdata == "CELL_DATA") {
+      size_t nCells = 0;
+      fil >> nCells;
+      std::string fieldTok, attrName;
+      int nArrays = 0;
+      fil >> fieldTok;
+      if (fieldTok == "FIELD") {
+        fil >> attrName >> nArrays;
+        for (int a = 0; a < nArrays; ++a) {
+          std::string arrName, dType;
+          int nComp = 0;
+          size_t nTuples = 0;
+          fil >> arrName >> nComp >> nTuples >> dType;
+          if (arrName == "zone" && nTuples == faczz.size()) {
+            for_(faczz, fI) {
+              double z = 1;
+              fil >> z;
+              faczz[fI].zone = int(z);
+            }
+          }
+          else {
+            double dummy;
+            for (size_t k = 0; k < nTuples * nComp; ++k) fil >> dummy;
+          }
+        }
+      }
+      break;
+    }
+  }
+
+  // Ensure faces are grouped by zone (1, 2, 3) if not already sorted
+  bool sorted = true;
+  for (size_t i = 1; i < faczz.size(); ++i) {
+    if (faczz[i].zone < faczz[i - 1].zone) { sorted = false; break; }
+  }
+  if (!sorted) {
+    std::stable_sort(faczz.begin(), faczz.end(), [](const face& a, const face& b) {
+      return a.zone < b.zone;
+    });
+  }
+
+  return msh;
+}
