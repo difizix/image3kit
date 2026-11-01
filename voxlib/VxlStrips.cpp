@@ -246,17 +246,18 @@ float DistMap::calc_distmap(int i, int j, int k, int3& dj) {
 
 /// dj = nearest solid relative position ...
 float  DistMap::calc_distmapf(dbl3 mb, int3& dj) {
-  int i=mb.x, j=mb.y, k=mb.z;
+  int i=floor(mb.x), j=floor(mb.y), k=floor(mb.z);
+  if (!isInside(i, j, k)) return 0.0f;
 
   if(const strip& sX = segX0(i, j, k); sX.vv!=inVxVal_) return 0.0f;
 
-  if (dj.x >= 0 || dj.y >= 0 || dj.z >= 0) {
-    dj.x = max(0, min(nx - 1, dj.x));
-    dj.y = max(0, min(ny - 1, dj.y));
-    dj.z = max(0, min(nz - 1, dj.z));
+  if (!isInside(dj.x, dj.y, dj.z) || segX0(dj.x, dj.y, dj.z).vv == inVxVal_) {
+    dj.x = (i<nx/2) ? -nx/2-10 : nx*3/2+10;
+    dj.y = (j<ny/2) ? -ny/2-10 : ny*3/2+10;
+    dj.z = (k<nz/2) ? -nz/2-10 : nz*3/2+10;
   }
 
-  int rSqr = sqr(dj.x-mb.x)+sqr(dj.y-mb.y)+sqr(dj.z-mb.z);
+  int rSqr = min(39999, int(sqr(dj.x-mb.x)+sqr(dj.y-mb.y)+sqr(dj.z-mb.z)));
   float rrr = sqrtf(rSqr)+1.9f;
 
   int zmax = min(nz-k-1,int(rrr));
@@ -296,17 +297,10 @@ float  DistMap::calc_distmapf(dbl3 mb, int3& dj) {
       return sqrt(sqr(dj.x-mb.x) + sqr(dj.y-mb.y) + sqr(dj.z-mb.z)) - 0.5;
   }
   else {
-    int dx=abs(dj.x-mb.x),  dy=abs(dj.y-mb.y),  dz=abs(dj.z-mb.z);
+    double dx = dj.x + 0.5 - mb.x, dy = dj.y + 0.5 - mb.y, dz = dj.z + 0.5 - mb.z;
 
     float limit = sqrt(dx*dx + dy*dy + dz*dz) - 0.5;
-    float iSqr;
-    if (iSqr=min((j+2),(ny-j+1)); iSqr<limit)
-      limit=max((1.-_clipROutyz)*limit+_clipROutyz*iSqr,0.01);
-    if (iSqr=min((k+2),(nz-k+1)); iSqr<limit)
-      limit=max((1.-_clipROutyz)*limit+_clipROutyz*iSqr,0.01);
-    if (iSqr=min((i+2),(nx-i+1)); iSqr<limit)
-      limit=max((1.-_clipROutx )*limit+_clipROutx*iSqr,0.1);
-    return limit;
+    return max(limit, 0.01f);
   }
 }
 
