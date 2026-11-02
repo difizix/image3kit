@@ -37,5 +37,6 @@ void set_max_slab_bytes(std::size_t bytes);
 // ---- ops: one declaration per ported op (same arguments as voxlib) ----
 template <typename T> void mode26(VoxelImageT<T>& vImg, short minDif);
 template <typename T> VoxelImageT<T> median(const VoxelImageT<T>& vImg, int nIter = 1);
+template <typename T> bool smoothBilateral(VoxelImageT<T>& vImg, int nItrs, int kernRad, double sigmavv, double sharpFact);
 
 }  // namespace vxhl

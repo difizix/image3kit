@@ -1,6 +1,7 @@
 //! Throughput of vxhl:: ops per backend vs voxlib (not run by ctest).
 //! Usage: voxlide_bench [n=256] [reps=3] [block=6] [backend=all] [op=all]
-//! ops: mode26, median, median5 (5 iterations: shows the device-resident ping-pong).
+//! ops: mode26, median, median5 (5 iterations: device-resident ping-pong),
+//!      bilat1x1 / bilat2x3 (smooth_bilateral nItrs x kernRad, f64).
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -36,6 +37,8 @@ int main(int argc, char** argv) {
         {"mode26", [](Img& m) { vxhl::mode26(m, short(2)); }},
         {"median", [](Img& m) { m = vxhl::median(m, 1); }},
         {"median5", [](Img& m) { m = vxhl::median(m, 5); }},
+        {"bilat1x1", [](Img& m) { vxhl::smoothBilateral(m, 1, 1, 16.0, 0.1); }},
+        {"bilat2x3", [](Img& m) { vxhl::smoothBilateral(m, 2, 3, 16.0, 0.1); }},
     };
     // GPU first: on APUs (shared CPU/GPU power budget) a preceding all-core CPU run
     // throttles the GPU for a while, which skews its timing by ~1.6x.

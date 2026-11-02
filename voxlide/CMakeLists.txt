@@ -71,10 +71,13 @@ if(_VOXLIDE_HALIDE)
   target_compile_definitions(voxlide PRIVATE IMAGE3KIT_HAS_HALIDE=1)
 endif()
 
-# ---- voxlide_add_op(<op> GENERATOR <file> [TYPES u8 u16 i32 f32])
+# ---- voxlide_add_op(<op> GENERATOR <file> [TYPES u8 u16 i32 f32] [IMAGES <input>...] [FP64])
 # Builds <op>_{cpu,gpu}_<type> kernels and writes <op>_kernels.h with the table
 # vxhl::kernels::<op><T>{cpu, gpu}. Types not listed (or no Halide) get nullptr entries,
 # so the op falls back to voxlib for them.
+#   IMAGES: extra image Inputs of the generator with the op's voxel type (e.g. Snapshot args).
+#   FP64:   the kernel computes in double to match voxlib bit for bit: strict IEEE float
+#           (no FMA fusion) and vk_float64 on Vulkan; Metal has no doubles, so no GPU kernel.
 set(VOXLIDE_TYPES u8 u16 i32 f32)
 set(_vxhl_hl_u8 uint8)   # Halide type name
 set(_vxhl_hl_u16 uint16)
@@ -86,7 +89,7 @@ set(_vxhl_c_i32 int32_t)
 set(_vxhl_c_f32 float)
 
 function(voxlide_add_op OP)
-  cmake_parse_arguments(A "" "GENERATOR" "TYPES" ${ARGN})
+  cmake_parse_arguments(A "FP64" "GENERATOR" "TYPES;IMAGES" ${ARGN})
   if(NOT A_TYPES)
     set(A_TYPES ${VOXLIDE_TYPES})
   endif()
@@ -95,21 +98,36 @@ function(voxlide_add_op OP)
   if(_VOXLIDE_HALIDE)
     add_halide_generator(${OP}.gen SOURCES ${A_GENERATOR})
     target_include_directories(${OP}.gen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/generators)
+    set(_devs cpu gpu)
+    set(_cpu_tgt host)
+    set(_gpu_tgt ${VOXLIDE_GPU_TARGET})
+    if(A_FP64)
+      set(_cpu_tgt host-strict_float)
+      if(VOXLIDE_GPU_TARGET MATCHES "vulkan")
+        set(_gpu_tgt ${VOXLIDE_GPU_TARGET}-vk_float64-strict_float)
+      else()
+        set(_devs cpu)
+      endif()
+    endif()
     foreach(t IN LISTS A_TYPES)
-      foreach(dev cpu gpu)
-        if(dev STREQUAL "cpu")
-          set(_tgt host)
-        else()
-          set(_tgt ${VOXLIDE_GPU_TARGET})
-        endif()
+      set(_params input.type=${_vxhl_hl_${t}} output.type=${_vxhl_hl_${t}})
+      foreach(img IN LISTS A_IMAGES)
+        list(APPEND _params ${img}.type=${_vxhl_hl_${t}})
+      endforeach()
+      foreach(dev IN LISTS _devs)
         add_halide_library(${OP}_${dev}_${t} FROM ${OP}.gen GENERATOR ${OP}
-                           USE_RUNTIME voxlide_runtime TARGETS ${_tgt}
-                           PARAMS input.type=${_vxhl_hl_${t}} output.type=${_vxhl_hl_${t}})
+                           USE_RUNTIME voxlide_runtime TARGETS ${_${dev}_tgt} PARAMS ${_params})
         target_link_libraries(voxlide PRIVATE ${OP}_${dev}_${t})
         string(APPEND _incl "#include \"${OP}_${dev}_${t}.h\"\n")
       endforeach()
+      if("gpu" IN_LIST _devs)
+        set(_gpu "&${OP}_gpu_${t}")
+      else()
+        set(_gpu "nullptr")
+      endif()
       string(APPEND _spec "template <> struct ${OP}<${_vxhl_c_${t}}> {\n"
-                          "    static constexpr auto cpu = &${OP}_cpu_${t}, gpu = &${OP}_gpu_${t};\n};\n")
+                          "    static constexpr auto cpu = &${OP}_cpu_${t};\n"
+                          "    static constexpr auto gpu = ${_gpu};\n};\n")
     endforeach()
   endif()
   file(CONFIGURE OUTPUT "${VOXLIDE_GEN_DIR}/${OP}_kernels.h" @ONLY CONTENT
@@ -129,6 +147,7 @@ endfunction()
 # ---- ported ops: one line each (also add a row to ops_table.h)
 voxlide_add_op(mode26 GENERATOR generators/mode26_gen.cpp)
 voxlide_add_op(median GENERATOR generators/median_gen.cpp)
+voxlide_add_op(smoothBilateral GENERATOR generators/smooth_bilateral_gen.cpp IMAGES orig FP64)
 
 if(BUILD_TESTING)
   add_subdirectory(tests)

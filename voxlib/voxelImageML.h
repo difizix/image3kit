@@ -253,7 +253,7 @@ void bilateralX(VoxelImageT<T>& vImg, int kernRad, int Xstp,
   OMPFor()
   for (int k=kernRad; k<vxls.nz()-kernRad; ++k)
   {
-    if (k%(vxls.nz()/20) == 0) (std::cout<<".").flush();
+    if (vxls.nz()>=20 && k%(vxls.nz()/20) == 0) (std::cout<<".").flush();
     for (int j=kernRad; j<vxls.ny()-kernRad; ++j)
     {
       for (int i=kernRad; i<vxls.nx()-kernRad; ++i)
@@ -323,7 +323,7 @@ void bilateralGauss(VoxelImageT<T>& vImg, int kernRad, float sigmaSqr=16, float 
   OMPFor()
   for (int k=kernRad; k<vxls.nz()-kernRad; ++k)
   {
-    if (k%(vxls.nz()/20) == 0) (std::cout<<".").flush();
+    if (vxls.nz()>=20 && k%(vxls.nz()/20) == 0) (std::cout<<".").flush();
     for (int j=kernRad; j<vxls.ny()-kernRad; ++j)
     {
       for (int i=kernRad; i<vxls.nx()-kernRad; ++i)
@@ -376,7 +376,7 @@ void biLateral(VoxelImageT<T>& vImg, int kernRad, double sigmad, double sharpFac
   double  sigma = sigmad;
   for (int k=kernRad; k<vxls.nz()-kernRad; ++k)
   {
-    if (k%(vxls.nz()/20) == 0) (std::cout<<".").flush();
+    if (vxls.nz()>=20 && k%(vxls.nz()/20) == 0) (std::cout<<".").flush();
     for (int j=kernRad; j<vxls.ny()-kernRad; ++j)
     {
       for (int i=kernRad; i<vxls.nx()-kernRad; ++i)
@@ -420,7 +420,7 @@ void biLateralIterative(VoxelImageT<T>& vImg, const int kernRad, const double si
    const VoxelImageT<T> vxls=vImg;
    for (int k=1; k<vxls.nz()-1; ++k)
     {
-    if (k%(vxls.nz()/10) == 0) (std::cout<<".").flush();
+    if (vxls.nz()>=10 && k%(vxls.nz()/10) == 0) (std::cout<<".").flush();
         OMPFor()
         for (int j=1; j<vxls.ny()-1; ++j)
          for (int i=1; i<vxls.nx()-1; ++i)

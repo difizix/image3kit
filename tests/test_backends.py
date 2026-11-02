@@ -47,3 +47,15 @@ def test_median_matches_voxlib(backend, cls, n_iter):
     with ik.backend(backend):
         got.median_filter(n_iter=n_iter)
     assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+def test_smooth_bilateral_matches_voxlib(backend, cls):
+    ref = _labelled(cls, (17, 23, 31))
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        ref.smooth_bilateral(iterations=2, kernel_radius=2, sigma_val=16.0, sharpness=0.1)
+    with ik.backend(backend):
+        got.smooth_bilateral(iterations=2, kernel_radius=2, sigma_val=16.0, sharpness=0.1)
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))

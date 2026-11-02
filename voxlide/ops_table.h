@@ -17,7 +17,8 @@ struct OpTraits {
 #define VXHL_OPS(X) \
 /*  op      cls  radius iterated stats */ \
   X(mode26, 'B', 1,     false,   false) \
-  X(median, 'C', 1,     true,    false)
+  X(median, 'C', 1,     true,    false) \
+  X(smoothBilateral, 'C', 1, true, false) /* radius per pass; kernRad passes per iteration */
 // clang-format on
 
 namespace op {

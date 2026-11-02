@@ -6,16 +6,22 @@
 
 // One entry per ported op (keep in sync with voxlide/ops_table.h).
 #define VXOP_LIST(X) X(mode26) X(median)
+#define VXOP_LIST_VOXLIB(X) X(smoothBilateral)  // voxlib functions in namespace VoxLib
 
 #ifdef IMAGE3KIT_HAS_VOXLIDE
 #include "voxlide.h"
 #define VXOP_USE_(op) using vxhl::op;
+#define VXOP_USE_VOXLIB_(op) using vxhl::op;
 #else
 #include "voxelImageML.h"
+#include "voxelImageProcess.h"
 #define VXOP_USE_(op) using ::op;
+#define VXOP_USE_VOXLIB_(op) using VoxLib::op;
 #endif
 
 namespace vxop {
 VXOP_LIST(VXOP_USE_)
+VXOP_LIST_VOXLIB(VXOP_USE_VOXLIB_)
 }
 #undef VXOP_USE_
+#undef VXOP_USE_VOXLIB_

@@ -464,7 +464,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
             VoxLib::growOutSideValue(m, vo, vnew, nHoleSize);
         }, arg("val_old")=0, arg("val_new")=2, arg("hole_size")=5)
     .def("smooth_bilateral", [](SelfT &m, int nItrs, int kernRad, double sigmavv, double sharpFact) {
-            VoxLib::smoothBilateral(m, nItrs, kernRad, sigmavv, sharpFact);
+            vxop::smoothBilateral(m, nItrs, kernRad, sigmavv, sharpFact);
         }, arg("iterations")=1, arg("kernel_radius")=1, arg("sigma_val")=16.0, arg("sharpness")=0.1,
         "bilateral smoothing filter")
     #ifdef SVG
