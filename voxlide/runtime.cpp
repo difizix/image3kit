@@ -138,7 +138,7 @@ std::string take_halide_error() {
 #endif
 }
 
-Choice resolve(const OpTraits& op, long long nvox, bool hasCpu, bool hasGpu, bool gpuBroken) {
+Choice resolve(const OpTraits& op, bool hasCpu, bool hasGpu, bool gpuBroken) {
     ensure_init();
     switch (get_backend()) {
         case Backend::Voxlib:
@@ -153,8 +153,8 @@ Choice resolve(const OpTraits& op, long long nvox, bool hasCpu, bool hasGpu, boo
         case Backend::Auto:
             break;
     }
-    if (nvox < op.min_voxels) return {Backend::Voxlib, false};
-    if (hasGpu && !gpuBroken && nvox >= op.gpu_min_voxels && gpu_usable()) return {Backend::Gpu, false};
+    // No size or speed thresholds: Auto never offloads to the CPU while the GPU works.
+    if (hasGpu && !gpuBroken && gpu_usable()) return {Backend::Gpu, false};
     if (hasCpu) return {Backend::HalideCpu, false};
     return {Backend::Voxlib, false};
 }

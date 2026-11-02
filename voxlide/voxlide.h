@@ -12,7 +12,7 @@
 namespace vxhl {
 
 enum class Backend {
-    Auto,       //!< GPU for large images if usable, else Halide CPU, else voxlib; never throws on GPU problems
+    Auto,       //!< GPU if usable, else Halide CPU, else voxlib; a failing GPU kernel falls back (with a warning)
     Voxlib,     //!< reference OpenMP C++ implementation (voxlib)
     HalideCpu,  //!< Halide AOT vectorised + parallel CPU schedule
     Gpu         //!< Halide AOT GPU schedule (Vulkan; Metal on macOS)

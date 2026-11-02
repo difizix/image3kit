@@ -27,7 +27,7 @@ struct Choice {
 };
 
 //! The only place the requested backend (set_backend / $IMAGE3KIT_BACKEND) is read.
-Choice resolve(const OpTraits& op, long long nvox, bool hasCpu, bool hasGpu, bool gpuBroken);
+Choice resolve(const OpTraits& op, bool hasCpu, bool hasGpu, bool gpuBroken);
 std::size_t max_slab_bytes(Backend b);
 std::string take_halide_error();  //!< message captured by voxlide's Halide error handler
 
@@ -102,8 +102,7 @@ void run_stencil(VoxelImageT<T>& img, int nIter, Ref&& ref, S... s) {
     constexpr bool hasCpu = !std::is_null_pointer_v<std::remove_cv_t<decltype(K::cpu)>>;
     constexpr bool hasGpu = !std::is_null_pointer_v<std::remove_cv_t<decltype(K::gpu)>>;
     static std::atomic<bool> gpuBroken{false};  // per op × type
-    const int3 n = img.size3();
-    Choice c = resolve(Op::traits, (long long)n.x * n.y * n.z, hasCpu, hasGpu, gpuBroken);
+    Choice c = resolve(Op::traits, hasCpu, hasGpu, gpuBroken);
 
 #ifdef IMAGE3KIT_HAS_HALIDE
     while (c.backend != Backend::Voxlib) {
