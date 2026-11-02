@@ -11,6 +11,7 @@
 #include "voxelNoise.h"
 #include "VxlDifImg.h"
 #include "voxelRegions.h"
+#include "vxops.h"
 
 
 void vxlToFoam(VoxelImage& vxlImg);
@@ -357,7 +358,9 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
         }, arg("n_same_neighbors"),
          "Apply mode filter based on nearest 6 neighbor voxels.\n"
          "returns number of changed voxels used for iteration termination")
-    .def("mode26", [](SelfT &m, int nMinD) { mode26(m, nMinD); })
+    .def("mode26", [](SelfT &m, int nMinD) { vxop::mode26(m, short(nMinD)); }, arg("n_min_diff"),
+         "Apply mode filter based on the 26 neighbour voxels: a voxel takes its most frequent\n"
+         "neighbour value if that count exceeds the count of its own value by n_min_diff.")
     .def("median_filter", [](SelfT &m) { m = median(m); }, "Apply a 1+6-neighbour median filter.")
     .def("median_x", [](SelfT &m) { m = medianx(m); }, "Apply median filter with kernel size of 1 voxels in x-direction")
     .def("median_y", [](SelfT &m) { m = mediany(m); }, "Apply median filter with kernel size of 1 voxels in y-direction")

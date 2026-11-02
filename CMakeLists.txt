@@ -149,8 +149,13 @@ if(BUILD_TESTING)
   enable_testing()
 endif()
 
+set(IMAGE3KIT_HALIDE AUTO CACHE STRING
+    "Halide kernels for voxlide: AUTO (use an installed Halide), ON (also fetch the release), OFF")
+set_property(CACHE IMAGE3KIT_HALIDE PROPERTY STRINGS AUTO ON OFF)
+
 add_subdirectory(common)
 add_subdirectory(voxlib)
+add_subdirectory(voxlide)
 add_subdirectory(vxlToFoam)
 add_subdirectory(vxlToSurf)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -185,13 +190,14 @@ target_include_directories(_core PRIVATE pkgs/stb)
 target_include_directories(_core PRIVATE pkgs/zlib)
 target_include_directories(_core PRIVATE pkgs/svplot)
 
-target_compile_definitions(_core PRIVATE VERSION_INFO=${PROJECT_VERSION})
+target_compile_definitions(_core PRIVATE VERSION_INFO=${PROJECT_VERSION} IMAGE3KIT_HAS_VOXLIDE=1)
 
 set_property(TARGET _core PROPERTY CXX_STANDARD 23)
 
 target_link_libraries(
   _core
   PRIVATE voxlib
+          voxlide
           vxlToFoam
           vxlToSurf
           Python::Module

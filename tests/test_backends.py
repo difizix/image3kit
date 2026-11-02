@@ -1,0 +1,36 @@
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+import image3kit as ik
+
+
+def _labelled(cls, shape, seed=1):
+    img = cls(shape, 0)
+    a = np.array(img, copy=False)
+    a[...] = np.random.default_rng(seed).integers(1, 5, a.shape) * 10 + 5
+    return img
+
+
+def test_backend_setting():
+    assert "voxlib" in ik.available_backends()
+    with ik.backend("voxlib"):
+        assert ik.get_backend() == "voxlib"
+    with ik.backend("cpu"):  # alias
+        assert ik.get_backend() == "voxlib"
+    with pytest.raises(ValueError):
+        ik.set_backend("no-such-backend")
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+def test_mode26_matches_voxlib(backend, cls):
+    shape = (17, 23, 31)  # not a cube, not a multiple of the vector width
+    ref = _labelled(cls, shape)
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        ref.mode26(2)
+    with ik.backend(backend):
+        got.mode26(2)
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))

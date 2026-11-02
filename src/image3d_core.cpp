@@ -3,6 +3,7 @@
 #include "shapeToVoxel.h"
 #include "voxelRegions.h"
 #include <pybind11/iostream.h>
+#include "voxlide.h"
 
 namespace py = pybind11;
 
@@ -49,6 +50,20 @@ PYBIND11_MODULE(_core, mod, py::mod_gil_not_used()) {
     bind_VxlImgI32(voxlib, "VxlImgI32");
     bind_VxlImgF32(voxlib, "VxlImgF32");
     bind_VxlImgU16(voxlib, "VxlImgU16");
+
+    // Backend for ops with a voxlide (Halide) port; see docs/plans/parallelism_shared.md §1.
+    voxlib.def("set_backend", [](const std::string& name) { vxhl::set_backend(vxhl::parse_backend(name)); },
+        py::arg("name"),
+        "Set the backend for ops with a Halide port: 'auto', 'voxlib' (alias 'cpu'), 'halide' or 'gpu'.\n"
+        "Default: $IMAGE3KIT_BACKEND, else 'auto' (GPU for large images, else Halide CPU, else voxlib).\n"
+        "Results are identical on every backend.");
+    voxlib.def("get_backend", [] { return std::string(vxhl::backend_name(vxhl::get_backend())); },
+        "Name of the current backend.");
+    voxlib.def("available_backends", [] {
+            std::vector<std::string> v;
+            for (auto b : vxhl::available_backends()) v.push_back(vxhl::backend_name(b));
+            return v;
+        }, "Backends usable on this machine, e.g. ['voxlib', 'halide', 'gpu'].");
 
     // TODO: What does it return ? casted image or a base-class, we shall create an adaptor that does the cast automatically
     voxlib.def("read_image",

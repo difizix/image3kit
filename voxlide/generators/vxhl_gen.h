@@ -1,0 +1,46 @@
+#pragma once
+//! Shared pieces for voxlide Halide generators (build-time only).
+//!
+//! Kernel ABI, fixed for every stencil op so runtime.h can call any kernel the same way:
+//!     int <op>_<cpu|gpu>_<type>(input, gnx, gny, gnz, <op scalars...>, output)
+//! `input` covers the piece being processed plus its halo, `output` only the piece's
+//! interior, both in GLOBAL coordinates (buffer mins may be non-zero). gnx/gny/gnz are the
+//! whole image's size, so image-boundary rules never use the buffer extents: a z-slab's
+//! edges are not image edges.
+
+#include "Halide.h"
+
+//! Declare as the first members of every stencil generator, before the op's own Inputs.
+#define VXHL_STENCIL_INPUTS                                  \
+    Input<Buffer<void, 3>> input{"input"};                   \
+    Input<int32_t> gnx{"gnx"}, gny{"gny"}, gnz{"gnz"};
+
+namespace vxhl_gen {
+
+using namespace Halide;
+
+//! True where (x,y,z) is at least `r` voxels from every global image face,
+//! i.e. the region voxlib's forAllkji_m_seq(r, …) loops visit.
+inline Expr interior(Expr x, Expr y, Expr z, Expr gnx, Expr gny, Expr gnz, int r) {
+    return x >= r && x < gnx - r && y >= r && y < gny - r && z >= r && z < gnz - r;
+}
+
+//! C++ integer division (truncates toward zero) for a runtime int32 `a` and positive constant `b`.
+inline Expr cdiv(Expr a, int b) {
+    return select(a >= 0, a / b, -((-a) / b));
+}
+
+//! Default schedule for a pointwise-output stencil: CPU vectorises x (tails guarded, so any
+//! nx works) and parallelises over fused y·z; GPU uses 2D x–y tiles with z as a block dim.
+inline void schedule_stencil(Func out, const Target& t, Type vtype) {
+    Var x = out.args()[0], y = out.args()[1], z = out.args()[2];
+    if (t.has_gpu_feature()) {
+        Var xi{"xi"}, yi{"yi"}, zi{"zi"};
+        out.gpu_tile(x, y, z, xi, yi, zi, 8, 8, 1, TailStrategy::GuardWithIf);
+    } else {
+        Var yz{"yz"};
+        out.fuse(y, z, yz).parallel(yz).vectorize(x, t.natural_vector_size(vtype), TailStrategy::GuardWithIf);
+    }
+}
+
+}  // namespace vxhl_gen
