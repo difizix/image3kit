@@ -37,6 +37,14 @@ std::string take_halide_error();  //!< message captured by voxlide's Halide erro
 struct Snapshot {
     int every;
 };
+
+//! How run_stencil applies the kernel: n passes, each reading `radius` voxels around the
+//! output (0: the op's traits radius). Converts from an int pass count.
+struct Passes {
+    int n = 1;
+    int radius = 0;
+    Passes(int n_, int r = 0) : n(n_), radius(r) {}
+};
 template <typename S> constexpr int snapshot_every(const S&) { return 0; }
 constexpr int snapshot_every(const Snapshot& s) { return s.every; }
 
@@ -84,7 +92,7 @@ void invoke_box(Fn fn, bool gpu, VoxelField<T>& in, VoxelField<T>* snap, VoxelFi
 //!  - image larger than max_slab_bytes(): every pass is a pass over z-slabs with a halo
 //!    of the op's radius, through host memory.
 template <typename Op, typename Fn, typename T, typename... S>
-void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, const S&... s) {
+void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, int radius, const S&... s) {
     const int3 n = img.size3();
     const bool gpu = b == Backend::Gpu;
     int every = 0;
@@ -118,7 +126,7 @@ void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, const S&... s)
         }
         if (gpu && view(cur).copy_to_host() != 0) throw std::runtime_error(take_halide_error());
     } else {
-        const auto boxes = splitZ(n, nSlabs, Op::traits.radius);
+        const auto boxes = splitZ(n, nSlabs, radius);
         for (int p = 0; p < nIter; ++p) {
             if (every && p % every == 0) snap = cur;
             const int out = pick(cur, snap);
@@ -132,11 +140,12 @@ void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, const S&... s)
 
 //! The one implementation every ported op goes through.
 //! Op: vxhl::op::<name> (traits); K: kernels::<name><T> (generated, cpu/gpu may be nullptr);
-//! nIter: kernel applications (iterated ops; 1 otherwise); ref: the voxlib reference,
+//! ps: kernel passes (iterated ops; 1 otherwise) and, for parameter-dependent radii, the halo; ref: the voxlib reference,
 //! applied in place, doing all nIter iterations itself; s: the kernel's op scalars and
 //! Snapshot{} image arguments, in the generator's Input order.
 template <typename Op, typename K, typename T, typename Ref, typename... S>
-void run_stencil(VoxelImageT<T>& img, int nIter, Ref&& ref, const S&... s) {
+void run_stencil(VoxelImageT<T>& img, Passes ps, Ref&& ref, const S&... s) {
+    const int nIter = ps.n, radius = ps.radius ? ps.radius : Op::traits.radius;
     if (nIter <= 0) return;
     constexpr bool hasCpu = !std::is_null_pointer_v<std::remove_cv_t<decltype(K::cpu)>>;
     constexpr bool hasGpu = !std::is_null_pointer_v<std::remove_cv_t<decltype(K::gpu)>>;
@@ -146,8 +155,8 @@ void run_stencil(VoxelImageT<T>& img, int nIter, Ref&& ref, const S&... s) {
 #ifdef IMAGE3KIT_HAS_HALIDE
     while (c.backend != Backend::Voxlib) {
         try {
-            if constexpr (hasGpu) if (c.backend == Backend::Gpu) { run_kernel<Op>(K::gpu, c.backend, img, nIter, s...); return; }
-            if constexpr (hasCpu) if (c.backend == Backend::HalideCpu) { run_kernel<Op>(K::cpu, c.backend, img, nIter, s...); return; }
+            if constexpr (hasGpu) if (c.backend == Backend::Gpu) { run_kernel<Op>(K::gpu, c.backend, img, nIter, radius, s...); return; }
+            if constexpr (hasCpu) if (c.backend == Backend::HalideCpu) { run_kernel<Op>(K::cpu, c.backend, img, nIter, radius, s...); return; }
             throw std::logic_error("no kernel for resolved backend");
         } catch (const std::exception& e) {
             if (c.strict) throw std::runtime_error(std::string("vxhl::") + Op::traits.name + " on " +

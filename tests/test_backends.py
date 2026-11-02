@@ -59,3 +59,21 @@ def test_smooth_bilateral_matches_voxlib(backend, cls):
     with ik.backend(backend):
         got.smooth_bilateral(iterations=2, kernel_radius=2, sigma_val=16.0, sharpness=0.1)
     assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+def test_bilateral_wide_matches_voxlib(backend, cls):
+    ref = _labelled(cls, (17, 23, 31))
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        ref.bilateral_wide(iterations=2, kernel_radius=1, x_step=2)
+    with ik.backend(backend):
+        got.bilateral_wide(iterations=2, kernel_radius=1, x_step=2)
+    a, b = np.array(ref, copy=False).astype(np.float64), np.array(got, copy=False).astype(np.float64)
+    if backend != "gpu":  # Halide CPU is exact; GPU float32 is not (no strict_float on Vulkan)
+        assert np.array_equal(a, b)
+    elif cls is ik.VxlImgF32:
+        assert np.abs(a - b).max() <= 2.0
+    else:
+        assert np.abs(a - b).max() <= 1 and np.count_nonzero(a != b) <= 1e-4 * a.size + 1

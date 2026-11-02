@@ -8,6 +8,8 @@
 //! whole image's size, so image-boundary rules never use the buffer extents: a z-slab's
 //! edges are not image edges.
 
+#include <vector>
+
 #include "Halide.h"
 
 //! Declare as the first members of every stencil generator, before the op's own Inputs.
@@ -21,7 +23,7 @@ using namespace Halide;
 
 //! True where (x,y,z) is at least `r` voxels from every global image face,
 //! i.e. the region voxlib's forAllkji_m_seq(r, …) loops visit.
-inline Expr interior(Expr x, Expr y, Expr z, Expr gnx, Expr gny, Expr gnz, int r) {
+inline Expr interior(Expr x, Expr y, Expr z, Expr gnx, Expr gny, Expr gnz, Expr r) {
     return x >= r && x < gnx - r && y >= r && y < gny - r && z >= r && z < gnz - r;
 }
 
@@ -30,18 +32,27 @@ inline Expr cdiv(Expr a, int b) {
     return select(a >= 0, a / b, -((-a) / b));
 }
 
-//! Default schedule for a pointwise-output stencil: CPU vectorises x (tails guarded, so any
-//! nx works) and parallelises over chunks of 32 fused y·z rows (one row per task is too fine
-//! for cheap ops); GPU uses 2D x–y tiles with z as a block dim.
-inline void schedule_stencil(Func out, const Target& t, Type vtype) {
+//! Default schedule for a stencil: CPU vectorises x (tails guarded, so any nx works) and
+//! parallelises over chunks of 32 fused y·z rows (one row per task is too fine for cheap ops);
+//! GPU uses 2D x–y tiles with z as a block dim. `perVoxel`: Funcs with update definitions
+//! (RDom reductions over the neighbourhood) computed per output vector / GPU thread.
+inline void schedule_stencil(Func out, const Target& t, Type vtype, const std::vector<Func>& perVoxel = {}) {
     Var x = out.args()[0], y = out.args()[1], z = out.args()[2];
     if (t.has_gpu_feature()) {
         Var xi{"xi"}, yi{"yi"}, zi{"zi"};
         out.gpu_tile(x, y, z, xi, yi, zi, 8, 8, 1, TailStrategy::GuardWithIf);
+        for (Func f : perVoxel) f.compute_at(out, xi);
     } else {
-        Var yz{"yz"}, yzo{"yzo"}, yzi{"yzi"};
+        const int vec = t.natural_vector_size(vtype);
+        Var yz{"yz"}, yzo{"yzo"}, yzi{"yzi"}, xo{"xo"}, xi{"xi"};
         out.fuse(y, z, yz).split(yz, yzo, yzi, 32, TailStrategy::GuardWithIf).parallel(yzo)
-            .vectorize(x, t.natural_vector_size(vtype), TailStrategy::GuardWithIf);
+            .split(x, xo, xi, vec, TailStrategy::GuardWithIf).vectorize(xi);
+        for (Func f : perVoxel) {
+            const Var fx = f.args()[0];
+            f.compute_at(out, xo).vectorize(fx, vec, TailStrategy::GuardWithIf);
+            for (int u = 0; u < f.num_update_definitions(); ++u)
+                f.update(u).vectorize(fx, vec, TailStrategy::GuardWithIf);
+        }
     }
 }
 

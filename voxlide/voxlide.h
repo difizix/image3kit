@@ -38,5 +38,9 @@ void set_max_slab_bytes(std::size_t bytes);
 template <typename T> void mode26(VoxelImageT<T>& vImg, short minDif);
 template <typename T> VoxelImageT<T> median(const VoxelImageT<T>& vImg, int nIter = 1);
 template <typename T> bool smoothBilateral(VoxelImageT<T>& vImg, int nItrs, int kernRad, double sigmavv, double sharpFact);
+template <typename T> void bilateralX(VoxelImageT<T>& vImg, int kernRad, int Xstp, float sigmaSqr = 16, float sharpFact = 0.05,
+                                      float sigmaGaussSqr = 2., float capmin = 0, float capmax = fmaxT(T));
+template <typename T> bool _bilateralX(VoxelImageT<T>& vImg, int nItrs, int kernRad, int Xstp, double sigmavv,
+                                       double sharpFact, double sigmadd);
 
 }  // namespace vxhl

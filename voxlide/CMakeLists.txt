@@ -71,11 +71,12 @@ if(_VOXLIDE_HALIDE)
   target_compile_definitions(voxlide PRIVATE IMAGE3KIT_HAS_HALIDE=1)
 endif()
 
-# ---- voxlide_add_op(<op> GENERATOR <file> [TYPES u8 u16 i32 f32] [IMAGES <input>...] [FP64])
+# ---- voxlide_add_op(<op> GENERATOR <file> [TYPES u8 u16 i32 f32] [IMAGES <input>...] [STRICT_FLOAT] [FP64])
 # Builds <op>_{cpu,gpu}_<type> kernels and writes <op>_kernels.h with the table
 # vxhl::kernels::<op><T>{cpu, gpu}. Types not listed (or no Halide) get nullptr entries,
 # so the op falls back to voxlib for them.
 #   IMAGES: extra image Inputs of the generator with the op's voxel type (e.g. Snapshot args).
+#   STRICT_FLOAT: float32 in voxlib's exact operation order (no FMA fusion, no reassociation).
 #   FP64:   the kernel computes in double to match voxlib bit for bit: strict IEEE float
 #           (no FMA fusion) and vk_float64 on Vulkan; Metal has no doubles, so no GPU kernel.
 set(VOXLIDE_TYPES u8 u16 i32 f32)
@@ -89,7 +90,7 @@ set(_vxhl_c_i32 int32_t)
 set(_vxhl_c_f32 float)
 
 function(voxlide_add_op OP)
-  cmake_parse_arguments(A "FP64" "GENERATOR" "TYPES;IMAGES" ${ARGN})
+  cmake_parse_arguments(A "FP64;STRICT_FLOAT" "GENERATOR" "TYPES;IMAGES" ${ARGN})
   if(NOT A_TYPES)
     set(A_TYPES ${VOXLIDE_TYPES})
   endif()
@@ -101,6 +102,10 @@ function(voxlide_add_op OP)
     set(_devs cpu gpu)
     set(_cpu_tgt host)
     set(_gpu_tgt ${VOXLIDE_GPU_TARGET})
+    if(A_STRICT_FLOAT AND NOT A_FP64)
+      set(_cpu_tgt host-strict_float)
+      set(_gpu_tgt ${VOXLIDE_GPU_TARGET}-strict_float)
+    endif()
     if(A_FP64)
       set(_cpu_tgt host-strict_float)
       if(VOXLIDE_GPU_TARGET MATCHES "vulkan")
@@ -148,6 +153,7 @@ endfunction()
 voxlide_add_op(mode26 GENERATOR generators/mode26_gen.cpp)
 voxlide_add_op(median GENERATOR generators/median_gen.cpp)
 voxlide_add_op(smoothBilateral GENERATOR generators/smooth_bilateral_gen.cpp IMAGES orig FP64)
+voxlide_add_op(bilateralX GENERATOR generators/bilateral_x_gen.cpp STRICT_FLOAT)
 
 if(BUILD_TESTING)
   add_subdirectory(tests)
