@@ -34,3 +34,16 @@ def test_mode26_matches_voxlib(backend, cls):
     with ik.backend(backend):
         got.mode26(2)
     assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+@pytest.mark.parametrize("n_iter", [1, 3])
+def test_median_matches_voxlib(backend, cls, n_iter):
+    ref = _labelled(cls, (17, 23, 31))
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        ref.median_filter(n_iter)
+    with ik.backend(backend):
+        got.median_filter(n_iter=n_iter)
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))

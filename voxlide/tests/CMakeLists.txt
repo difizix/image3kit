@@ -1,4 +1,4 @@
-add_executable(voxlide_tests ../../voxlib/tests/test_main.cpp test_mode26.cpp)
+add_executable(voxlide_tests ../../voxlib/tests/test_main.cpp test_mode26.cpp test_median.cpp)
 target_link_libraries(voxlide_tests PRIVATE voxlide OpenMP::OpenMP_CXX)
 set_target_properties(voxlide_tests PROPERTIES CXX_STANDARD 23)
 add_test(NAME voxlide_tests COMMAND voxlide_tests)

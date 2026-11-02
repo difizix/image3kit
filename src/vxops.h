@@ -5,7 +5,7 @@
 //! Same arguments and results either way; this is the only voxlide #ifdef in the bindings.
 
 // One entry per ported op (keep in sync with voxlide/ops_table.h).
-#define VXOP_LIST(X) X(mode26)
+#define VXOP_LIST(X) X(mode26) X(median)
 
 #ifdef IMAGE3KIT_HAS_VOXLIDE
 #include "voxlide.h"

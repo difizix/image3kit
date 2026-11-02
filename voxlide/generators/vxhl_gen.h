@@ -31,15 +31,17 @@ inline Expr cdiv(Expr a, int b) {
 }
 
 //! Default schedule for a pointwise-output stencil: CPU vectorises x (tails guarded, so any
-//! nx works) and parallelises over fused y·z; GPU uses 2D x–y tiles with z as a block dim.
+//! nx works) and parallelises over chunks of 32 fused y·z rows (one row per task is too fine
+//! for cheap ops); GPU uses 2D x–y tiles with z as a block dim.
 inline void schedule_stencil(Func out, const Target& t, Type vtype) {
     Var x = out.args()[0], y = out.args()[1], z = out.args()[2];
     if (t.has_gpu_feature()) {
         Var xi{"xi"}, yi{"yi"}, zi{"zi"};
         out.gpu_tile(x, y, z, xi, yi, zi, 8, 8, 1, TailStrategy::GuardWithIf);
     } else {
-        Var yz{"yz"};
-        out.fuse(y, z, yz).parallel(yz).vectorize(x, t.natural_vector_size(vtype), TailStrategy::GuardWithIf);
+        Var yz{"yz"}, yzo{"yzo"}, yzi{"yzi"};
+        out.fuse(y, z, yz).split(yz, yzo, yzi, 32, TailStrategy::GuardWithIf).parallel(yzo)
+            .vectorize(x, t.natural_vector_size(vtype), TailStrategy::GuardWithIf);
     }
 }
 

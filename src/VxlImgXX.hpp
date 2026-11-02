@@ -361,7 +361,8 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     .def("mode26", [](SelfT &m, int nMinD) { vxop::mode26(m, short(nMinD)); }, arg("n_min_diff"),
          "Apply mode filter based on the 26 neighbour voxels: a voxel takes its most frequent\n"
          "neighbour value if that count exceeds the count of its own value by n_min_diff.")
-    .def("median_filter", [](SelfT &m) { m = median(m); }, "Apply a 1+6-neighbour median filter.")
+    .def("median_filter", [](SelfT &m, int nIter) { m = vxop::median(m, nIter); }, arg("n_iter") = 1,
+         "Apply a 1+6-neighbour median filter n_iter times; voxels on the image faces are kept.")
     .def("median_x", [](SelfT &m) { m = medianx(m); }, "Apply median filter with kernel size of 1 voxels in x-direction")
     .def("median_y", [](SelfT &m) { m = mediany(m); }, "Apply median filter with kernel size of 1 voxels in y-direction")
     .def("median_z", [](SelfT &m) { m = medianz(m); }, "Apply median filter with kernel size of 1 voxels in z-direction")

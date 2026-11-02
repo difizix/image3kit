@@ -128,6 +128,7 @@ endfunction()
 
 # ---- ported ops: one line each (also add a row to ops_table.h)
 voxlide_add_op(mode26 GENERATOR generators/mode26_gen.cpp)
+voxlide_add_op(median GENERATOR generators/median_gen.cpp)
 
 if(BUILD_TESTING)
   add_subdirectory(tests)

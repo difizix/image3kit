@@ -15,10 +15,16 @@ struct OpTraits {
     long long gpu_min_voxels;  //!< Auto: below this, prefer Halide CPU over GPU
 };
 
+//! Auto never picks the GPU for now: Halide's Vulkan device->host copy reads uncached memory
+//! (~0.25 GB/s on RADV), so one op on the GPU is slower than Halide CPU at every size
+//! (parallelism_shared.md §9). Lower this once downloads are fast or ops are chained on device.
+#define VXHL_GPU_NOT_IN_AUTO (1LL << 62)
+
 // clang-format off
 #define VXHL_OPS(X) \
 /*  op      cls  radius iterated stats  min_voxels  gpu_min_voxels */ \
-  X(mode26, 'B', 1,     false,   false, 16*16*16,   128*128*128)
+  X(mode26, 'B', 1,     false,   false, 16*16*16,   VXHL_GPU_NOT_IN_AUTO) \
+  X(median, 'C', 1,     true,    false, 16*16*16,   VXHL_GPU_NOT_IN_AUTO)
 // clang-format on
 
 namespace op {
