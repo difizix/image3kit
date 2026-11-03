@@ -193,12 +193,12 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     .def("read_ascii", &SelfT::readAscii, arg("filename"), arg("n_skip_bytes")=0, "Read image data from an ASCII file.")
     // .def("readRLE", &SelfT::readRLE)
     .def("crop", [](SelfT &m, int3 bgn, int3 end, int emptyLayers, VxT emptyLayersValue, bool verbose) {
-         m.cropD(bgn, end, emptyLayers, emptyLayersValue, verbose);
+         vxop::cropD(m, bgn, end, emptyLayers, emptyLayersValue, verbose);
     }, arg("begin"), arg("end"), arg("emptyLayers")=0, arg("emptyLayersValue")=1, arg("verbose")=false,
          "Crop the image (inplace) from begin index tupe ix,iy,iz (inclusive) to and and end index (not inclusive) tuple.")
-    .def("grow_box", &SelfT::growBox, arg("num_layers"),
+    .def("grow_box", [](SelfT &m, int n) { vxop::growBox(m, n); }, arg("num_layers"),
          "Expand the image boundaries, increasing its size by `num_layers` in all directions")
-    .def("shrink_box", &SelfT::shrinkBox, arg("num_layers"),
+    .def("shrink_box", [](SelfT &m, int n) { vxop::shrinkBox(m, n); }, arg("num_layers"),
          "Shrink the image boundaries, decreasing its size by the given num_layers in all directions")
     .def("fill_holes", [](SelfT &m, int maxHoleRadius) { vxop::fillHoles(m, maxHoleRadius); }, arg("maxHoleRadius"), "Fill closed holes in the image.")
     .def("threshold101", [](SelfT &m, VxT lo, VxT hi) { vxop::threshold101(m, lo, hi); }, arg("min"), arg("max"),

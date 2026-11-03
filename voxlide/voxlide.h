@@ -57,8 +57,8 @@ public:
     const VoxelImageT<T>& host() const;  //!< the current image; downloads if the device copy is newer
     VoxelImageT<T>& host_mut();          //!< same, to modify on the host: re-uploaded by the next GPU op
     int3 size3() const { return img_.size3(); }
-    void growBox(int n) { host_mut().growBox(n); }  // on the host (device copy dropped)
-    void shrinkBox(int n) { host_mut().shrinkBox(n); }
+    void growBox(int n);    //!< vxhl::growBox: on the device when the image is there
+    void shrinkBox(int n);  //!< vxhl::shrinkBox
 
     struct Transfers {
         long long up = 0, down = 0;  //!< whole-image host→device / device→host copies so far
@@ -151,6 +151,15 @@ template <Image I> double meanDbl(const I& img);
 template <Image I> double minDbl(const I& img);
 template <Image I> double maxDbl(const I& img);
 template <Image I> double porosityDbl(const I& img, voxel_t<I> threshold = 0);
+// ---- outputs of another size (F6): the image is replaced; a DeviceImage stays on the device on the GPU.
+//! voxlib VoxelImageT::cropD: keep [frm, to) (to <= 0 counts from the end), plus emptylyrs layers of eLyrsValue around it.
+template <Image I> void cropD(I& img, int3 frm, int3 to, int emptylyrs = 0, voxel_t<I> eLyrsValue = 1, bool verbose = false);
+//! voxlib VoxelImageT::growBox: nLayers more layers on every side, copies of the boundary layers.
+template <Image I> void growBox(I& img, int nLayers);
+//! voxlib VoxelImageT::shrinkBox: nLayers fewer layers on every side.
+template <Image I> void shrinkBox(I& img, int nLayers);
+template <typename T> void DeviceImage<T>::growBox(int n) { vxhl::growBox(*this, n); }
+template <typename T> void DeviceImage<T>::shrinkBox(int n) { vxhl::shrinkBox(*this, n); }
 //! voxlib histogram(img, HistBins{shift, span, nBins}, lo, hi) (no skipFrac margins): counts of the voxels lo <= v < hi per bin; nBins <= 256.
 template <Image I> vars<long long> histogram(const I& img, double shift, double span, int nBins, double lo, double hi);
 //! One segment2 voting pass (voxlib segmentVote); returns the number of changed voxels. u8/u16.

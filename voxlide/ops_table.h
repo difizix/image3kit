@@ -42,6 +42,7 @@ struct OpTraits {
   X(paintTriangular, 'A', 0, false, false) /* triangular: CPU only */ \
   X(setWhereEqual, 'A', 0, false, false) /* delense032's merge */ \
   X(moments, 'D', 0,   false,   true)  /* reduction: count, Σ, Σ², min, max per z */ \
+  X(remapBox, 'F', 0, false, false) /* crop / growBox / shrinkBox: another size (run_remap) */ \
   X(histogram, 'D', 0, false, true) /* reduction: per-z bin counts, bit-exact with voxlib histogram */ \
   X(median, 'C', 1,     true,    false) \
   X(smoothBilateral, 'C', 1, true, false) /* radius per pass; kernRad passes per iteration */ \

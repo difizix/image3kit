@@ -8,6 +8,7 @@
 #include "shrink_kernels.h"
 #include "moments_kernels.h"
 #include "histogram_kernels.h"
+#include "remapBox_kernels.h"
 #include "median032_kernels.h"
 #include "median06Grow_kernels.h"
 #include "median06_kernels.h"
@@ -160,6 +161,52 @@ template <typename T> const VoxelImageT<T>& cmeta_of(const VoxelImageT<T>& v) { 
 template <typename T> const VoxelImageT<T>& cmeta_of(const DeviceImage<T>& v) { return v.unsynced(); }
 }  // namespace
 
+// ---- F6: outputs of another size (run_remap)
+namespace {
+//! voxlib cropD / growBox as one remapBox kernel: output voxel o reads input o + off; fill: outside
+//! [bgn, end) is fillValue, else clamped to the image. The result replaces v.
+template <Image I, typename Ref>
+void remap_box(I& v, int3 no, dbl3 X0, int3 off, int3 bgn, int3 end, bool fill, double fillValue, Ref&& ref) {
+    using T = voxel_t<I>;
+    const int3 n = v.size3();
+    auto zIn = [&](int k0, int k1) {
+        const int a = std::clamp(k0 + off.z, 0, n.z - 1), b = std::clamp(k1 - 1 + off.z, 0, n.z - 1);
+        return std::pair<int, int>(a, b + 1);
+    };
+    const dbl3 dx = cmeta_of(v).dx();
+    v = detail::run_remap<op::remapBox, kernels::remapBox<T>, T>(
+        std::as_const(v), no, dx, X0, ref, zIn, int32_t(off.x), int32_t(off.y), int32_t(off.z), int32_t(bgn.x),
+        int32_t(bgn.y), int32_t(bgn.z), int32_t(end.x), int32_t(end.y), int32_t(end.z), int32_t(fill), fillValue);
+}
+}  // namespace
+
+template <Image I> void cropD(I& v, int3 frm, int3 to, int emptylyrs, voxel_t<I> eLyrsValue, bool verbose) {
+    using T = voxel_t<I>;
+    const int3 n = v.size3();
+    if (to.x <= 0) to.x += n.x;
+    if (to.y <= 0) to.y += n.y;
+    if (to.z <= 0) to.z += n.z;
+    const bool ok = frm.x >= 0 && frm.y >= 0 && frm.z >= 0 && to.x <= n.x && to.y <= n.y && to.z <= n.z &&
+                    to.x > frm.x && to.y > frm.y && to.z > frm.z && emptylyrs >= 0;
+    if (get_backend() == Backend::Voxlib || verbose || !ok) return host_of(v).cropD(frm, to, emptylyrs, eLyrsValue, verbose);
+    const int3 e(emptylyrs, emptylyrs, emptylyrs);
+    remap_box(v, to - frm + e + e, cmeta_of(v).X0() + (frm - e) * cmeta_of(v).dx(), frm - e, frm, to, emptylyrs != 0,
+              double(eLyrsValue), [&](const VoxelImageT<T>& h) { VoxelImageT<T> r = h; r.cropD(frm, to, emptylyrs, eLyrsValue); return r; });
+}
+template <Image I> void growBox(I& v, int nLayers) {
+    using T = voxel_t<I>;
+    if (get_backend() == Backend::Voxlib || nLayers < 0) return host_of(v).growBox(nLayers);
+    if (nLayers == 0) return;
+    const int3 l(nLayers, nLayers, nLayers);
+    remap_box(v, v.size3() + l + l, cmeta_of(v).X0() - l * cmeta_of(v).dx(), int3(0, 0, 0) - l, int3(0, 0, 0), v.size3(), false, 0.0,
+              [&](const VoxelImageT<T>& h) { VoxelImageT<T> r = h; r.growBox(nLayers); return r; });
+}
+template <Image I> void shrinkBox(I& v, int nLayers) {
+    const int3 b(nLayers, nLayers, nLayers);
+    vxhl::cropD(v, b, v.size3() - b, 0, voxel_t<I>(1), false);
+}
+
+
 // a (op) b for a second image: code 0 && / 1 || / 2 != / 3 && ! / 4 + / 5 -
 template <Image I, Image J, typename Ref>
 void pair_op(I& a, const J& b, int code, Ref&& ref) {
@@ -293,7 +340,7 @@ template <Image I> bool _delense032(I& v, int nItrs, int nAdj0, int nAdj1, intOr
     auto inRange = [](auto l) { return double(l) >= double(std::numeric_limits<T>::lowest()) && double(l) <= double(std::numeric_limits<T>::max()); };
     if (get_backend() == Backend::Voxlib || !inRange(lbl0) || !inRange(lbl1))
         return ::_delense032(host_of(v), nItrs, nAdj0, nAdj1, lbl0, lbl1);
-    host_of(v).growBox(2);
+    vxhl::growBox(v, 2);
     on_device(v, [&](DeviceImage<T>& d) {
         DeviceImage<T> vimgo{VoxelImageT<T>(d.unsynced())};  // the grown image, copied on the host before any upload
         const T l0 = T(lbl0), l1 = T(lbl1);
@@ -308,7 +355,7 @@ template <Image I> bool _delense032(I& v, int nItrs, int nAdj0, int nAdj1, intOr
         FaceMedGrowToFrom(vimgo, l1, l0, 2);
         set_where_equal(d, vimgo, l1);
     });
-    host_of(v).shrinkBox(2);
+    vxhl::shrinkBox(v, 2);
     return false;  // as voxlib (`return 0`)
 }
 
@@ -595,6 +642,9 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     template double maxDbl(const I&);                                                           \
     template double porosityDbl(const I&, T);                                                   \
     template vars<long long> histogram(const I&, double, double, int, double, double);          \
+    template void cropD(I&, int3, int3, int, T, bool);                                          \
+    template void growBox(I&, int);                                                             \
+    template void shrinkBox(I&, int);                                                           \
     template bool smoothBilateral(I&, int, int, double, double);                                \
     template void bilateralX(I&, int, int, float, float, float, float, float);                  \
     template bool _bilateralX(I&, int, int, int, double, double, double);                       \

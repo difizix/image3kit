@@ -51,6 +51,9 @@ int main(int argc, char** argv) {
         {"shrink", [&](Img& m) { vxhl::shrink(m, (unsigned char)5, (unsigned char)15, input); }},
         {"mean", [](Img& m) { volatile double r = vxhl::meanDbl(m); (void)r; }},
         {"histogram", [](Img& m) { volatile auto r = vxhl::histogram(m, 0.0, 256.0, 256, 0.0, 256.0).size(); (void)r; }},
+        {"growbox", [](Img& m) { vxhl::growBox(m, 8); }},
+        {"growshrink_dev", [](Img& m) {  // growBox(8) + shrinkBox(8) on a DeviceImage (segment2's box ops)
+             vxhl::DeviceImage<unsigned char> d(std::move(m)); vxhl::growBox(d, 8); vxhl::shrinkBox(d, 8); m = d.host(); }},
         {"variance", [](Img& m) { volatile double r = vxhl::varianceDbl(m, 0, 255); (void)r; }},
         {"chain", [&](Img& m) {  // 5 ops, each through host memory
              vxhl::mode26(m, 2); m = vxhl::median(m, 3); vxhl::shrink(m, (unsigned char)5, (unsigned char)15, input);

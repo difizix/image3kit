@@ -77,6 +77,7 @@ endif()
 # so the op falls back to voxlib for them.
 #   IMAGES: extra image Inputs of the generator with the op's voxel type (Snapshot / Aux args).
 #   CPU_ONLY: no GPU kernel (e.g. it needs f64 cos/sin, which Halide's Vulkan backend lacks): the GPU backend throws, Auto uses Halide CPU.
+#   OUTPUT_TYPE: the output voxel type when it differs from the input's (run_remap ops, e.g. u8 masks).
 #   REDUCE: a reduction kernel (run_reduce): fixed-type per-z outputs, no voxel-typed `output`.
 #   VALUES: scalar Input<Expr>s with the op's voxel type (voxlib arguments of type T).
 #   STRICT_FLOAT: float32 in voxlib's exact operation order (no FMA fusion, no reassociation).
@@ -93,7 +94,7 @@ set(_vxhl_c_i32 int32_t)
 set(_vxhl_c_f32 float)
 
 function(voxlide_add_op OP)
-  cmake_parse_arguments(A "FP64;STRICT_FLOAT;REDUCE;CPU_ONLY" "GENERATOR" "TYPES;IMAGES;VALUES" ${ARGN})
+  cmake_parse_arguments(A "FP64;STRICT_FLOAT;REDUCE;CPU_ONLY" "GENERATOR;OUTPUT_TYPE" "TYPES;IMAGES;VALUES" ${ARGN})
   if(NOT A_TYPES)
     set(A_TYPES ${VOXLIDE_TYPES})
   endif()
@@ -122,7 +123,9 @@ function(voxlide_add_op OP)
     endif()
     foreach(t IN LISTS A_TYPES)
       set(_params input.type=${_vxhl_hl_${t}})
-      if(NOT A_REDUCE)
+      if(A_OUTPUT_TYPE)
+        list(APPEND _params output.type=${_vxhl_hl_${A_OUTPUT_TYPE}})
+      elseif(NOT A_REDUCE)
         list(APPEND _params output.type=${_vxhl_hl_${t}})
       endif()
       foreach(img IN LISTS A_IMAGES A_VALUES)
@@ -188,6 +191,7 @@ voxlide_add_op(paintTriangular GENERATOR generators/paint_triangular_gen.cpp FP6
 voxlide_add_op(setWhereEqual GENERATOR generators/set_where_equal_gen.cpp IMAGES other VALUES value)
 voxlide_add_op(moments GENERATOR generators/moments_gen.cpp FP64 REDUCE)
 voxlide_add_op(histogram GENERATOR generators/histogram_gen.cpp FP64 REDUCE)
+voxlide_add_op(remapBox GENERATOR generators/remap_box_gen.cpp)
 voxlide_add_op(bilateralX GENERATOR generators/bilateral_x_gen.cpp STRICT_FLOAT)
 voxlide_add_op(bilateralGauss GENERATOR generators/bilateral_gauss_gen.cpp FP64)
 

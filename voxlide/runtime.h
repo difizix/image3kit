@@ -403,6 +403,67 @@ auto run_reduce(const I& img, Ref&& ref, [[maybe_unused]] Body&& body) {
     });
 }
 
+#ifdef IMAGE3KIT_HAS_HALIDE
+template <typename Fn, typename T, typename TO, typename... S>
+void call_remap(Fn fn, HBuf<T>& in, HBuf<TO>& out, int3 g, const S&... s) {
+    const int rc = fn(in.raw_buffer(), g.x, g.y, g.z, s..., out.raw_buffer());
+    if (rc != 0) throw std::runtime_error(take_halide_error() + " (halide error " + std::to_string(rc) + ")");
+}
+#endif
+
+//! Ops whose output has another size and/or voxel type (F6; class F: crop, growBox, u8 masks…).
+//! Kernel ABI: fn(input, gnx, gny, gnz, scalars..., output), the output in its own global
+//! coordinates. The output is processed in z-slabs; zIn(kBgn, kEnd) -> std::pair{first, end} gives
+//! the (non-empty) input layers that output layers [kBgn, kEnd) read. The result has size `no` and
+//! header dx, X0. ref(host input) -> VoxelImageT<TO>: the voxlib function. Returns a
+//! VoxelImageT<TO>, or a DeviceImage<TO> for a DeviceImage input: on the GPU in one piece the input
+//! is read in place and the result stays on the device.
+template <typename Op, typename K, typename TO, typename I, typename Ref, typename ZIn, typename... S>
+auto run_remap(const I& img, int3 no, dbl3 dx, dbl3 X0, Ref&& ref, [[maybe_unused]] ZIn&& zIn, const S&... s) {
+    using T = voxel_t<I>;
+    constexpr bool device = std::is_same_v<std::remove_const_t<I>, DeviceImage<T>>;
+    using R = std::conditional_t<device, DeviceImage<TO>, VoxelImageT<TO>>;
+    auto host = [&]() -> const VoxelImageT<T>& {
+        if constexpr (device) return img.host(); else return img;
+    };
+    auto wrap = [&](VoxelImageT<TO>&& v) -> R {  // a DeviceImage result keeps the input's transfer counts
+        if constexpr (device) { R r(std::move(v)); r.state().n = img.state().n; return r; }
+        else return std::move(v);
+    };
+    const int3 n = img.size3();
+    if ((long long)n.x * n.y * n.z == 0 || (long long)no.x * no.y * no.z == 0) return wrap(ref(host()));
+    return dispatch<Op, K>([&] { return wrap(ref(host())); }, [&]([[maybe_unused]] auto fn, [[maybe_unused]] Backend b) -> R {
+#ifdef IMAGE3KIT_HAS_HALIDE
+        const bool gpu = b == Backend::Gpu;
+        const int nSlabs = std::max(n_slabs<T>(n, b), n_slabs<TO>(no, b));
+        VoxelImageT<TO> out(no, TO(0), dx, X0);
+        if constexpr (device) {
+            if (gpu && nSlabs == 1) {
+                R r(std::move(out));
+                HBuf<TO> ob = zview(r.unsynced(), 0, no.z);
+                call_remap(fn, resident(img), ob, n, s...);
+                auto& st = r.state();
+                st.buf = std::move(ob);
+                st.hostNewer = false, st.deviceNewer = true;
+                st.n = img.state().n;
+                return r;
+            }
+        }
+        for (const Box& box : splitZ(no, nSlabs, 0)) {
+            const auto [k0, k1] = zIn(box.kBgn(), box.kEnd());
+            HBuf<T> ib = zview(const_cast<VoxelImageT<T>&>(host()), k0, k1);  // read only
+            HBuf<TO> ob = zview(out, box.kBgn(), box.kEnd());
+            if (gpu) ib.set_host_dirty();
+            call_remap(fn, ib, ob, n, s...);
+            if (gpu && ob.copy_to_host() != 0) throw std::runtime_error(take_halide_error());
+        }
+        return wrap(std::move(out));
+#else
+        return wrap(ref(host()));
+#endif
+    });
+}
+
 template <typename Op, typename K, typename I, typename Ref, typename... S>
 void run_stencil(I& img, Passes ps, Ref&& ref, const S&... s) {
     long long unused = 0;

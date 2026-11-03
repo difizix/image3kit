@@ -354,3 +354,25 @@ def test_delense032_matches_voxlib(backend, cls):
     with ik.backend(backend):
         got.delense032(2, 14, 14, 5, 15)
     assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda m: m.grow_box(3),
+        lambda m: m.shrink_box(2),
+        lambda m: m.crop((1, 2, 3), (15, 20, 30)),
+        lambda m: m.crop((1, 2, 3), (15, 20, 30), 2, 7),
+    ],
+    ids=["grow_box", "shrink_box", "crop", "crop_empty_layers"],
+)
+def test_box_ops_match_voxlib(backend, cls, call):
+    ref = _labelled(cls, (17, 23, 31))
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        call(ref)
+    with ik.backend(backend):
+        call(got)
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
