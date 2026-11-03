@@ -3,6 +3,7 @@
 //! ops: mode26, mode6 (returns the change count), shrink (Aux source image), mean / variance (reductions: 1 / 2 passes),
 //!      maggrad (magGradient, f64; GPU: exact sqrt emulation),
 //!      segment2 (Python defaults, 2 segments; whole pipeline on DeviceImages),
+//!      replace / zerograd / scalegrad / avg2p (replaceRange, zeroGrad, scaleGradient, average2p),
 //!      dev20 (20 × shrink on one DeviceImage),
 //!      chain / chain_dev (mode26, median×3, shrink, mode6, mode26 on VoxelImageT / DeviceImage), median, median5 (5 iterations: device-resident ping-pong),
 //!      bilat1x1 / bilat2x3 (smooth_bilateral nItrs x kernRad, f64),
@@ -60,6 +61,10 @@ int main(int argc, char** argv) {
         {"segment2", [](Img& m) {  // 2 segments, krnl 2, 13 iterations (Python defaults)
              vars<int> th(std::vector<int>{1, 20, 254}), mins(std::vector<int>{1, 2});
              vxhl::segment2(m, 2, th, mins, 2.0, 0.05, 0.1, 2.0, 0.0, 2, 13, 0); }},
+        {"replace", [](Img& m) { vxhl::replaceRange(m, (unsigned char)5, (unsigned char)15, (unsigned char)9); }},
+        {"zerograd", [](Img& m) { vxhl::zeroGrad(m, 2); }},
+        {"scalegrad", [](Img& m) { vxhl::scaleGradient(m, 60.5); }},
+        {"avg2p", [](Img& m) { volatile int r = vxhl::average2p(m, (unsigned char)2); (void)r; }},
         {"median", [](Img& m) { m = vxhl::median(m, 1); }},
         {"median5", [](Img& m) { m = vxhl::median(m, 5); }},
         {"bilat1x1", [](Img& m) { vxhl::smoothBilateral(m, 1, 1, 16.0, 0.1); }},
