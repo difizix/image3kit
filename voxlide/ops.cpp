@@ -9,6 +9,7 @@
 #include "moments_kernels.h"
 #include "histogram_kernels.h"
 #include "remapBox_kernels.h"
+#include "threshold01_kernels.h"
 #include "median032_kernels.h"
 #include "median06Grow_kernels.h"
 #include "median06_kernels.h"
@@ -200,6 +201,30 @@ template <Image I> void growBox(I& v, int nLayers) {
     const int3 l(nLayers, nLayers, nLayers);
     remap_box(v, v.size3() + l + l, cmeta_of(v).X0() - l * cmeta_of(v).dx(), int3(0, 0, 0) - l, int3(0, 0, 0), v.size3(), false, 0.0,
               [&](const VoxelImageT<T>& h) { VoxelImageT<T> r = h; r.growBox(nLayers); return r; });
+}
+template <Image I> std::array<double, 5> otsu_minAvgThresholdAvgMax(const I& v, intOr<voxel_t<I>> minvi, intOr<voxel_t<I>> maxvi,
+                                                                   double skipFrac, int maxBins) {
+    using T = voxel_t<I>;
+    const HistBins bins = otsuBins(minvi, maxvi, std::is_integral_v<T>, maxBins);
+    if (skipFrac != 0) {  // the margins: voxlib, on the host
+        if constexpr (std::is_same_v<I, VoxelImageT<T>>) return ::otsu_minAvgThresholdAvgMax(v, bins, minvi, maxvi, skipFrac);
+        else return ::otsu_minAvgThresholdAvgMax(v.host(), bins, minvi, maxvi, skipFrac);
+    }
+    const dbls h = convertToDbls(vxhl::histogram(v, bins.shift, bins.span, bins.nBins, double(minvi), double(maxvi)));
+    return otsu_minAvThresholdAvMx(h, 0, bins.nBins - 1, bins.shift, bins.scale());
+}
+template <Image I> MaskOf<I> threshold01_otsu(const I& v, int minvi, int maxvi, double skipFrac) {
+    using T = voxel_t<I>;
+    const double t = vxhl::otsu_minAvgThresholdAvgMax(v, minvi, maxvi, skipFrac)[2];  // v < t: class 0
+    const VoxelImageT<T>& hdr = cmeta_of(v);
+    return detail::run_remap<op::threshold01, kernels::threshold01<T>, uint8_t>(
+        v, v.size3(), hdr.dx(), hdr.X0(),
+        [&](const VoxelImageT<T>& h) {  // voxlib's apply step with this threshold
+            VoxelImageT<uint8_t> msk(h.size3(), 1, h.dx(), h.X0());
+            for (std::size_t i = 0; i < h.data_.size(); ++i) if (h.data_[i] < t) msk.data_[i] = 0;
+            return msk;
+        },
+        [](int k0, int k1) { return std::pair<int, int>(k0, k1); }, t);
 }
 template <Image I> void shrinkBox(I& v, int nLayers) {
     const int3 b(nLayers, nLayers, nLayers);
@@ -645,6 +670,8 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     template void cropD(I&, int3, int3, int, T, bool);                                          \
     template void growBox(I&, int);                                                             \
     template void shrinkBox(I&, int);                                                           \
+    template std::array<double, 5> otsu_minAvgThresholdAvgMax(const I&, intOr<T>, intOr<T>, double, int); \
+    template MaskOf<I> threshold01_otsu(const I&, int, int, double);                            \
     template bool smoothBilateral(I&, int, int, double, double);                                \
     template void bilateralX(I&, int, int, float, float, float, float, float);                  \
     template bool _bilateralX(I&, int, int, int, double, double, double);                       \

@@ -393,7 +393,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
       }, arg("width")=0, arg("noise_val")=4, arg("average")=0, arg("delta")=20, arg("iterations")=15, arg("smooth_image")="",
       "computes a background image, used to correct for lens artifacts")
     .def("otsu_threshold", [](SelfT &m, int minv, int maxv) {
-            auto arr = ::otsu_minAvgThresholdAvgMax(m, minv, maxv);
+            auto arr = vxop::otsu_minAvgThresholdAvgMax(m, minv, maxv);
             return std::vector<double>(arr.begin(), arr.end()); // for pocketpy not supporting std::array
         },
         arg("min_val")=0, arg("max_val")=maxT(VxT),
@@ -437,7 +437,7 @@ void bind_funcs(py::module &voxlib) requires(sizeof(VxT)<=2) {
         return lbls;
     }, py::arg("image"), py::arg("min_val")=0, py::arg("max_val")=maxT(VxT));
 
-    voxlib.def("threshold01_otsu", ::threshold01_otsu<VxT>,
+    voxlib.def("threshold01_otsu", [](const VoxelImageT<VxT>& m, int minvi, int maxvi, double skipFrac) { return vxop::threshold01_otsu(m, minvi, maxvi, skipFrac); },
         py::arg("image"), py::arg("minvi")=0, py::arg("maxvi")=maxT(VxT), py::arg("skipFrac")=0.0,
         "returns a binary (0&1) 8bit image obtained using Otsu thresholding of image: 0 where the value is below the Otsu threshold (see otsu_threshold), 1 elsewhere");
 

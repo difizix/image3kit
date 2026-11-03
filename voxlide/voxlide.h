@@ -4,6 +4,7 @@
 //! the backend comes from set_backend(), else $IMAGE3KIT_BACKEND, else Auto.
 //! See docs/plans/parallelism_shared.md.
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <type_traits>
@@ -158,6 +159,15 @@ template <Image I> void cropD(I& img, int3 frm, int3 to, int emptylyrs = 0, voxe
 template <Image I> void growBox(I& img, int nLayers);
 //! voxlib VoxelImageT::shrinkBox: nLayers fewer layers on every side.
 template <Image I> void shrinkBox(I& img, int nLayers);
+//! A u8 image of the same kind as I (VoxelImageT or DeviceImage).
+template <Image I> using MaskOf = std::conditional_t<std::is_same_v<std::remove_const_t<I>, DeviceImage<voxel_t<I>>>,
+                                                     DeviceImage<uint8_t>, VoxelImageT<uint8_t>>;
+//! voxlib otsu_minAvgThresholdAvgMax(img, minvi, maxvi, skipFrac, maxBins): {min, mean_0, threshold, mean_1, max};
+//! the histogram on the device (skipFrac != 0: voxlib on the host).
+template <Image I> std::array<double, 5> otsu_minAvgThresholdAvgMax(const I& img, intOr<voxel_t<I>> minvi, intOr<voxel_t<I>> maxvi,
+                                                                   double skipFrac = 0., int maxBins = 256);
+//! voxlib threshold01_otsu: u8 mask, 0 where v < the Otsu threshold, 1 elsewhere.
+template <Image I> MaskOf<I> threshold01_otsu(const I& img, int minvi = 0, int maxvi = maxT(voxel_t<I>), double skipFrac = 0.);
 template <typename T> void DeviceImage<T>::growBox(int n) { vxhl::growBox(*this, n); }
 template <typename T> void DeviceImage<T>::shrinkBox(int n) { vxhl::shrinkBox(*this, n); }
 //! voxlib histogram(img, HistBins{shift, span, nBins}, lo, hi) (no skipFrac margins): counts of the voxels lo <= v < hi per bin; nBins <= 256.

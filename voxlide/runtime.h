@@ -426,8 +426,12 @@ auto run_remap(const I& img, int3 no, dbl3 dx, dbl3 X0, Ref&& ref, [[maybe_unuse
     auto host = [&]() -> const VoxelImageT<T>& {
         if constexpr (device) return img.host(); else return img;
     };
-    auto wrap = [&](VoxelImageT<TO>&& v) -> R {  // a DeviceImage result keeps the input's transfer counts
-        if constexpr (device) { R r(std::move(v)); r.state().n = img.state().n; return r; }
+    auto wrap = [&](VoxelImageT<TO>&& v) -> R {
+        if constexpr (device) {
+            R r(std::move(v));
+            if constexpr (std::is_same_v<T, TO>) r.state().n = img.state().n;  // it replaces the input (crop…)
+            return r;
+        }
         else return std::move(v);
     };
     const int3 n = img.size3();
@@ -445,7 +449,7 @@ auto run_remap(const I& img, int3 no, dbl3 dx, dbl3 X0, Ref&& ref, [[maybe_unuse
                 auto& st = r.state();
                 st.buf = std::move(ob);
                 st.hostNewer = false, st.deviceNewer = true;
-                st.n = img.state().n;
+                if constexpr (std::is_same_v<T, TO>) st.n = img.state().n;
                 return r;
             }
         }

@@ -376,3 +376,21 @@ def test_box_ops_match_voxlib(backend, cls, call):
     with ik.backend(backend):
         call(got)
     assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16])
+@pytest.mark.parametrize("lo,hi,skip", [(0, 255, 0.0), (0, 1000, 0.0), (0, 255, 0.2)])
+def test_otsu_matches_voxlib(backend, cls, lo, hi, skip):
+    img = cls((17, 23, 31), 0)
+    a = np.array(img, copy=False)
+    rng = np.random.default_rng(6)
+    a[...] = np.where(rng.random(a.shape) < 0.4, rng.integers(20, 90, a.shape), rng.integers(110, 200, a.shape))
+    with ik.backend("voxlib"):
+        ref_t = img.otsu_threshold(lo, hi)
+        ref_m = np.array(ik.threshold01_otsu(img, lo, hi, skip), copy=False).copy()
+    with ik.backend(backend):
+        got_t = img.otsu_threshold(lo, hi)
+        got_m = np.array(ik.threshold01_otsu(img, lo, hi, skip), copy=False)
+    assert ref_t == got_t
+    assert np.array_equal(ref_m, got_m)
