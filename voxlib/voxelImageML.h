@@ -1161,109 +1161,18 @@ void  multiSegment(VoxelImageT<T>& vImg, vector<int> trshlds, vector<int> minSiz
 
 
 
+//! One segment2 voting pass (Jacobi: reads a copy of vImg). Each voxel at least krnl from the faces
+//! with capmin <= origimg <= capmax takes the segment value meds[s] with the lowest "probability"
+//! from grad-weighted means of origimg over the neighbours labelled meds[s]. Returns #changes.
 template<typename T>
-void  multiSegment2(VoxelImageT<T>& vImg, vars<Tint> trshlds, vars<int> minSizs, double resolutionSqr, double noisv, double localF, int krnl, double flatnes, double gradFactor, int nItrs, bool writeDumps)
-{
-
-
-  const int nSegs=minSizs.size();
-  const Tint capmin =trshlds[0];
-  const Tint capmax =trshlds[nSegs];
-
-  (std::cout<<"\n  "<< __FUNCTION__<< " resolutionSqr:"<<resolutionSqr<<" noisv:"<<noisv<<" localF:"<<localF<<" krnl:"<<krnl<<" flatnes:"<<flatnes<<" gradFactor:"<<gradFactor<<"  ").flush();
-  (std::cout<<"  analysing range ["<<capmin<<" "<<capmax<<"], ").flush();
-  if(writeDumps)
-     vImg.write("dumpImage2.tif");
-
-  vars<T> meds(nSegs,-2);
-  {
-    VoxelImageT<T> vxls = median(median(vImg));
-    array<double,maxT(T)> histi{{0}};
-    forAllvv_seq(vxls)  { if (1<=vv && vv<maxT(T)) { histi[vv]+=1.;} }
-    double myu[imaxT(T)+1], cdf[imaxT(T)+1];   // mean value for separation, omega is CDF
-    Tint minv=trshlds[0], maxv=trshlds[nSegs];
-    cdf[minv] = histi[minv];
-    myu[minv] = minv*histi[minv];       // 0. times prob[0] equals zero
-    for (int i = minv+1; i <= maxv; ++i) {   cdf[i] = cdf[i-1] + histi[i];   myu[i] = myu[i-1] + i*histi[i];  }
-    for (int i=0; i<nSegs; ++i) meds[i] = T((myu[trshlds[i+1]]-myu[trshlds[i]])/max(cdf[trshlds[i+1]]-cdf[trshlds[i]],1.));
-  }
-  cout<<"  -> mid+ranges: "; for_i_(0,nSegs) { (std::cout<<"  t"<<int(trshlds[i])<<" m"<<int(meds[i])).flush(); }   cout<<"  "<<int(trshlds[nSegs])<<endl;
-  ensure(meds.back()>0,"meds:"+_s(meds),-1);
-
-
-  VoxelImageT<T> origimg = vImg;
-
-
+size_t segmentVote(VoxelImageT<T>& vImg, const VoxelImageT<T>& origimg, const VoxelImageT<T>& grad,
+                   const vars<T>& meds, Tint capmin, Tint capmax, int krnl, double localF, double flatnes,
+                   double gradFactor, double resolutionSqr, double avgGradInv, double noisv) {
+  const int nSegs=meds.size();
   ints midIs(size_t(maxT(T))+1, -1);
   for (int ii=0; ii<nSegs; ++ii) { midIs[meds[ii]]=ii;  }
-  //cout<<piece<int>(&midIs[0],&midIs.back())<<endl;
-
-  vImg = median(vImg);
-
-
-  VoxelImageT<T> grad;
-  grad=magGradient(origimg, resolutionSqr*(dmaxT(T)/(meds.back()-meds[0])));
-
-  bilateralX(grad, 1,1, noisv*noisv, 0.05, 12);
-  scaleGradient(grad, average2p(grad)*0.2+0.01);
-  if(writeDumps)
-    grad.write("dumpGrad5.tif");
-  double avgGradInv=1./average2p(grad);
-
-  cout<<endl;
-  for (size_t tt=0;tt<meds.size(); ++tt)
-  {
-    replaceRange(origimg,  T(meds[tt]),  T(meds[tt]), T(meds[tt]-1));// to avoid conflict with seg values in shrink
-    cout<<"  "<<tt<<"{ m"<<int(meds[tt])<<" <== t["<<trshlds[tt]<<','<<trshlds[tt+1]<<']'<<"}  ";
-    T bgnh=0.5*(1.5*meds[tt]+0.5*trshlds[tt])+0.5;
-    T endh=0.5*(1.5*meds[tt]+0.5*trshlds[tt+1])-0.5;
-    replaceRange(vImg, bgnh, endh, meds[tt]); //achive region growing / water shed segmentation
-    if(tt==0)             replaceRange(vImg, T(trshlds[tt]), bgnh, meds[tt]);
-    else                  replaceRange(vImg, T(trshlds[tt]), bgnh, T(meds[tt]-1));
-    if(tt+1==meds.size()) replaceRange(vImg, endh, T(trshlds[tt+1]), meds[tt]);
-    else                  replaceRange(vImg, endh, T(trshlds[tt+1]), T(meds[tt]+1));
-    cout<<endl;
-  }
-
-    //replaceRange(vImg, 0.5*(1.*meds[tt]+1.*trshlds[tt])+0.5, 0.5*(meds[tt]+1.*trshlds[tt+1])-0.5, meds[tt]);
-
-  mode26(vImg,1);
-  mode26(vImg,1);
-
-  for (size_t tt=0;tt<meds.size(); ++tt)
-   for (int i=0; i<minSizs[tt]; ++i)
-    shrink(vImg, meds[tt],meds[tt], origimg);
-
-
-  if(writeDumps)   vImg.write("dumpseg1.tif");
-  //VoxelImageT<T> meanimg = origimg;
-
-  //const int noisv=sqrt(noisVSqr+1)+1;
-
-
   double resolSqr_1=resolutionSqr-0.99,   krnlCub=2*(krnl+0.5)*(krnl+0.5)*(krnl+0.5);
-  for (int iter=0; iter<nItrs; ++iter)
-  {
-    std::cout<<endl;
-      //array<double,maxT(T)> avgLbl={0.} ,  sumLbl={0.};
-      //forAllkji_m_(2,origimg)
-      //{ size_t iii = origimg.index(i,j,k); avgLbl[vImg(iii)]+=origimg(iii)-vImg(iii);  sumLbl[vImg(iii)]+=1; }
-      //cout<<" ***"; for (int mid: meds) {cout<<" "<<avgLbl[mid]/(sumLbl[mid]+0.01)<<" "; } cout<<"*** ";
-
-    if(writeDumps) vImg.write("dumpseg"+to_string(2+iter)+".tif");
-
-
-    //if(iter<6)
-    for (int i=0; i<minSizs[0]; ++i)
-      mode26(vImg, 1);
-
-    //if(iter<3) for(size_t tt=0;tt<meds.size(); ++tt) for(int i=1; i<minSizs[tt]; ++i) mode26(vImg,meds[tt],meds[tt],5);
-    (std::cout<<"  ").flush();
-
-    vImg.zeroGrad(2);
-    //if(writeDumps)  meanimg.write("dumpmean"+to_string(2+iter)+".tif");
-
-    VoxelImageT<T> vxls = vImg;
+  VoxelImageT<T> vxls = vImg;
 
     (std::cout<<"-").flush();
     size_t nChange=0,  nAll=0;
@@ -1315,6 +1224,108 @@ void  multiSegment2(VoxelImageT<T>& vImg, vars<Tint> trshlds, vars<int> minSizs,
       }
     }
     cout<<"  nChang:"<<nChange<<" CV:"<<meanCV/nAll<<"/"<<meanCVS/nAll<<" = "<<meanCV/meanCVS<<" nAll:"<<nAll;
+  return nChange;
+}
+
+template<typename T>
+void  multiSegment2(VoxelImageT<T>& vImg, vars<Tint> trshlds, vars<int> minSizs, double resolutionSqr, double noisv, double localF, int krnl, double flatnes, double gradFactor, int nItrs, bool writeDumps)
+{
+
+
+  const int nSegs=minSizs.size();
+  const Tint capmin =trshlds[0];
+  const Tint capmax =trshlds[nSegs];
+
+  (std::cout<<"\n  "<< __FUNCTION__<< " resolutionSqr:"<<resolutionSqr<<" noisv:"<<noisv<<" localF:"<<localF<<" krnl:"<<krnl<<" flatnes:"<<flatnes<<" gradFactor:"<<gradFactor<<"  ").flush();
+  (std::cout<<"  analysing range ["<<capmin<<" "<<capmax<<"], ").flush();
+  if(writeDumps)
+     vImg.write("dumpImage2.tif");
+
+  vars<T> meds(nSegs,-2);
+  {
+    VoxelImageT<T> vxls = median(median(vImg));
+    array<double,maxT(T)> histi{{0}};
+    forAllvv_seq(vxls)  { if (1<=vv && vv<maxT(T)) { histi[vv]+=1.;} }
+    double myu[imaxT(T)+1], cdf[imaxT(T)+1];   // mean value for separation, omega is CDF
+    Tint minv=trshlds[0], maxv=trshlds[nSegs];
+    cdf[minv] = histi[minv];
+    myu[minv] = minv*histi[minv];       // 0. times prob[0] equals zero
+    for (int i = minv+1; i <= maxv; ++i) {   cdf[i] = cdf[i-1] + histi[i];   myu[i] = myu[i-1] + i*histi[i];  }
+    for (int i=0; i<nSegs; ++i) meds[i] = T((myu[trshlds[i+1]]-myu[trshlds[i]])/max(cdf[trshlds[i+1]]-cdf[trshlds[i]],1.));
+  }
+  cout<<"  -> mid+ranges: "; for_i_(0,nSegs) { (std::cout<<"  t"<<int(trshlds[i])<<" m"<<int(meds[i])).flush(); }   cout<<"  "<<int(trshlds[nSegs])<<endl;
+  ensure(meds.back()>0,"meds:"+_s(meds),-1);
+
+
+  VoxelImageT<T> origimg = vImg;
+
+
+
+  vImg = median(vImg);
+
+
+  VoxelImageT<T> grad;
+  grad=magGradient(origimg, resolutionSqr*(dmaxT(T)/(meds.back()-meds[0])));
+
+  bilateralX(grad, 1,1, noisv*noisv, 0.05, 12);
+  scaleGradient(grad, average2p(grad)*0.2+0.01);
+  if(writeDumps)
+    grad.write("dumpGrad5.tif");
+  double avgGradInv=1./average2p(grad);
+
+  cout<<endl;
+  for (size_t tt=0;tt<meds.size(); ++tt)
+  {
+    replaceRange(origimg,  T(meds[tt]),  T(meds[tt]), T(meds[tt]-1));// to avoid conflict with seg values in shrink
+    cout<<"  "<<tt<<"{ m"<<int(meds[tt])<<" <== t["<<trshlds[tt]<<','<<trshlds[tt+1]<<']'<<"}  ";
+    T bgnh=0.5*(1.5*meds[tt]+0.5*trshlds[tt])+0.5;
+    T endh=0.5*(1.5*meds[tt]+0.5*trshlds[tt+1])-0.5;
+    replaceRange(vImg, bgnh, endh, meds[tt]); //achive region growing / water shed segmentation
+    if(tt==0)             replaceRange(vImg, T(trshlds[tt]), bgnh, meds[tt]);
+    else                  replaceRange(vImg, T(trshlds[tt]), bgnh, T(meds[tt]-1));
+    if(tt+1==meds.size()) replaceRange(vImg, endh, T(trshlds[tt+1]), meds[tt]);
+    else                  replaceRange(vImg, endh, T(trshlds[tt+1]), T(meds[tt]+1));
+    cout<<endl;
+  }
+
+    //replaceRange(vImg, 0.5*(1.*meds[tt]+1.*trshlds[tt])+0.5, 0.5*(meds[tt]+1.*trshlds[tt+1])-0.5, meds[tt]);
+
+  mode26(vImg,1);
+  mode26(vImg,1);
+
+  for (size_t tt=0;tt<meds.size(); ++tt)
+   for (int i=0; i<minSizs[tt]; ++i)
+    shrink(vImg, meds[tt],meds[tt], origimg);
+
+
+  if(writeDumps)   vImg.write("dumpseg1.tif");
+  //VoxelImageT<T> meanimg = origimg;
+
+  //const int noisv=sqrt(noisVSqr+1)+1;
+
+
+  for (int iter=0; iter<nItrs; ++iter)
+  {
+    std::cout<<endl;
+      //array<double,maxT(T)> avgLbl={0.} ,  sumLbl={0.};
+      //forAllkji_m_(2,origimg)
+      //{ size_t iii = origimg.index(i,j,k); avgLbl[vImg(iii)]+=origimg(iii)-vImg(iii);  sumLbl[vImg(iii)]+=1; }
+      //cout<<" ***"; for (int mid: meds) {cout<<" "<<avgLbl[mid]/(sumLbl[mid]+0.01)<<" "; } cout<<"*** ";
+
+    if(writeDumps) vImg.write("dumpseg"+to_string(2+iter)+".tif");
+
+
+    //if(iter<6)
+    for (int i=0; i<minSizs[0]; ++i)
+      mode26(vImg, 1);
+
+    //if(iter<3) for(size_t tt=0;tt<meds.size(); ++tt) for(int i=1; i<minSizs[tt]; ++i) mode26(vImg,meds[tt],meds[tt],5);
+    (std::cout<<"  ").flush();
+
+    vImg.zeroGrad(2);
+    //if(writeDumps)  meanimg.write("dumpmean"+to_string(2+iter)+".tif");
+
+    segmentVote(vImg, origimg, grad, meds, capmin, capmax, krnl, localF, flatnes, gradFactor, resolutionSqr, avgGradInv, noisv);
 
 
   }
