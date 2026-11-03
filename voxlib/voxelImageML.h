@@ -942,7 +942,7 @@ void  multiSegment(VoxelImageT<T>& vImg, vector<int> trshlds, vector<int> minSiz
     int minv=trshlds[0], maxv=trshlds[nSegs];
     cdf[minv] = histi[minv];
     myu[minv] = minv*histi[minv];       // 0. times prob[0] equals zero
-    for (int i = max(minv,1); i <= maxv; ++i) {   cdf[i] = cdf[i-1] + histi[i];   myu[i] = myu[i-1] + i*histi[i];  }
+    for (int i = minv+1; i <= maxv; ++i) {   cdf[i] = cdf[i-1] + histi[i];   myu[i] = myu[i-1] + i*histi[i];  }
     for (int i=0; i<nSegs; ++i) meds[i] = (myu[trshlds[i+1]]-myu[trshlds[i]])/max(cdf[trshlds[i+1]]-cdf[trshlds[i]],1.);
   }
   cout<<"-> mid+ranges: "; for (int i=0; i<nSegs; ++i) { (std::cout<<"  "<<int(trshlds[i])<<" "<<int(meds[i])).flush(); }   cout<<"  "<<int(trshlds[nSegs])<<endl;
@@ -1168,7 +1168,7 @@ void  multiSegment2(VoxelImageT<T>& vImg, vars<Tint> trshlds, vars<int> minSizs,
     Tint minv=trshlds[0], maxv=trshlds[nSegs];
     cdf[minv] = histi[minv];
     myu[minv] = minv*histi[minv];       // 0. times prob[0] equals zero
-    for (int i = max(minv,1); i <= maxv; ++i) {   cdf[i] = cdf[i-1] + histi[i];   myu[i] = myu[i-1] + i*histi[i];  }
+    for (int i = minv+1; i <= maxv; ++i) {   cdf[i] = cdf[i-1] + histi[i];   myu[i] = myu[i-1] + i*histi[i];  }
     for (int i=0; i<nSegs; ++i) meds[i] = T((myu[trshlds[i+1]]-myu[trshlds[i]])/max(cdf[trshlds[i+1]]-cdf[trshlds[i]],1.));
   }
   cout<<"  -> mid+ranges: "; for_i_(0,nSegs) { (std::cout<<"  t"<<int(trshlds[i])<<" m"<<int(meds[i])).flush(); }   cout<<"  "<<int(trshlds[nSegs])<<endl;
