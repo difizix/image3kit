@@ -161,6 +161,7 @@ voxlide_add_op(smoothBilateral GENERATOR generators/smooth_bilateral_gen.cpp IMA
 voxlide_add_op(mode6 GENERATOR generators/mode6_gen.cpp)
 voxlide_add_op(shrink GENERATOR generators/shrink_gen.cpp IMAGES src VALUES lo hi)
 voxlide_add_op(replaceRange GENERATOR generators/replace_range_gen.cpp VALUES lo hi mid)
+voxlide_add_op(zeroGrad GENERATOR generators/zero_grad_gen.cpp)
 voxlide_add_op(moments GENERATOR generators/moments_gen.cpp FP64 REDUCE)
 voxlide_add_op(bilateralX GENERATOR generators/bilateral_x_gen.cpp STRICT_FLOAT)
 voxlide_add_op(bilateralGauss GENERATOR generators/bilateral_gauss_gen.cpp FP64)

@@ -89,6 +89,8 @@ template <Image I> long long modeNSames(I& vImage, short nSameNei, bool verbose 
 template <Image I, Image J> void shrink(I& seged, voxel_t<I> min, voxel_t<I> maks, const J& vImg);
 //! Voxels in [minvi, maxvi] become midvi (Python replace_range / range_to).
 template <Image I> void replaceRange(I& vImage, voxel_t<I> minvi, voxel_t<I> maxvi, voxel_t<I> midvi);
+//! vImg.zeroGrad(nLayers): the outer nLayers layers take the nearest interior layer's values.
+template <Image I> void zeroGrad(I& vImg, int nLayers);
 // statistics (reductions; voxlib/voxelImageI.h)
 template <Image I> double varianceDbl(const I& img, int bgn, int end, bool verbose = false);
 template <Image I> double stdevDbl(const I& img, int bgn, int end);
