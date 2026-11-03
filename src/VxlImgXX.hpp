@@ -338,8 +338,8 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     .def("rescale_values", [](SelfT &m, VxT min, VxT max) { rescaleValues(m, min, max); }, arg("min"), arg("max"), "Rescale image values to [min, max].")
     .def("redirect", &SelfT::rotate, "Swap X axis with the given axis (y or z).")
     .def("direction", &SelfT::rotate, "Swap X axis with the given axis (y or z).")
-    .def("grow0", &SelfT::growPore, "Grow pore phase (voxel values of 0).")
-    .def("shrink0", &SelfT::shrinkPore, "Shrink pore phase (voxel values of 0).")
+    .def("grow0", [](SelfT &m) { vxop::growPore(m); }, "Grow pore phase (voxel values of 0).")
+    .def("shrink0", [](SelfT &m) { vxop::shrinkPore(m); }, "Shrink pore phase (voxel values of 0).")
     .def("resample", [](SelfT &m, double f) { m = resampleMean(m, f); }, arg("factor"),
          "Resample image by factor f, using averaging (downsampling, f>1) or nearest when upsampling (f<1)")
     .def("range_to", [](SelfT &m, VxT min, VxT max, VxT val) { vxop::replaceRange(m, min, max, val); }, arg("min"), arg("max"), arg("val"),
@@ -363,9 +363,9 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
          "neighbour value if that count exceeds the count of its own value by n_min_diff.")
     .def("median_filter", [](SelfT &m, int nIter) { m = vxop::median(m, nIter); }, arg("n_iter") = 1,
          "Apply a 1+6-neighbour median filter n_iter times; voxels on the image faces are kept.")
-    .def("median_x", [](SelfT &m) { m = medianx(m); }, "Apply median filter with kernel size of 1 voxels in x-direction")
-    .def("median_y", [](SelfT &m) { m = mediany(m); }, "Apply median filter with kernel size of 1 voxels in y-direction")
-    .def("median_z", [](SelfT &m) { m = medianz(m); }, "Apply median filter with kernel size of 1 voxels in z-direction")
+    .def("median_x", [](SelfT &m) { m = vxop::medianx(m); }, "Apply median filter with kernel size of 1 voxels in x-direction")
+    .def("median_y", [](SelfT &m) { m = vxop::mediany(m); }, "Apply median filter with kernel size of 1 voxels in y-direction")
+    .def("median_z", [](SelfT &m) { m = vxop::medianz(m); }, "Apply median filter with kernel size of 1 voxels in z-direction")
     .def("median06", [](SelfT &m, int nAdj0, int nAdj1) { return vxop::median06(m, nAdj0, nAdj1); }, arg("nAdj0"), arg("nAdj1"),
          "Set voxel value to 0/1 if it has more than nAdj0/1 neighbours with value 0/1, in its 6 nearest voxels")
     .def("median032", [](SelfT &m, int nAdj0, int nAdj1, VxT lbl0, VxT lbl1) { vxop::median032(m, nAdj0, nAdj1, lbl0, lbl1); },

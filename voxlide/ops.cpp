@@ -11,6 +11,9 @@
 #include "median06Grow_kernels.h"
 #include "median06_kernels.h"
 #include "growLabel_kernels.h"
+#include "shrinkPore_kernels.h"
+#include "growPore_kernels.h"
+#include "medianAxis_kernels.h"
 #include "replaceRange_kernels.h"
 #include "zeroGrad_kernels.h"
 #include "magGradient_kernels.h"
@@ -120,6 +123,26 @@ template <Image I> std::size_t median06(I& v, int nAdj0, int nAdj1) {
 template <Image I> void growLabel(I& v, voxel_t<I> vl) {
     detail::run_stencil<op::growLabel, kernels::growLabel<voxel_t<I>>>(v, 1, [&](auto& m) { ::growLabel(m, vl); }, vl);
 }
+template <Image I> void growPore(I& v) {
+    detail::run_stencil<op::growPore, kernels::growPore<voxel_t<I>>>(v, 1, [&](auto& m) { ::growPore(m); });
+}
+template <Image I> void shrinkPore(I& v) {
+    detail::run_stencil<op::shrinkPore, kernels::shrinkPore<voxel_t<I>>>(v, 1, [&](auto& m) { ::shrinkPore(m); });
+}
+// medianx/y/z: one kernel, the axis is an argument; voxlib returns a new image.
+#define VXHL_MEDIAN_AXIS_(NAME, AXIS)                                                                                \
+    template <typename T> VoxelImageT<T> NAME(const VoxelImageT<T>& v) {                                            \
+        VoxelImageT<T> r = v;                                                                                       \
+        detail::run_stencil<op::medianAxis, kernels::medianAxis<T>>(r, 1, [&](auto& m) { m = ::NAME(m); }, int32_t(AXIS)); \
+        return r;                                                                                                   \
+    }                                                                                                               \
+    template <typename T> void NAME(DeviceImage<T>& v) {                                                            \
+        detail::run_stencil<op::medianAxis, kernels::medianAxis<T>>(v, 1, [&](auto& m) { m = ::NAME(m); }, int32_t(AXIS)); \
+    }
+VXHL_MEDIAN_AXIS_(medianx, 0)
+VXHL_MEDIAN_AXIS_(mediany, 1)
+VXHL_MEDIAN_AXIS_(medianz, 2)
+#undef VXHL_MEDIAN_AXIS_
 template <Image I> void mode26(I& v, short minDif) {
     detail::run_stencil<op::mode26, kernels::mode26<voxel_t<I>>>(v, 1, [&](auto& m) { ::mode26(m, minDif); }, int32_t(minDif));
 }
@@ -314,6 +337,8 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
 
 #define VXHL_INST_IMG_(I, T)                                                                    \
     template void mode26(I&, short);                                                            \
+    template void growPore(I&);                                                                 \
+    template void shrinkPore(I&);                                                               \
     template void median032(I&, int, int, T, T);                                                \
     template void FaceMedGrowToFrom(I&, T, T, int);                                             \
     template std::size_t median06(I&, int, int);                                                \
@@ -342,6 +367,9 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     VXHL_INST_IMG_(DeviceImage<T>, T)                                \
     template VoxelImageT<T> median<T>(const VoxelImageT<T>&, int);   \
     template void median<T>(DeviceImage<T>&, int);                   \
+    template VoxelImageT<T> medianx<T>(const VoxelImageT<T>&); template void medianx<T>(DeviceImage<T>&); \
+    template VoxelImageT<T> mediany<T>(const VoxelImageT<T>&); template void mediany<T>(DeviceImage<T>&); \
+    template VoxelImageT<T> medianz<T>(const VoxelImageT<T>&); template void medianz<T>(DeviceImage<T>&); \
     template VoxelImageT<T> magGradient<T>(const VoxelImageT<T>&, double); \
     template void magGradient<T>(DeviceImage<T>&, double);
 VXHL_FOR_TYPES(VXHL_INST_)

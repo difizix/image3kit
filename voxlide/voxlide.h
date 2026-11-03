@@ -103,6 +103,16 @@ template <Image I> void FaceMedGrowToFrom(I& vImg, voxel_t<I> lblTo, voxel_t<I> 
 template <Image I> std::size_t median06(I& vImg, int nAdj0, int nAdj1);
 //! Voxels next to a vl voxel become vl.
 template <Image I> void growLabel(I& vImg, voxel_t<I> vl);
+//! Pore (value 0) erosion/dilation by one voxel with voxlib's face/edge rules (Python grow0 / shrink0).
+template <Image I> void growPore(I& vImg);
+template <Image I> void shrinkPore(I& vImg);
+//! Median of a voxel and its two neighbours along x / y / z; returns a new image (Python median_x/y/z).
+template <typename T> VoxelImageT<T> medianx(const VoxelImageT<T>& vImage);
+template <typename T> VoxelImageT<T> mediany(const VoxelImageT<T>& vImage);
+template <typename T> VoxelImageT<T> medianz(const VoxelImageT<T>& vImage);
+template <typename T> void medianx(DeviceImage<T>& vImage);  //!< in place
+template <typename T> void mediany(DeviceImage<T>& vImage);
+template <typename T> void medianz(DeviceImage<T>& vImage);
 // statistics (reductions; voxlib/voxelImageI.h)
 template <Image I> double varianceDbl(const I& img, int bgn, int end, bool verbose = false);
 template <Image I> double stdevDbl(const I& img, int bgn, int end);

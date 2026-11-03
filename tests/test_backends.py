@@ -197,3 +197,30 @@ def test_median06_matches_voxlib(backend, cls):
         n_got = got.median06(2, 4)
     assert n_ref > 0 and n_got == n_ref
     assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+@pytest.mark.parametrize("op", ["grow0", "shrink0"])
+def test_pore_ops_match_voxlib(backend, cls, op):
+    ref = _binary(cls)
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        getattr(ref, op)()
+    with ik.backend(backend):
+        getattr(got, op)()
+    assert not np.array_equal(np.array(cls(_binary(cls)), copy=False), np.array(ref, copy=False))  # it did something
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+@pytest.mark.parametrize("op", ["median_x", "median_y", "median_z"])
+def test_median_axis_matches_voxlib(backend, cls, op):
+    ref = _three_labels(cls)
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        getattr(ref, op)()
+    with ik.backend(backend):
+        getattr(got, op)()
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))

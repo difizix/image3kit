@@ -28,6 +28,9 @@ struct OpTraits {
   X(median06Grow, 'B', 1, false, false) \
   X(median06, 'B', 1, false, false) /* returns the change count */ \
   X(growLabel, 'B', 1, false, false) \
+  X(shrinkPore, 'B', 1, false, false) \
+  X(growPore, 'B', 1, false, false) \
+  X(medianAxis, 'B', 1, false, false) /* median_x/y/z: axis is a kernel argument */ \
   X(moments, 'D', 0,   false,   true)  /* reduction: count, Σ, Σ², min, max per z */ \
   X(median, 'C', 1,     true,    false) \
   X(smoothBilateral, 'C', 1, true, false) /* radius per pass; kernRad passes per iteration */ \
