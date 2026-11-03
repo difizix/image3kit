@@ -71,11 +71,12 @@ if(_VOXLIDE_HALIDE)
   target_compile_definitions(voxlide PRIVATE IMAGE3KIT_HAS_HALIDE=1)
 endif()
 
-# ---- voxlide_add_op(<op> GENERATOR <file> [TYPES u8 u16 i32 f32] [IMAGES <input>...] [STRICT_FLOAT] [FP64])
+# ---- voxlide_add_op(<op> GENERATOR <file> [TYPES u8 u16 i32 f32] [IMAGES <input>...] [VALUES <input>...] [STRICT_FLOAT] [FP64])
 # Builds <op>_{cpu,gpu}_<type> kernels and writes <op>_kernels.h with the table
 # vxhl::kernels::<op><T>{cpu, gpu}. Types not listed (or no Halide) get nullptr entries,
 # so the op falls back to voxlib for them.
-#   IMAGES: extra image Inputs of the generator with the op's voxel type (e.g. Snapshot args).
+#   IMAGES: extra image Inputs of the generator with the op's voxel type (Snapshot / Aux args).
+#   VALUES: scalar Input<Expr>s with the op's voxel type (voxlib arguments of type T).
 #   STRICT_FLOAT: float32 in voxlib's exact operation order (no FMA fusion, no reassociation).
 #   FP64:   the kernel computes in double to match voxlib bit for bit: strict IEEE float
 #           (no FMA fusion) and vk_float64 on Vulkan; Metal has no doubles, so no GPU kernel.
@@ -90,7 +91,7 @@ set(_vxhl_c_i32 int32_t)
 set(_vxhl_c_f32 float)
 
 function(voxlide_add_op OP)
-  cmake_parse_arguments(A "FP64;STRICT_FLOAT" "GENERATOR" "TYPES;IMAGES" ${ARGN})
+  cmake_parse_arguments(A "FP64;STRICT_FLOAT" "GENERATOR" "TYPES;IMAGES;VALUES" ${ARGN})
   if(NOT A_TYPES)
     set(A_TYPES ${VOXLIDE_TYPES})
   endif()
@@ -116,7 +117,7 @@ function(voxlide_add_op OP)
     endif()
     foreach(t IN LISTS A_TYPES)
       set(_params input.type=${_vxhl_hl_${t}} output.type=${_vxhl_hl_${t}})
-      foreach(img IN LISTS A_IMAGES)
+      foreach(img IN LISTS A_IMAGES A_VALUES)
         list(APPEND _params ${img}.type=${_vxhl_hl_${t}})
       endforeach()
       foreach(dev IN LISTS _devs)
@@ -154,6 +155,7 @@ voxlide_add_op(mode26 GENERATOR generators/mode26_gen.cpp)
 voxlide_add_op(median GENERATOR generators/median_gen.cpp)
 voxlide_add_op(smoothBilateral GENERATOR generators/smooth_bilateral_gen.cpp IMAGES orig FP64)
 voxlide_add_op(mode6 GENERATOR generators/mode6_gen.cpp)
+voxlide_add_op(shrink GENERATOR generators/shrink_gen.cpp IMAGES src VALUES lo hi)
 voxlide_add_op(bilateralX GENERATOR generators/bilateral_x_gen.cpp STRICT_FLOAT)
 voxlide_add_op(bilateralGauss GENERATOR generators/bilateral_gauss_gen.cpp FP64)
 

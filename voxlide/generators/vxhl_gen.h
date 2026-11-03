@@ -2,7 +2,7 @@
 //! Shared pieces for voxlide Halide generators (build-time only).
 //!
 //! Kernel ABI, fixed for every stencil op so runtime.h can call any kernel the same way:
-//!     int <op>_<cpu|gpu>_<type>(input, gnx, gny, gnz, <op scalars...>, output)
+//!     int <op>_<cpu|gpu>_<type>(input, gnx, gny, gnz, <op scalars and images...>, output[, changes])
 //! `input` covers the piece being processed plus its halo, `output` only the piece's
 //! interior, both in GLOBAL coordinates (buffer mins may be non-zero). gnx/gny/gnz are the
 //! whole image's size, so image-boundary rules never use the buffer extents: a z-slab's
@@ -59,8 +59,8 @@ inline void schedule_stencil(Func out, const Target& t, Type vtype, const std::v
 //! Second output of ops that return a change count: changes(z) = number of voxels of slice z
 //! where `out` differs from `in` (the per-z partials are summed on the host, so they merge
 //! across slabs). ABI: the kernel's last argument, after `output`. Uses per-row partial sums
-//! so the GPU reduction is parallel over (y,z). Call from generate(); schedule with
-//! schedule_change_counts() after schedule_stencil().
+//! so the GPU reduction is parallel over (y,z). Call define() from generate() and schedule()
+//! after schedule_stencil(). Valid only for ops where every changed voxel changes value.
 struct ChangeCounts {
     Func rows{"change_rows"};
     Var y{"cy"}, z{"cz"};
@@ -73,7 +73,7 @@ struct ChangeCounts {
     void schedule(Func changes, const Target& t) {
         rows.compute_root();
         if (t.has_gpu_feature()) {
-            Var yi{"cyi"}, zi{"czi"}, zo{"czo"};
+            Var yi{"cyi"}, zi{"czi"};
             rows.gpu_tile(y, z, yi, zi, 8, 8, TailStrategy::GuardWithIf);
             rows.update().gpu_tile(y, z, yi, zi, 8, 8, TailStrategy::GuardWithIf);
             changes.gpu_tile(z, zi, 32, TailStrategy::GuardWithIf);

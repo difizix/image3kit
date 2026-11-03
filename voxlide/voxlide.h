@@ -38,6 +38,8 @@ void set_max_slab_bytes(std::size_t bytes);
 template <typename T> void mode26(VoxelImageT<T>& vImg, short minDif);
 //! Returns the number of changed voxels (voxlib: Python mode6).
 template <typename T> long long modeNSames(VoxelImageT<T>& vImage, short nSameNei, bool verbose = false);
+//! segment2's shrink: voxels of seged in [min, maks] next to a different value take vImg's value.
+template <typename T> void shrink(VoxelImageT<T>& seged, T min, T maks, const VoxelImageT<T>& vImg);
 template <typename T> VoxelImageT<T> median(const VoxelImageT<T>& vImg, int nIter = 1);
 template <typename T> bool smoothBilateral(VoxelImageT<T>& vImg, int nItrs, int kernRad, double sigmavv, double sharpFact);
 template <typename T> void bilateralX(VoxelImageT<T>& vImg, int kernRad, int Xstp, float sigmaSqr = 16, float sharpFact = 0.05,

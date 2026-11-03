@@ -1,6 +1,6 @@
 //! Throughput of vxhl:: ops per backend vs voxlib (not run by ctest).
 //! Usage: voxlide_bench [n=256] [reps=3] [block=6] [backend=all] [op=all]
-//! ops: mode26, mode6 (returns the change count), median, median5 (5 iterations: device-resident ping-pong),
+//! ops: mode26, mode6 (returns the change count), shrink (Aux source image), median, median5 (5 iterations: device-resident ping-pong),
 //!      bilat1x1 / bilat2x3 (smooth_bilateral nItrs x kernRad, f64),
 //!      gauss1r1 / gauss3r2 (bilateral_gauss nItrs, kernel_radius; f32),
 //!      wide1r1x2 / wide3r2x2 (bilateral_wide nItrs, kernel_radius, x_step 2; f32).
@@ -38,6 +38,7 @@ int main(int argc, char** argv) {
     const std::pair<const char*, std::function<void(Img&)>> ops[] = {
         {"mode26", [](Img& m) { vxhl::mode26(m, short(2)); }},
         {"mode6", [](Img& m) { vxhl::modeNSames(m, short(2)); }},
+        {"shrink", [&](Img& m) { vxhl::shrink(m, (unsigned char)5, (unsigned char)15, input); }},
         {"median", [](Img& m) { m = vxhl::median(m, 1); }},
         {"median5", [](Img& m) { m = vxhl::median(m, 5); }},
         {"bilat1x1", [](Img& m) { vxhl::smoothBilateral(m, 1, 1, 16.0, 0.1); }},
