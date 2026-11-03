@@ -1,6 +1,7 @@
 //! Throughput of vxhl:: ops per backend vs voxlib (not run by ctest).
 //! Usage: voxlide_bench [n=256] [reps=3] [block=6] [backend=all] [op=all]
-//! ops: mode26, mode6 (returns the change count), shrink (Aux source image), mean / variance (reductions: 1 / 2 passes), median, median5 (5 iterations: device-resident ping-pong),
+//! ops: mode26, mode6 (returns the change count), shrink (Aux source image), mean / variance (reductions: 1 / 2 passes),
+//!      chain / chain_dev (mode26, median×3, shrink, mode6, mode26 on VoxelImageT / DeviceImage), median, median5 (5 iterations: device-resident ping-pong),
 //!      bilat1x1 / bilat2x3 (smooth_bilateral nItrs x kernRad, f64),
 //!      gauss1r1 / gauss3r2 (bilateral_gauss nItrs, kernel_radius; f32),
 //!      wide1r1x2 / wide3r2x2 (bilateral_wide nItrs, kernel_radius, x_step 2; f32).
@@ -41,6 +42,13 @@ int main(int argc, char** argv) {
         {"shrink", [&](Img& m) { vxhl::shrink(m, (unsigned char)5, (unsigned char)15, input); }},
         {"mean", [](Img& m) { volatile double r = vxhl::meanDbl(m); (void)r; }},
         {"variance", [](Img& m) { volatile double r = vxhl::varianceDbl(m, 0, 255); (void)r; }},
+        {"chain", [&](Img& m) {  // 5 ops, each through host memory
+             vxhl::mode26(m, 2); m = vxhl::median(m, 3); vxhl::shrink(m, (unsigned char)5, (unsigned char)15, input);
+             vxhl::modeNSames(m, 2); vxhl::mode26(m, 1); }},
+        {"chain_dev", [&](Img& m) {  // the same on a DeviceImage: one upload, one download
+             vxhl::DeviceImage<unsigned char> d(std::move(m));
+             vxhl::mode26(d, 2); vxhl::median(d, 3); vxhl::shrink(d, (unsigned char)5, (unsigned char)15, input);
+             vxhl::modeNSames(d, 2); vxhl::mode26(d, 1); m = d.host(); }},
         {"median", [](Img& m) { m = vxhl::median(m, 1); }},
         {"median5", [](Img& m) { m = vxhl::median(m, 5); }},
         {"bilat1x1", [](Img& m) { vxhl::smoothBilateral(m, 1, 1, 16.0, 0.1); }},

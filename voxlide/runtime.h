@@ -131,22 +131,30 @@ void invoke_box(Fn fn, bool gpu, VoxelField<T>& in, VoxelField<T>* snap, VoxelFi
     if constexpr (Count) add_counts(cb, gpu, *total);
 }
 
+//! Number of z-slabs an image of size n is processed in on backend b.
+template <typename T> int n_slabs(int3 n, Backend b) {
+    const long long bytes = (long long)n.x * n.y * n.z * (long long)sizeof(T);
+    const long long lim = (long long)max_slab_bytes(b);
+    return std::max(1, int((bytes + lim - 1) / lim));
+}
+
 //! Run kernel `fn` nIter times over the whole image. Images rotate between `img` (read
 //! only, so a failure leaves it intact for the Auto fallback) and up to 3 work buffers,
 //! so Snapshot arguments never copy.
 //!  - one piece: on the GPU all buffers stay on the device: one upload, one download;
 //!  - image larger than max_slab_bytes(): every pass is a pass over z-slabs with a halo
 //!    of the op's radius, through host memory.
+//!  - `resident` (DeviceImage on the GPU, one piece): the input's device buffer (a view of
+//!    `img`); the result is left on the device in it, not downloaded.
 template <typename Op, bool Count, typename Fn, typename T, typename... S>
-void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, int radius, long long* total, const S&... s) {
+void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, int radius, long long* total, HBuf<T>* resident,
+                const S&... s) {
     *total = 0;
     const int3 n = img.size3();
     const bool gpu = b == Backend::Gpu;
     int every = 0;
     ((every = std::max(every, snapshot_every(s))), ...);
-    const long long bytes = (long long)n.x * n.y * n.z * (long long)sizeof(T);
-    const long long lim = (long long)max_slab_bytes(b);
-    const int nSlabs = int((bytes + lim - 1) / lim);
+    const int nSlabs = n_slabs<T>(n, b);
 
     VoxelField<T> work[3];
     VoxelField<T>* f[4] = {&img, &work[0], &work[1], &work[2]};
@@ -160,10 +168,11 @@ void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, int radius, lo
     if (nSlabs <= 1) {
         HBuf<T> v[4];
         auto view = [&](int i) -> HBuf<T>& {
+            if (i == 0 && resident) return *resident;
             if (!v[i].data()) v[i] = zview(*f[i], 0, n.z);
             return v[i];
         };
-        if (gpu) view(0).set_host_dirty();
+        if (gpu && !resident) view(0).set_host_dirty();
         for (int p = 0; p < nIter; ++p) {
             if (every && p % every == 0) snap = cur;
             const int out = pick(cur, snap);
@@ -172,9 +181,10 @@ void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, int radius, lo
             call_kernel<Count>(fn, view(cur), every ? &view(snap) : nullptr, view(out), cb, n, s...);
             if constexpr (Count) add_counts(cb, gpu, *total);
             cur = out;
-            if (gpu && snap != 0) v[0].device_free();  // the input is not read again
+            if (gpu && snap != 0 && !resident) v[0].device_free();  // the input is not read again
         }
-        if (gpu && view(cur).copy_to_host() != 0) throw std::runtime_error(take_halide_error());
+        if (resident) *resident = std::move(v[cur]);  // its host memory moves into img below
+        else if (gpu && view(cur).copy_to_host() != 0) throw std::runtime_error(take_halide_error());
     } else {
         const auto boxes = splitZ(n, nSlabs, radius);
         for (int p = 0; p < nIter; ++p) {
@@ -208,6 +218,65 @@ void reduce_box(Fn fn, bool gpu, HBuf<T>& in, int3 g, PerZ<N>& out, const S&... 
         if (gpu && ob[i].copy_to_host() != 0) throw std::runtime_error(take_halide_error());
         for (int k = k0; k < k0 + nk; ++k) out[i][k] = ob[i](k);
     }
+}
+#endif
+
+}  // namespace vxhl::detail
+
+namespace vxhl {
+//! DeviceImage state: a Halide view of the host storage with an optional device mirror.
+template <typename T>
+struct DeviceImage<T>::State {
+#ifdef IMAGE3KIT_HAS_HALIDE
+    detail::HBuf<T> buf;  //!< view of img_ (host pointer) + device allocation
+#endif
+    bool deviceNewer = false;  //!< the device copy holds results the host lacks
+    bool hostNewer = true;     //!< the host copy holds data the device lacks
+    Transfers n;
+};
+template <typename T> DeviceImage<T>::DeviceImage(VoxelImageT<T> img) : img_(std::move(img)), st_(new State) {}
+template <typename T> DeviceImage<T>::DeviceImage(DeviceImage&&) noexcept = default;
+template <typename T> DeviceImage<T>& DeviceImage<T>::operator=(DeviceImage&&) noexcept = default;
+template <typename T> DeviceImage<T>::~DeviceImage() = default;
+template <typename T> const VoxelImageT<T>& DeviceImage<T>::host() const {
+#ifdef IMAGE3KIT_HAS_HALIDE
+    if (st_->deviceNewer) {
+        if (st_->buf.copy_to_host() != 0) throw std::runtime_error("vxhl::DeviceImage: " + detail::take_halide_error());
+        ++st_->n.down;
+        st_->deviceNewer = false;
+    }
+#endif
+    return img_;
+}
+template <typename T> VoxelImageT<T>& DeviceImage<T>::host_mut() {
+    host();
+    st_->hostNewer = true;
+    return img_;
+}
+template <typename T> typename DeviceImage<T>::Transfers DeviceImage<T>::transfers() const { return st_->n; }
+}  // namespace vxhl
+
+namespace vxhl::detail {
+
+#ifdef IMAGE3KIT_HAS_HALIDE
+//! The device buffer of `d` holding the current image (uploads it if the host copy is newer).
+template <typename T>
+HBuf<T>& resident(const DeviceImage<T>& d) {
+    auto& st = d.state();
+    VoxelImageT<T>& img = d.unsynced();
+    const int3 n = img.size3();
+    if (st.buf.data() != img.data() || st.buf.dim(0).extent() != n.x || st.buf.dim(1).extent() != n.y ||
+        st.buf.dim(2).extent() != n.z) {  // host storage replaced (host_mut + growBox, CPU backend)
+        if (st.deviceNewer) throw std::logic_error("vxhl::DeviceImage: device data lost");
+        st.buf = zview(img, 0, n.z);
+        st.hostNewer = true;
+    }
+    if (st.hostNewer) {
+        st.buf.set_host_dirty();
+        ++st.n.up;
+        st.hostNewer = false;
+    }
+    return st.buf;
 }
 #endif
 
@@ -258,7 +327,25 @@ void run_stencil_impl(VoxelImageT<T>& img, Passes ps, long long* count, Ref&& re
     if (ps.n <= 0) return;
     dispatch<Op, K>([&] { ref(img); }, [&]([[maybe_unused]] auto fn, [[maybe_unused]] Backend b) {
 #ifdef IMAGE3KIT_HAS_HALIDE
-        run_kernel<Op, Count>(fn, b, img, ps.n, ps.radius >= 0 ? ps.radius : Op::traits.radius, count, s...);
+        run_kernel<Op, Count>(fn, b, img, ps.n, ps.radius >= 0 ? ps.radius : Op::traits.radius, count, static_cast<HBuf<T>*>(nullptr), s...);
+#else
+        (void)count, ((void)s, ...);
+#endif
+    });
+}
+//! DeviceImage: on the GPU with one piece the image stays on the device; otherwise as above on host().
+template <typename Op, typename K, bool Count, typename T, typename Ref, typename... S>
+void run_stencil_impl(DeviceImage<T>& d, Passes ps, long long* count, Ref&& ref, const S&... s) {
+    if (ps.n <= 0) return;
+    dispatch<Op, K>([&] { ref(d.host_mut()); }, [&]([[maybe_unused]] auto fn, [[maybe_unused]] Backend b) {
+#ifdef IMAGE3KIT_HAS_HALIDE
+        const int radius = ps.radius >= 0 ? ps.radius : Op::traits.radius;
+        if (b == Backend::Gpu && n_slabs<T>(d.size3(), b) == 1) {
+            run_kernel<Op, Count>(fn, b, d.unsynced(), ps.n, radius, count, &resident(d), s...);
+            d.state().deviceNewer = true;
+        } else {
+            run_kernel<Op, Count>(fn, b, d.host_mut(), ps.n, radius, count, static_cast<HBuf<T>*>(nullptr), s...);
+        }
 #else
         (void)count, ((void)s, ...);
 #endif
@@ -268,46 +355,55 @@ void run_stencil_impl(VoxelImageT<T>& img, Passes ps, long long* count, Ref&& re
 //! Reductions (class D): `body(pass)` computes the op's result, calling `pass(scalars...)`
 //! (one kernel run over the whole image, slab by slab) as often as it needs; it returns the
 //! kernel's N outputs per z (PerZ<N>), which `body` combines. On the GPU a one-piece image is
-//! uploaded once for all passes. ref(): the voxlib function. The image is never modified.
-template <typename Op, typename K, std::size_t N, typename T, typename Ref, typename Body>
-auto run_reduce(const VoxelImageT<T>& img, Ref&& ref, [[maybe_unused]] Body&& body) -> decltype(ref()) {
+//! uploaded once for all passes (a resident DeviceImage not at all). ref(host image): the voxlib
+//! function. The image is never modified.
+template <typename Op, typename K, std::size_t N, typename I, typename Ref, typename Body>
+auto run_reduce(const I& img, Ref&& ref, [[maybe_unused]] Body&& body) {
+    using T = voxel_t<I>;
+    constexpr bool device = std::is_same_v<std::remove_const_t<I>, DeviceImage<T>>;
+    auto host = [&]() -> const VoxelImageT<T>& {
+        if constexpr (device) return img.host(); else return img;
+    };
+    using R = decltype(ref(host()));
     const int3 n = img.size3();
-    if ((long long)n.x * n.y * n.z == 0) return ref();
-    return dispatch<Op, K>(ref, [&]([[maybe_unused]] auto fn, [[maybe_unused]] Backend b) -> decltype(ref()) {
+    if ((long long)n.x * n.y * n.z == 0) return ref(host());
+    return dispatch<Op, K>([&] { return ref(host()); }, [&]([[maybe_unused]] auto fn, [[maybe_unused]] Backend b) -> R {
 #ifdef IMAGE3KIT_HAS_HALIDE
         const bool gpu = b == Backend::Gpu;
-        auto& f = const_cast<VoxelImageT<T>&>(img);  // read only
-        const long long bytes = (long long)n.x * n.y * n.z * (long long)sizeof(T);
-        const long long lim = (long long)max_slab_bytes(b);
-        const auto boxes = splitZ(n, int((bytes + lim - 1) / lim), 0);
+        HBuf<T>* res = nullptr;  // DeviceImage on the GPU in one piece: read the device copy
+        if constexpr (device) if (gpu && n_slabs<T>(n, b) == 1) res = &resident(img);
+        const auto boxes = splitZ(n, n_slabs<T>(n, b), 0);
         HBuf<T> whole;  // kept (and on the GPU, resident) across passes when there is one box
         auto pass = [&](const auto&... s) {
             PerZ<N> out;
             for (auto& v : out) v.assign(n.z, 0.0);
             for (const Box& box : boxes) {
                 HBuf<T> local;
-                HBuf<T>& in = boxes.size() == 1 ? whole : local;
-                if (!in.data()) { in = zview(f, box.kBgn(), box.kEnd()); if (gpu) in.set_host_dirty(); }
+                HBuf<T>& in = res ? *res : boxes.size() == 1 ? whole : local;
+                if (!in.data()) {
+                    in = zview(const_cast<VoxelImageT<T>&>(host()), box.kBgn(), box.kEnd());  // read only
+                    if (gpu) in.set_host_dirty();
+                }
                 reduce_box<N>(fn, gpu, in, n, out, s...);
             }
             return out;
         };
         return body(pass);
 #else
-        return ref();
+        return ref(host());
 #endif
     });
 }
 
-template <typename Op, typename K, typename T, typename Ref, typename... S>
-void run_stencil(VoxelImageT<T>& img, Passes ps, Ref&& ref, const S&... s) {
+template <typename Op, typename K, typename I, typename Ref, typename... S>
+void run_stencil(I& img, Passes ps, Ref&& ref, const S&... s) {
     long long unused = 0;
     run_stencil_impl<Op, K, false>(img, ps, &unused, ref, s...);
 }
 //! Ops that also return how many voxels changed (voxlib: `long long`): the kernel has a second
 //! output from vxhl_gen::ChangeCounts. `ref` must set `count` (it runs only on the voxlib path).
-template <typename Op, typename K, typename T, typename Ref, typename... S>
-long long run_stencil_count(VoxelImageT<T>& img, Passes ps, Ref&& ref, const S&... s) {
+template <typename Op, typename K, typename I, typename Ref, typename... S>
+long long run_stencil_count(I& img, Passes ps, Ref&& ref, const S&... s) {
     long long count = 0;
     run_stencil_impl<Op, K, true>(img, ps, &count, [&](auto& m) { count = ref(m); }, s...);
     return count;
