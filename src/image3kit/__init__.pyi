@@ -6,6 +6,10 @@ from __future__ import annotations
 
 from image3kit._core.sirun import Input, dbl3, int3
 from image3kit._core.voxlib import (
+    DevImgF32,
+    DevImgI32,
+    DevImgU8,
+    DevImgU16,
     VoxelImagesBase,
     VxlImgF32,
     VxlImgI32,
@@ -24,6 +28,10 @@ from image3kit._core.voxlib import (
 from . import _core
 
 __all__: list = [
+    "DevImgF32",
+    "DevImgI32",
+    "DevImgU8",
+    "DevImgU16",
     "Input",
     "VoxelImagesBase",
     "VxlImgF32",

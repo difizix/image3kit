@@ -200,6 +200,10 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
          "Expand the image boundaries, increasing its size by `num_layers` in all directions")
     .def("shrink_box", [](SelfT &m, int n) { vxop::shrinkBox(m, n); }, arg("num_layers"),
          "Shrink the image boundaries, decreasing its size by the given num_layers in all directions")
+    #if defined(IMAGE3KIT_HAS_VOXLIDE) && !defined(_POCKETPY)
+    .def("to_device", [](const SelfT &m) { return std::make_unique<vxhl::DeviceImage<VxT>>(SelfT(m)); },
+         "A DevImg copy of this image, to run chains of ops on the GPU without transfers (see DevImg).")
+    #endif
     .def("fill_holes", [](SelfT &m, int maxHoleRadius) { vxop::fillHoles(m, maxHoleRadius); }, arg("maxHoleRadius"), "Fill closed holes in the image.")
     .def("threshold101", [](SelfT &m, VxT lo, VxT hi) { vxop::threshold101(m, lo, hi); }, arg("min"), arg("max"),
          "Apply a threshold to binarize the image, set voxel-values to convert to 0 in between the min and max thresholds and 1 outside of it")

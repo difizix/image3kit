@@ -6,6 +6,10 @@ from . import _core
 from ._core import __doc__, __version__
 from ._core.sirun import Input, dbl3, int3
 from ._core.voxlib import (
+    DevImgF32,
+    DevImgI32,
+    DevImgU8,
+    DevImgU16,
     VoxelImagesBase,
     VxlImgF32,
     VxlImgI32,
@@ -40,6 +44,10 @@ def backend(name: str):
 
 
 __all__ = [
+    "DevImgF32",
+    "DevImgI32",
+    "DevImgU8",
+    "DevImgU16",
     "Input",
     "VoxelImagesBase",
     "VxlImgF32",
