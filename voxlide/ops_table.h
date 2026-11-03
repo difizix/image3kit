@@ -23,6 +23,7 @@ struct OpTraits {
   X(zeroGrad, 'B', 1, false, false) /* radius nLayers: passed per call */ \
   X(magGradient, 'B', 1, false, false) \
   X(scaleGradient, 'A', 0, false, false) \
+  X(segmentVote, 'C', 2, false, false) /* radius krnl: passed per call; reads 2 Aux images */ \
   X(moments, 'D', 0,   false,   true)  /* reduction: count, Σ, Σ², min, max per z */ \
   X(median, 'C', 1,     true,    false) \
   X(smoothBilateral, 'C', 1, true, false) /* radius per pass; kernRad passes per iteration */ \

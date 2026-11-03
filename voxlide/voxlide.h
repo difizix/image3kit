@@ -102,6 +102,15 @@ template <Image I> double meanDbl(const I& img);
 template <Image I> double minDbl(const I& img);
 template <Image I> double maxDbl(const I& img);
 template <Image I> double porosityDbl(const I& img, voxel_t<I> threshold = 0);
+//! One segment2 voting pass (voxlib segmentVote); returns the number of changed voxels. u8/u16.
+template <Image I, Image J, Image K>
+std::size_t segmentVote(I& vImg, const J& origimg, const K& grad, const vars<voxel_t<I>>& meds, intOr<voxel_t<I>> capmin,
+                        intOr<voxel_t<I>> capmax, int krnl, double localF, double flatnes, double gradFactor,
+                        double resolutionSqr, double avgGradInv, double noisv);
+//! voxlib segment2 (Python segment2), run on DeviceImages: u8/u16.
+template <typename T>
+bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<intOr<T>> th, vars<int> minSizs, double noisev, double localF,
+              double flatnes, double resolution, double gradFactor, int krnl, int nItrs, int writedumps);
 template <typename T> VoxelImageT<T> magGradient(const VoxelImageT<T>& vImg, double diffuseLSqr);
 template <typename T> void magGradient(DeviceImage<T>& vImg, double diffuseLSqr);  //!< in place
 template <typename T> VoxelImageT<T> median(const VoxelImageT<T>& vImg, int nIter = 1);

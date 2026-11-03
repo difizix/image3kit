@@ -65,7 +65,7 @@ void addDodgyFuncsInt(py::class_<VoxelImageT<VxT>, VoxelImagesBase> &m) requires
        [](SelfT &m, std::vector<intOr<VxT>> th, std::vector<int> minSizs,
           double noisev, double localF, double flatnes, double resolution,
           double gradFactor, int krnl, int nItrs, int writedumps) {
-          segment2(m, int(th.size())-1, th, minSizs, noisev, localF, flatnes, resolution,
+          vxop::segment2(m, int(th.size())-1, th, minSizs, noisev, localF, flatnes, resolution,
                    gradFactor, krnl, nItrs, writedumps);
        },
        arg("thresholds") = std::vector<int>(),

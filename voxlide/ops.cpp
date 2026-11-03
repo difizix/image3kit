@@ -11,6 +11,7 @@
 #include "zeroGrad_kernels.h"
 #include "magGradient_kernels.h"
 #include "scaleGradient_kernels.h"
+#include "segmentVote_kernels.h"
 
 #include <cfloat>
 #include <cmath>
@@ -184,6 +185,114 @@ bool _bilateralGauss(I& v, int nItrs, int kernRad, double sigmavv, double sharpF
     return true;
 }
 // Every op for both image kinds (I = VoxelImageT<T>, DeviceImage<T>).
+template <Image I, Image J, Image K>
+std::size_t segmentVote(I& vImg, const J& origimg, const K& grad, const vars<voxel_t<I>>& meds, intOr<voxel_t<I>> capmin,
+                        intOr<voxel_t<I>> capmax, int krnl, double localF, double flatnes, double gradFactor,
+                        double resolutionSqr, double avgGradInv, double noisv) {
+    using T = voxel_t<I>;
+    const detail::Aux<T> o(origimg), g(grad);
+    auto ref = [&](auto& m) {
+        return (long long)::segmentVote(m, o.host(), g.host(), meds, capmin, capmax, krnl, localF, flatnes, gradFactor,
+                                        resolutionSqr, avgGradInv, noisv);
+    };
+    constexpr int kMax = 8;  // generators/segment_vote_gen.cpp kMaxSegs
+    if (meds.empty() || meds.size() > kMax) {
+        if constexpr (std::is_same_v<I, VoxelImageT<T>>) return ref(vImg); else return ref(vImg.host_mut());
+    }
+    int32_t m[kMax];
+    for (int i = 0; i < kMax; ++i) m[i] = i < int(meds.size()) ? int32_t(meds[i]) : -1;
+    const double r1 = resolutionSqr - 0.99, kc = 2 * (krnl + 0.5) * (krnl + 0.5) * (krnl + 0.5);  // as voxlib
+    return detail::run_stencil_count<op::segmentVote, kernels::segmentVote<T>>(
+        vImg, detail::Passes(1, krnl), ref, o, g, int32_t(krnl), int32_t(meds.size()), m[0], m[1], m[2], m[3], m[4], m[5],
+        m[6], m[7], int32_t(capmin), int32_t(capmax), localF, flatnes, gradFactor, r1, avgGradInv, noisv, kc);
+}
+
+// voxlib segment2 + multiSegment2 (voxelImageML.h) on DeviceImages: the image, origimg and grad stay
+// on the GPU from the first median to the last vote. Inputs voxlib handles differently (dumps,
+// > 8 segments, thresholds not increasing) go to voxlib.
+template <typename T>
+bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs, double noisev, double localF,
+              double flatnes, double resolution, double gradFactor, int krnl, int nItrs, int writedumps) {
+    auto voxlib = [&] {
+        return ::segment2(vImg, nSegs, th, minSizs, noisev, localF, flatnes, resolution, gradFactor, krnl, nItrs, writedumps);
+    };
+    if (get_backend() == Backend::Voxlib || writedumps || nSegs < 1 || nSegs > 8) return voxlib();
+    // ---- segment2 (same checks and clamps as voxlib)
+    ensure(flatnes < 0.9, "too large flatnes, set to ~0.1", 2);
+    ensure(gradFactor < 10.1, "too large gradFactor, set to ~0.1", 2);
+    ensure(localF < 0.1, "localF should be < 0.1");
+    ensure(nItrs > 5, "nItrs should be > 5 ");
+    ensure(krnl, "wrong kernel  in segment2", -1);
+    resolution = std::max(resolution, 1.);
+    if (th.empty()) th = vars<Tint>(nSegs + 1, -1);
+    if (minSizs.empty()) { minSizs = vars<int>(nSegs, 2); minSizs[0] = 1; }
+    constexpr Tint i254 = maxT(T) - 1;
+    constexpr Tint i1 = minT(T) + 1;
+    if (int(th.size()) != nSegs + 1 || int(minSizs.size()) != nSegs) return voxlib();
+    for (int i = 1; i <= nSegs; ++i)
+        if (th[i] <= std::max(th[i - 1], i1 - 1)) return voxlib();  // not increasing (voxlib reads garbage)
+    if (th[0] < i1) { th[0] = i1; vxhl::replaceRange(vImg, T(minT(T)), T(i1 - 1), T(i1)); }
+    ensure(th[nSegs] <= maxT(T), "incompatible threshold value and image type", -1);
+    if (th[nSegs] > i254) { th[nSegs] = i254; vxhl::replaceRange(vImg, T(i254 + 1), T(maxT(T)), T(i254)); }
+    std::cout << "{ segment2 (voxlide), nSegs: " << nSegs << ", ranges: " << th << ", minSizs: " << minSizs << "\n";
+    vImg.growBox(8);
+
+    // ---- multiSegment2(vImg, th, minSizs, sqr(resolution), noisev, localF, krnl, flatnes, gradFactor, nItrs)
+    const double resolutionSqr = resolution * resolution, noisv = noisev;
+    const Tint capmin = th[0], capmax = th[nSegs];
+    vars<T> meds(nSegs, -2);
+    {  // voxlib: means of median(median(vImg)) over (th[i], th[i+1]] from cumulative histograms of [1, maxT-1]
+        DeviceImage<T> m2(vImg);
+        vxhl::median(m2, 2);
+        for (int i = 0; i < nSegs; ++i) {
+            const double lo = th[i] + 1, hi = th[i + 1];
+            const auto [n, sum] = moments(m2,
+                [&](const auto& h) {
+                    double c = 0, t = 0;
+                    for (T v : h.data_) if (lo <= v && v <= hi) c += 1, t += v;
+                    return std::pair<double, double>(c, t);
+                },
+                [&](auto m) { const Mom r = m(lo, hi, 0, 0); return std::pair<double, double>(r.n, r.sum); });
+            meds[i] = T(sum / std::max(n, 1.));
+        }
+    }
+    std::cout << "  -> mid+ranges: "; for (int i = 0; i < nSegs; ++i) std::cout << "  t" << int(th[i]) << " m" << int(meds[i]);
+    std::cout << "  " << int(th[nSegs]) << std::endl;
+    ensure(meds.back() > 0, "meds:" + _s(meds), -1);
+
+    DeviceImage<T> img(vImg), orig(vImg), grad(vImg);
+    vxhl::median(img, 1);
+    vxhl::magGradient(grad, resolutionSqr * (dmaxT(T) / (meds.back() - meds[0])));
+    vxhl::bilateralX(grad, 1, 1, float(noisv * noisv), float(0.05), float(12));
+    vxhl::scaleGradient(grad, vxhl::average2p(grad) * 0.2 + 0.01);
+    const double avgGradInv = 1. / vxhl::average2p(grad);
+    for (size_t tt = 0; tt < meds.size(); ++tt) {
+        vxhl::replaceRange(orig, T(meds[tt]), T(meds[tt]), T(meds[tt] - 1));  // to avoid conflict with seg values in shrink
+        T bgnh = 0.5 * (1.5 * meds[tt] + 0.5 * th[tt]) + 0.5;
+        T endh = 0.5 * (1.5 * meds[tt] + 0.5 * th[tt + 1]) - 0.5;
+        vxhl::replaceRange(img, bgnh, endh, meds[tt]);
+        if (tt == 0) vxhl::replaceRange(img, T(th[tt]), bgnh, meds[tt]);
+        else         vxhl::replaceRange(img, T(th[tt]), bgnh, T(meds[tt] - 1));
+        if (tt + 1 == meds.size()) vxhl::replaceRange(img, endh, T(th[tt + 1]), meds[tt]);
+        else                       vxhl::replaceRange(img, endh, T(th[tt + 1]), T(meds[tt] + 1));
+    }
+    vxhl::mode26(img, 1);
+    vxhl::mode26(img, 1);
+    for (size_t tt = 0; tt < meds.size(); ++tt)
+        for (int i = 0; i < minSizs[tt]; ++i) vxhl::shrink(img, meds[tt], meds[tt], orig);
+    for (int iter = 0; iter < nItrs; ++iter) {
+        for (int i = 0; i < minSizs[0]; ++i) vxhl::mode26(img, 1);
+        vxhl::zeroGrad(img, 2);
+        const std::size_t nc = vxhl::segmentVote(img, orig, grad, meds, capmin, capmax, krnl, localF, flatnes, gradFactor,
+                                                 resolutionSqr, avgGradInv, noisv);
+        std::cout << "  nChang:" << nc << std::endl;
+    }
+    vImg = img.host();
+    vImg.shrinkBox(8);
+    std::cout << "}" << std::endl;
+    return true;
+}
+
 #define VXHL_INST_IMG_(I, T)                                                                    \
     template void mode26(I&, short);                                                            \
     template void replaceRange(I&, T, T, T);                                                    \
@@ -213,6 +322,16 @@ bool _bilateralGauss(I& v, int nItrs, int kernRad, double sigmavv, double sharpF
     template VoxelImageT<T> magGradient<T>(const VoxelImageT<T>&, double); \
     template void magGradient<T>(DeviceImage<T>&, double);
 VXHL_FOR_TYPES(VXHL_INST_)
+#define VXHL_INST_SEG_(T)                                                                                          \
+    template std::size_t segmentVote(VoxelImageT<T>&, const VoxelImageT<T>&, const VoxelImageT<T>&, const vars<T>&, \
+                                     intOr<T>, intOr<T>, int, double, double, double, double, double, double);    \
+    template std::size_t segmentVote(DeviceImage<T>&, const DeviceImage<T>&, const DeviceImage<T>&, const vars<T>&, \
+                                     intOr<T>, intOr<T>, int, double, double, double, double, double, double);    \
+    template bool segment2<T>(VoxelImageT<T>&, int, vars<intOr<T>>, vars<int>, double, double, double, double, double, \
+                              int, int, int);
+VXHL_INST_SEG_(unsigned char)
+VXHL_INST_SEG_(unsigned short)  // segment2 is bound for u8/u16 only (voxlib's tables have maxT(T)+1 entries)
+#undef VXHL_INST_SEG_
 #undef VXHL_INST_
 #undef VXHL_INST_IMG_
 
