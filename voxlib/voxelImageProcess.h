@@ -341,7 +341,7 @@ template<typename T>  bool segment(VoxelImageT<T>& vImg, int nSegs, std::vector<
       for (int itr=0; itr<10; ++itr) {
 
         for (int iSg=1; iSg<nSegs; ++iSg)
-          trshlds[iSg] = otsu_minAvThresholdAvMx(hist, trshlds[iSg-1], trshlds[iSg+1], 0, delta)[2];
+          trshlds[iSg] = otsuLastLow(otsu_minAvThresholdAvMx(hist, trshlds[iSg-1]/delta, trshlds[iSg+1]/delta, 0, delta)[2]);
 
 
         cout<<"  New ranges: "<<rang(&trshlds[0], nSegs+1)<<endl;
@@ -349,7 +349,7 @@ template<typename T>  bool segment(VoxelImageT<T>& vImg, int nSegs, std::vector<
     }
     else  {
       trshlds[0]=1; trshlds[nSegs]=254;
-      trshlds[1] = otsu_minAvThresholdAvMx(hist, trshlds[0], trshlds[2], 0, delta)[2];
+      trshlds[1] = otsuLastLow(otsu_minAvThresholdAvMx(hist, trshlds[0]/delta, trshlds[2]/delta, 0, delta)[2]);
 
       cout<<"  New ranges: ";    for (int i=0; i<=nSegs; ++i) {(cout<<" "<<int(trshlds[i])<<" ").flush(); }  cout<<" "<<endl;
 

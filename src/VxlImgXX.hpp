@@ -498,7 +498,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
             return std::vector<double>(arr.begin(), arr.end()); // for pocketpy not supporting std::array
         },
         arg("min_val")=0, arg("max_val")=maxT(VxT),
-        "returns an array containing [min, avg_0, threshold, avg_1, max] of voxel values"
+        "returns [min, avg_0, threshold, avg_1, max]: the range, the means of the two Otsu classes and the threshold, all in voxel values. Voxels with value < threshold are class 0 (threshold is the upper edge of the best histogram bin). The histogram has at most 256 bins, so for images with more than 256 values in [min_val, max_val) the threshold is resolved to (max_val - min_val)/256."
     )
     .def("dering", [](SelfT &m, int X0, int Y0, int X1, int Y1, int minV, int maxV, int nr, int ntheta, int nz, double scaleDifV, double bilateralSharpen, int nGrowBox, bool write_dumps) {
           ::deringImg(m, nr,ntheta,nz, VxT(minV),VxT(maxV), X0,Y0, X1,Y1, nGrowBox, scaleDifV, bilateralSharpen, write_dumps);
@@ -540,7 +540,7 @@ void bind_funcs(py::module &voxlib) requires(sizeof(VxT)<=2) {
 
     voxlib.def("threshold01_otsu", ::threshold01_otsu<VxT>,
         py::arg("image"), py::arg("minvi")=0, py::arg("maxvi")=maxT(VxT), py::arg("skipFrac")=0.0,
-        "returns a binary (0&1) 8bit image obtained using Otsu thresholding of image");
+        "returns a binary (0&1) 8bit image obtained using Otsu thresholding of image: 0 where the value is below the Otsu threshold (see otsu_threshold), 1 elsewhere");
 
 }
 

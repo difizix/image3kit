@@ -117,7 +117,44 @@ UTEST(Otsu, u8_matches_brute_force) {
         if (sigma > best) best = sigma, bt = t, n0 = c, s0 = cs;
     }
     const auto t = otsu_minAvgThresholdAvgMax(f, 1, 254);
-    EXPECT_NEAR(bt, t[2], 1e-9);
+    EXPECT_NEAR(bt + 1, t[2], 1e-9);  // class 0 is the values <= bt: threshold = bt + 1 (v < threshold)
     EXPECT_NEAR(s0 / n0, t[1], 1e-9);
     EXPECT_NEAR((s - s0) / (n - n0), t[3], 1e-9);
+}
+
+// threshold01_otsu: 0 where v < threshold. A two-valued image is the sharpest check: with the
+// threshold at the lower edge of the best bin (the old behaviour) the low phase landed in class 1.
+UTEST(Otsu, threshold01_separates_two_values) {
+    VoxelImageT<unsigned char> img(int3(8, 8, 8), 50);
+    for (int k = 0; k < 8; ++k) for (int j = 0; j < 8; ++j) for (int i = 4; i < 8; ++i) img(i, j, k) = 150;
+    const auto t = otsu_minAvgThresholdAvgMax(img, 1, 254);
+    EXPECT_TRUE(t[2] > 50 && t[2] <= 150);
+    EXPECT_NEAR(50, t[1], 1e-9);
+    EXPECT_NEAR(150, t[3], 1e-9);
+    const auto m = threshold01_otsu(img, 1, 254);
+    for (int k = 0; k < 8; ++k) for (int j = 0; j < 8; ++j) for (int i = 0; i < 8; ++i) EXPECT_EQ(i < 4 ? 0 : 1, int(m(i, j, k)));
+}
+
+// The mask of a noisy bimodal image equals the brute-force class split, and the mask of the same
+// image scaled into 16 bits (256 coarse bins) is the same mask.
+UTEST(Otsu, threshold01_matches_brute_force_and_scales) {
+    const auto f = phases<unsigned char>(int3(40, 36, 32), 1, 13);
+    const auto t = otsu_minAvgThresholdAvgMax(f, 1, 254);
+    const auto m = threshold01_otsu(f, 1, 254);
+    long long wrong = 0;
+    for (size_t i = 0; i < f.data_.size(); ++i) wrong += (f.data_[i] < t[2]) == (m.data_[i] == 1);
+    EXPECT_EQ(0LL, wrong);
+    const auto g = scaled(phases<unsigned short>(int3(40, 36, 32), 1, 13), 250);
+    const auto mg = threshold01_otsu(g, 0, 256 * 250);
+    const auto mf = threshold01_otsu(phases<unsigned short>(int3(40, 36, 32), 1, 13), 0, 256);
+    long long diff = 0;
+    for (size_t i = 0; i < mf.data_.size(); ++i) diff += mf.data_[i] != mg.data_[i];
+    EXPECT_EQ(0LL, diff);
+}
+
+// otsuLastLow: the last integer value below a threshold, for inclusive-upper-bound callers.
+UTEST(Otsu, last_low_value) {
+    EXPECT_EQ(49, otsuLastLow(50.0));
+    EXPECT_EQ(50, otsuLastLow(50.5));
+    EXPECT_EQ(50, otsuLastLow(51.0));
 }
