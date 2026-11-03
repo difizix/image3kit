@@ -121,3 +121,15 @@ def test_statistics_match_voxlib(backend, cls):
     with ik.backend(backend):
         got = [f(img) for f in calls]
     assert got == pytest.approx(ref, rel=1e-10)
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+def test_replace_range_matches_voxlib(backend, cls):
+    ref = _labelled(cls, (17, 23, 31))
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        ref.replace_range(20, 30, 7)
+    with ik.backend(backend):
+        got.replace_range(20, 30, 7)
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))

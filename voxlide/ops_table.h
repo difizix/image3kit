@@ -19,6 +19,7 @@ struct OpTraits {
   X(mode26, 'B', 1,     false,   false) \
   X(mode6, 'B', 1,     false,   false) /* returns the change count */ \
   X(shrink, 'B', 1,    false,   false) /* reads an Aux image */ \
+  X(replaceRange, 'A', 0, false, false) \
   X(moments, 'D', 0,   false,   true)  /* reduction: count, Σ, Σ², min, max per z */ \
   X(median, 'C', 1,     true,    false) \
   X(smoothBilateral, 'C', 1, true, false) /* radius per pass; kernRad passes per iteration */ \

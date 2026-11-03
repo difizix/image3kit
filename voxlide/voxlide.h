@@ -87,6 +87,8 @@ template <Image I> void mode26(I& vImg, short minDif);
 template <Image I> long long modeNSames(I& vImage, short nSameNei, bool verbose = false);
 //! segment2's shrink: voxels of seged in [min, maks] next to a different value take vImg's value.
 template <Image I, Image J> void shrink(I& seged, voxel_t<I> min, voxel_t<I> maks, const J& vImg);
+//! Voxels in [minvi, maxvi] become midvi (Python replace_range / range_to).
+template <Image I> void replaceRange(I& vImage, voxel_t<I> minvi, voxel_t<I> maxvi, voxel_t<I> midvi);
 // statistics (reductions; voxlib/voxelImageI.h)
 template <Image I> double varianceDbl(const I& img, int bgn, int end, bool verbose = false);
 template <Image I> double stdevDbl(const I& img, int bgn, int end);

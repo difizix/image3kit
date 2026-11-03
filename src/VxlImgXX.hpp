@@ -342,9 +342,9 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     .def("shrink0", &SelfT::shrinkPore, "Shrink pore phase (voxel values of 0).")
     .def("resample", [](SelfT &m, double f) { m = resampleMean(m, f); }, arg("factor"),
          "Resample image by factor f, using averaging (downsampling, f>1) or nearest when upsampling (f<1)")
-    .def("range_to", [](SelfT &m, VxT min, VxT max, VxT val) { replaceRange(m, min, max, val); }, arg("min"), arg("max"), arg("val"),
+    .def("range_to", [](SelfT &m, VxT min, VxT max, VxT val) { vxop::replaceRange(m, min, max, val); }, arg("min"), arg("max"), arg("val"),
          "Set values in range [min, max] to val.")
-    .def("replace_range", [](SelfT &m, VxT min, VxT max, VxT val) { replaceRange(m, min, max, val); }, arg("min"), arg("max"), arg("val"),
+    .def("replace_range", [](SelfT &m, VxT min, VxT max, VxT val) { vxop::replaceRange(m, min, max, val); }, arg("min"), arg("max"), arg("val"),
          "Replace values in range [min, max] with val.")
     .def("write_8bit", [](SelfT &m, std::string outName, double minv, double maxv) { _write8bit(m, outName, minv, maxv); },
          arg("filename"), arg("min")=0.0, arg("max")=-0.5,

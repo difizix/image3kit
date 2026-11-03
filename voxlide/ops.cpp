@@ -7,6 +7,7 @@
 #include "median_kernels.h"
 #include "shrink_kernels.h"
 #include "moments_kernels.h"
+#include "replaceRange_kernels.h"
 
 #include <cfloat>
 #include <cmath>
@@ -72,6 +73,10 @@ template <Image I> double porosityDbl(const I& v, voxel_t<I> threshold) {
     });
 }
 
+template <Image I> void replaceRange(I& v, voxel_t<I> minvi, voxel_t<I> maxvi, voxel_t<I> midvi) {
+    detail::run_stencil<op::replaceRange, kernels::replaceRange<voxel_t<I>>>(
+        v, 1, [&](auto& m) { ::replaceRange(m, minvi, maxvi, midvi); }, minvi, maxvi, midvi);
+}
 template <Image I> void mode26(I& v, short minDif) {
     detail::run_stencil<op::mode26, kernels::mode26<voxel_t<I>>>(v, 1, [&](auto& m) { ::mode26(m, minDif); }, int32_t(minDif));
 }
@@ -148,6 +153,7 @@ bool _bilateralGauss(I& v, int nItrs, int kernRad, double sigmavv, double sharpF
 // Every op for both image kinds (I = VoxelImageT<T>, DeviceImage<T>).
 #define VXHL_INST_IMG_(I, T)                                                                    \
     template void mode26(I&, short);                                                            \
+    template void replaceRange(I&, T, T, T);                                                    \
     template long long modeNSames(I&, short, bool);                                             \
     template void shrink(I&, T, T, const VoxelImageT<T>&);                                      \
     template void shrink(I&, T, T, const DeviceImage<T>&);                                      \
