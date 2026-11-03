@@ -42,6 +42,10 @@ template <typename T> VoxelImageT<T> median(const VoxelImageT<T>& vImg, int nIte
 template <typename T> bool smoothBilateral(VoxelImageT<T>& vImg, int nItrs, int kernRad, double sigmavv, double sharpFact);
 template <typename T> void bilateralX(VoxelImageT<T>& vImg, int kernRad, int Xstp, float sigmaSqr = 16, float sharpFact = 0.05,
                                       float sigmaGaussSqr = 2., float capmin = 0, float capmax = fmaxT(T));
+template <typename T> void bilateralGauss(VoxelImageT<T>& vImg, int kernRad, float sigmaSqr = 16, float sharpFact = 0.05,
+                                          float sigmaGaussSqr = 2., float capmin = 0, float capmax = fmaxT(T));
+template <typename T> bool _bilateralGauss(VoxelImageT<T>& vImg, int nItrs, int kernRad, double sigmavv, double sharpFact,
+                                           double sigmadd);
 template <typename T> bool _bilateralX(VoxelImageT<T>& vImg, int nItrs, int kernRad, int Xstp, double sigmavv,
                                        double sharpFact, double sigmadd);
 

@@ -491,7 +491,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
         }, arg("iterations")=1, arg("kernel_radius")=1, arg("x_step")=2, arg("sigma_val")=16.0, arg("sharpness")=0.1, arg("sigma_spatial")=2.0,
         "Bilateral filter with Xtra large kernel radius, actual kernel size is: kernel_radius * x_step cubed.")
     .def("bilateral_gauss", [](SelfT &m, int nItrs, int kernRad, double sigmavv, double sharpFact, double sigmadd) {
-          ::_bilateralGauss(m, nItrs, kernRad, sigmavv*sigmavv, sharpFact, sigmadd*sigmadd);
+          vxop::_bilateralGauss(m, nItrs, kernRad, sigmavv*sigmavv, sharpFact, sigmadd*sigmadd);
         }, arg("iterations")=1, arg("kernel_radius")=1, arg("sigma_val")=16.0, arg("sharpness")=0.1, arg("sigma_spatial")=2.0)
     .def("mean_wide", [](SelfT &m, int nW, int noisev, int avg, int delta, int nItrs, std::string smoothImg) {
         VoxLib::meanWide(m, nW, noisev, avg, delta, nItrs, smoothImg);

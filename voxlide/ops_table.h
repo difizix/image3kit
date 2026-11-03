@@ -20,7 +20,8 @@ struct OpTraits {
   X(mode6, 'B', 1,     false,   false) /* returns the change count */ \
   X(median, 'C', 1,     true,    false) \
   X(smoothBilateral, 'C', 1, true, false) /* radius per pass; kernRad passes per iteration */ \
-  X(bilateralX, 'C', 1, true, false) /* radius kernRad: passed per call (Passes) */
+  X(bilateralX, 'C', 1, true, false) /* radius kernRad: passed per call (Passes) */ \
+  X(bilateralGauss, 'C', 1, true, false) /* radius kernRad: passed per call (Passes) */
 // clang-format on
 
 namespace op {

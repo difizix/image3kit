@@ -7,6 +7,7 @@
 #include "median_kernels.h"
 #include "smoothBilateral_kernels.h"
 #include "bilateralX_kernels.h"
+#include "bilateralGauss_kernels.h"
 
 namespace vxhl {
 
@@ -55,12 +56,32 @@ bool _bilateralX(VoxelImageT<T>& v, int nItrs, int kernRad, int Xstp, double sig
     v.shrinkBox(kernRad * Xstp + 4);
     return true;
 }
+// ::bilateralGauss: one pass with radius kernRad, all neighbours.
+template <typename T>
+void bilateralGauss(VoxelImageT<T>& v, int kernRad, float sigmaSqr, float sharpFact, float sigmaGaussSqr, float capmin,
+                    float capmax) {
+    const float p1rSigma = 1. / sigmaSqr, p1rGSigma = 1. / sigmaGaussSqr;  // as voxlib: double, then float
+    detail::run_stencil<op::bilateralGauss, kernels::bilateralGauss<T>>(
+        v, detail::Passes(1, kernRad),
+        [&](auto& m) { ::bilateralGauss(m, kernRad, sigmaSqr, sharpFact, sigmaGaussSqr, capmin, capmax); },
+        int32_t(kernRad), sigmaSqr, p1rSigma, p1rGSigma, sharpFact, capmin, capmax);
+}
+// ::_bilateralGauss: growBox, nItrs passes, shrinkBox.
+template <typename T>
+bool _bilateralGauss(VoxelImageT<T>& v, int nItrs, int kernRad, double sigmavv, double sharpFact, double sigmadd) {
+    v.growBox(kernRad + 2);
+    for (int i = 0; i < nItrs; ++i) vxhl::bilateralGauss(v, kernRad, float(sigmavv), float(sharpFact), float(sigmadd));
+    v.shrinkBox(kernRad + 2);
+    return true;
+}
 #define VXHL_INST_(T)                                    \
     template void mode26<T>(VoxelImageT<T>&, short);     \
     template long long modeNSames<T>(VoxelImageT<T>&, short, bool); \
     template VoxelImageT<T> median<T>(const VoxelImageT<T>&, int);    \
     template bool smoothBilateral<T>(VoxelImageT<T>&, int, int, double, double);       \
     template void bilateralX<T>(VoxelImageT<T>&, int, int, float, float, float, float, float); \
+    template void bilateralGauss<T>(VoxelImageT<T>&, int, float, float, float, float, float); \
+    template bool _bilateralGauss<T>(VoxelImageT<T>&, int, int, double, double, double); \
     template bool _bilateralX<T>(VoxelImageT<T>&, int, int, int, double, double, double);
 VXHL_FOR_TYPES(VXHL_INST_)
 #undef VXHL_INST_
