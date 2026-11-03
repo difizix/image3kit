@@ -46,6 +46,15 @@ class VoxelField {
   VoxelField(int3 n, T value) {  reset(n, value);  }
   VoxelField(int n1, int n2, int n3, T value) {  reset(int3(n1,n2,n3), value);  }
   virtual ~VoxelField() {}
+  VoxelField(const VoxelField&) = default;
+  VoxelField& operator=(const VoxelField&) = default;
+  //! Moves keep the voxel storage (no copy; vxhl::DeviceImage's device mirror views it) and leave an empty field.
+  VoxelField(VoxelField&& o) noexcept : nij_(o.nij_), nnn_(o.nnn_), data_(std::move(o.data_)) { o.nij_ = 0; o.nnn_ = int3(0,0,0); }
+  VoxelField& operator=(VoxelField&& o) noexcept {
+    nij_ = o.nij_;  nnn_ = o.nnn_;  data_ = std::move(o.data_);
+    if (this != &o) { o.nij_ = 0;  o.nnn_ = int3(0,0,0); }
+    return *this;
+  }
 
   void reset(int3 n);
   void reset(int3 n, T value);
