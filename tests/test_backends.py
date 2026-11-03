@@ -419,3 +419,22 @@ def test_grow_outside_value_matches_voxlib(backend, cls, hole_size):
     with ik.backend(backend):
         got.grow_outside_value(0, 2, hole_size)
     assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+def test_mean_wide_matches_voxlib(backend, cls, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)  # mean_wide writes dump*.raw files to the working directory
+    img = cls((24, 25, 26), 0)
+    a = np.array(img, copy=False)
+    rng = np.random.default_rng(12)
+    ii, jj, kk = np.indices(a.shape)
+    solid = ((ii // 5 + jj // 6 + kk // 4) % 3) == 0
+    a[...] = np.clip(np.where(solid, 150, 60) + 20.0 * ii / a.shape[0] + rng.normal(0, 3, a.shape), 3, 240).astype(a.dtype)
+    ref, got = cls(img), cls(img)
+    with ik.backend("voxlib"):
+        ref.mean_wide(width=2, noise_val=4, average=100, delta=20, iterations=3)
+    with ik.backend(backend):
+        got.mean_wide(width=2, noise_val=4, average=100, delta=20, iterations=3)
+    assert not np.array_equal(np.array(img, copy=False), np.array(ref, copy=False))  # the test exercises something
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))

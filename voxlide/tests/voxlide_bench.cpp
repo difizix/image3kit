@@ -55,6 +55,8 @@ int main(int argc, char** argv) {
         {"growshrink_dev", [](Img& m) {  // growBox(8) + shrinkBox(8) on a DeviceImage (segment2's box ops)
              vxhl::DeviceImage<unsigned char> d(std::move(m)); vxhl::growBox(d, 8); vxhl::shrinkBox(d, 8); m = d.host(); }},
         {"growoutside", [](Img& m) { for (auto& v : m.data_) v = v > 5 ? 7 : 0; vxhl::growOutSideValue(m, 0, 2, 5); }},
+        {"meanwide", [](Img& m) {  // 3 iterations, nW 2; the dump*.raw files go to the working directory (run from runs/)
+             vxhl::meanWide(m, 2, 4, 100, 20, 3, ""); }},
         {"variance", [](Img& m) { volatile double r = vxhl::varianceDbl(m, 0, 255); (void)r; }},
         {"chain", [&](Img& m) {  // 5 ops, each through host memory
              vxhl::mode26(m, 2); m = vxhl::median(m, 3); vxhl::shrink(m, (unsigned char)5, (unsigned char)15, input);

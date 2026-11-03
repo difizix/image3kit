@@ -12,6 +12,10 @@
 #include "remapBox_kernels.h"
 #include "growRange_kernels.h"
 #include "growOutside_kernels.h"
+#include "padEdges_kernels.h"
+#include "meanFilter_kernels.h"
+#include "meanWideStep_kernels.h"
+#include "setWhereAbove_kernels.h"
 #include "threshold01_kernels.h"
 #include "swapXZ_kernels.h"
 #include "swapXY_kernels.h"
@@ -443,6 +447,108 @@ template <typename T, typename F> void on_device(VoxelImageT<T>& v, F&& f) { Dev
 template <typename T, typename F> void on_device(DeviceImage<T>& d, F&& f) { f(d); }
 }  // namespace
 
+// ---- VoxLib::meanWide (Python mean_wide): the prep and the iterations run on DeviceImages.
+// Host steps, as in voxlib: the dump*.raw files and keepLargest (labelling is not ported), so the image is
+// downloaded for those, and uploaded again after keepLargest.
+// The building blocks are public (voxlide.h, not bound in Python) so each is tested on its own: the end-to-end
+// result is smooth enough to hide errors in the border planes or in a neighbour-count threshold.
+template <Image I> void padEdges(I& v) {  // meanWide's border planes (see generators/pad_edges_gen.cpp)
+    using T = voxel_t<I>;
+    auto ref = [&](auto& m) {
+        const int3 n = m.size3();
+        for (int i : {1, 2, 3}) {
+            m.replaceyLayer(n[1] - 1 - i, 4), m.replaceyLayer(i, n[1] - 5);
+            m.replacexLayer(n[0] - 1 - i, 4), m.replacexLayer(i, n[0] - 5);
+            m.setLayer(n[2] - 1 - i, &m(0, 0, 4)), m.setLayer(i, &m(0, 0, n[2] - 5));
+        }
+    };
+    detail::run_stencil<op::padEdges, kernels::padEdges<T>>(v, detail::Passes(1, std::max(1, v.size3().z)), ref);
+}
+template <Image I> void meanFilter(I& v) {  // ::mean; floats: voxlib (its int sum truncates at every step)
+    using T = voxel_t<I>;
+    auto ref = [&](auto& m) { m = ::mean(m); };
+    if constexpr (std::is_floating_point_v<T>) ref(host_of(v));
+    else detail::run_stencil<op::meanFilter, kernels::meanFilter<T>>(v, 1, ref);
+}
+template <Image I, Image J> void setWhereAbove(I& v, const J& g, voxel_t<I> thresh, voxel_t<I> value) {
+    using T = voxel_t<I>;
+    const detail::Aux<T> ga(g);
+    auto ref = [&](auto& m) { const auto& h = ga.host(); for (std::size_t i = 0; i < m.data_.size(); ++i) if (h.data_[i] > thresh) m.data_[i] = value; };
+    if constexpr (std::is_floating_point_v<T>) ref(host_of(v));
+    else detail::run_stencil<op::setWhereAbove, kernels::setWhereAbove<T>>(v, 1, ref, ga, thresh, value);
+}
+template <Image I, Image J> void meanWideStep(I& v, int nW, voxel_t<I> lowerB, voxel_t<I> upperB, const J& g, voxel_t<I> gradthresh) {
+    using T = voxel_t<I>;
+    const detail::Aux<T> ga(g);
+    auto ref = [&](auto& m) { VoxelImageT<T> gc = ga.host(); m = ::meanWide(m, nW, lowerB, upperB, gc, gradthresh); };
+    if constexpr (std::is_floating_point_v<T>) ref(host_of(v));
+    else detail::run_stencil<op::meanWideStep, kernels::meanWideStep<T>>(v, detail::Passes(1, nW), ref, ga, int32_t(nW), lowerB, upperB, gradthresh);
+}
+
+template <Image I> bool meanWide(I& vImg, int nW, int noisev, int avg, int delta, int nItrs, std::string smoothImg) {
+    using T = voxel_t<I>;
+    if constexpr (std::is_floating_point_v<T>) {  // voxlib's int sums truncate float voxels at every step: no kernel
+        return VoxLib::meanWide(host_of(vImg), nW, noisev, avg, delta, nItrs, smoothImg);
+    } else {
+        if (get_backend() == Backend::Voxlib || nW < 0) return VoxLib::meanWide(host_of(vImg), nW, noisev, avg, delta, nItrs, smoothImg);
+        std::cout << "  meanWide:  nW:" << nW << "  noisev:" << noisev << "  avg:" << avg << "  delta:" << delta << "  nIterations:" << nItrs
+                  << "  smoothImg:" << smoothImg << std::endl;
+        if (avg == 0) {
+            const std::array<double, 5> thresholdsOtsu = vxhl::otsu_minAvgThresholdAvgMax(vImg, 0, 254, 0.2);
+            avg = thresholdsOtsu[3];
+            std::cout << "  avg:" << avg << "  nW:" << nW << std::endl;
+        }
+        if (!nW) return true;
+        on_device(vImg, [&](DeviceImage<T>& d) {
+            vxhl::growBox(d, nW + 5);
+            padEdges(d);
+            const Tint minvv = std::max(avg - delta, 1);
+            const Tint maxvv = std::min(avg + delta, imaxT(T) - 2);
+            T minvnrw = std::max(avg - delta / 2, 1);
+            T maxvnrw = std::min(avg + delta / 2, imaxT(T) - 2);
+            if (smoothImg.empty()) vxhl::bilateralX(d, 6, 3, float(noisev * noisev), 0.05f, 12.f);
+            const VoxelImageT<T>& hdr = d.unsynced();
+            DeviceImage<T> grad{VoxelImageT<T>(d.size3(), T(0), hdr.dx(), hdr.X0())};
+            if (!smoothImg.empty()) {
+                grad = DeviceImage<T>(vxhl::magGradient(VoxelImageT<T>(smoothImg, readOpt::procAndConvert), 16));
+            } else {
+                copyFrom(grad, d);
+                vxhl::median(grad), meanFilter(grad), vxhl::median(grad);
+                vxhl::magGradient(grad, 16);
+            }
+            vxhl::median(grad);
+            grad.host().write("dumpGrad5.raw");
+            double threshGrad = 2.5 * noisev;
+            (std::cout << "  threshGrad:" << threshGrad << ",  ").flush();
+            d.host().write("dumpImg4.raw");
+            {
+                VoxelImageT<T>& h = d.host_mut();  // re-uploaded by the next device op
+                keepLargest(h, grad.host(), T(2), T(maxT(T) - 2), T(0), T(threshGrad));
+                h.write("dumpImg5.raw");
+            }
+            vxhl::replaceRange(d, T(0), minvnrw, T(minvv - 1));
+            vxhl::replaceRange(d, maxvnrw, maxT(T), T(maxvv + 1));
+            vxhl::median(d), vxhl::median(d);
+            setWhereAbove(d, grad, T(std::min(1.50 * threshGrad, dmaxT(T))), T(maxvv + 1));
+            vxhl::grow(d, T(maxvv + 1), T(avg), maxT(T));
+            vxhl::grow(d, T(minvv - 1), T(0), T(avg));
+            for (int i = 0; i < nItrs; ++i) {
+                threshGrad += 1 + 0.5 * noisev;
+                threshGrad *= 1 + 1.5 * i / (1. + nItrs);
+                minvnrw = std::max(minvnrw - delta / 10 - 2, Tint(minvv));
+                maxvnrw = std::min(maxvnrw + delta / 10 + 2, Tint(maxvv));
+                std::cout << " threshGrad:" << std::min(0.2 * threshGrad, dmaxT(T)) << " minvnrw:" << int(minvnrw) << " maxvnrw:" << int(maxvnrw) << " " << std::endl;
+                meanWideStep(d, i % nW + 1, minvnrw, maxvnrw, grad, T(std::min(0.2 * threshGrad, dmaxT(T))));
+            }
+            d.host().write("dumpImg6.raw");
+            vxhl::shrinkBox(d, nW + 5);
+        });
+        (std::cout << ".").flush();
+        return true;
+    }
+}
+
+
 // voxlib VoxelImageT::fillHoles: shrink/grow chains against copies of the image; here all on DeviceImages.
 template <Image I> void fillHoles(I& v, int maxHoleRadius) {
     using T = voxel_t<I>;
@@ -764,6 +870,9 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     template void growLabel(I&, T);                                                             \
     template void grow(I&, T, T, T);                                                            \
     template bool growOutSideValue(I&, int, int, int);                                          \
+    template bool meanWide(I&, int, int, int, int, int, std::string);                           \
+    template void padEdges(I&);                                                                 \
+    template void meanFilter(I&);                                                               \
     template void replaceRange(I&, T, T, T);                                                    \
     template void zeroGrad(I&, int);                                                            \
     template void scaleGradient(I&, double);                                                    \
@@ -800,7 +909,9 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     template void addEq(I&, const J&);                             \
     template void subEq(I&, const J&);                             \
     template void copyFrom(I&, const J&);                          \
-    template void mapToFrom(I&, const J&, T, T, double, double);
+    template void mapToFrom(I&, const J&, T, T, double, double);                                    \
+    template void setWhereAbove(I&, const J&, T, T);                                                \
+    template void meanWideStep(I&, int, T, T, const J&, T);
 #define VXHL_INST_PAIRS_(T)                                       \
     VXHL_INST_PAIR_(VoxelImageT<T>, VoxelImageT<T>, T)             \
     VXHL_INST_PAIR_(VoxelImageT<T>, DeviceImage<T>, T)             \

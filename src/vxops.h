@@ -6,7 +6,7 @@
 
 // One entry per ported op (keep in sync with voxlide/ops_table.h).
 #define VXOP_LIST(X) X(mode26) X(modeNSames) X(and_) X(or_) X(xor_) X(not_) X(addEq) X(subEq) X(operateUnary) X(operateImg) X(operateScalar) X(threshold101) X(circleOut) X(mapToFrom) X(fillHoles) X(_delense032) X(growPore) X(shrinkPore) X(medianx) X(mediany) X(medianz) X(median032) X(FaceMedGrowToFrom) X(median06) X(growLabel) X(replaceRange) X(segment2) X(median) X(varianceDbl) X(stdevDbl) X(meanDbl) X(minDbl) X(maxDbl) X(porosityDbl) X(bilateralX) X(_bilateralX) X(bilateralGauss) X(_bilateralGauss) X(cropD) X(growBox) X(shrinkBox) X(redirect) X(resampleMean) X(resliceZ) X(otsu_minAvgThresholdAvgMax) X(threshold01_otsu)
-#define VXOP_LIST_VOXLIB(X) X(smoothBilateral) X(paint) X(paintAdd) X(growOutSideValue)  // voxlib functions in namespace VoxLib
+#define VXOP_LIST_VOXLIB(X) X(smoothBilateral) X(paint) X(paintAdd) X(growOutSideValue) X(meanWide)  // voxlib functions in namespace VoxLib
 
 #ifdef IMAGE3KIT_HAS_VOXLIDE
 #include "voxlide.h"

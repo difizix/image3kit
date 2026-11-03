@@ -116,6 +116,23 @@ def test_segment2_on_device(cls):
     assert np.array_equal(np.array(ref, copy=False), np.array(dev.to_host(), copy=False))
 
 
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32])
+def test_mean_wide_on_device(backend, cls, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)  # mean_wide writes dump*.raw files to the working directory
+    img = cls((22, 23, 24), 0)
+    a = np.array(img, copy=False)
+    ii, jj, kk = np.indices(a.shape)
+    a[...] = np.clip(np.where(((ii // 5 + jj // 6 + kk // 4) % 3) == 0, 150, 60) + np.random.default_rng(4).normal(0, 3, a.shape), 3, 240).astype(a.dtype)
+    ref = cls(img)
+    with ik.backend("voxlib"):
+        ref.mean_wide(width=2, average=100, iterations=3)
+    with ik.backend(backend):
+        dev = cls(img).to_device()
+        dev.mean_wide(width=2, average=100, iterations=3)
+        assert np.array_equal(np.array(ref, copy=False), np.array(dev.to_host(), copy=False))
+
+
 def test_shape_copy_and_chain_transfers():
     img = _labelled(ik.VxlImgU8, (20, 21, 22))
     assert img.to_device().shape == (20, 21, 22)

@@ -109,6 +109,14 @@ template <Image I> void growLabel(I& vImg, voxel_t<I> vl);
 template <Image I> void growPore(I& vImg);
 //! voxlib grow(vImg, midv, minv, maxv) (voxelImageML.h): interior voxels in [minv, maxv] next to a midv voxel become midv.
 template <Image I> void grow(I& vImg, voxel_t<I> midv, voxel_t<I> minv, voxel_t<I> maxv);
+//! VoxLib::meanWide (Python mean_wide): u8/u16/i32 on DeviceImages with host steps for the dump*.raw files and keepLargest; float runs voxlib.
+template <Image I> bool meanWide(I& vImg, int nW, int noisev, int avg, int delta, int nItrs, std::string smoothImg);
+//! Building blocks of meanWide (internal, not bound in Python): the border planes after growBox(nW+5), ::mean (3x3x3), v = value
+//! where g > thresh, and one meanWide iteration (voxlib/voxelImageML.h meanWide(vImg, nW, lowerB, upperB, grad, gradthresh)).
+template <Image I> void padEdges(I& vImg);
+template <Image I> void meanFilter(I& vImg);
+template <Image I, Image J> void setWhereAbove(I& vImg, const J& g, voxel_t<I> thresh, voxel_t<I> value);
+template <Image I, Image J> void meanWideStep(I& vImg, int nW, voxel_t<I> lowerB, voxel_t<I> upperB, const J& g, voxel_t<I> gradthresh);
 //! VoxLib::growOutSideValue (Python grow_outside_value).
 template <Image I> bool growOutSideValue(I& vImg, int vo, int vnew, int nHoleSize);
 template <Image I> void shrinkPore(I& vImg);

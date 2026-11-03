@@ -393,7 +393,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
           vxop::_bilateralGauss(m, nItrs, kernRad, sigmavv*sigmavv, sharpFact, sigmadd*sigmadd);
         }, arg("iterations")=1, arg("kernel_radius")=1, arg("sigma_val")=16.0, arg("sharpness")=0.1, arg("sigma_spatial")=2.0)
     .def("mean_wide", [](SelfT &m, int nW, int noisev, int avg, int delta, int nItrs, std::string smoothImg) {
-        VoxLib::meanWide(m, nW, noisev, avg, delta, nItrs, smoothImg);
+        vxop::meanWide(m, nW, noisev, avg, delta, nItrs, smoothImg);
       }, arg("width")=0, arg("noise_val")=4, arg("average")=0, arg("delta")=20, arg("iterations")=15, arg("smooth_image")="",
       "computes a background image, used to correct for lens artifacts")
     .def("otsu_threshold", [](SelfT &m, int minv, int maxv) {

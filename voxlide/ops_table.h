@@ -52,6 +52,10 @@ struct OpTraits {
   X(resliceDn, 'F', 0, false, false) /* resliceZ, factor > 1 (integer voxels) */ \
   X(growRange, 'B', 1, false, false) /* ::grow(vImg, midv, minv, maxv) */ \
   X(growOutside, 'F', 0, false, false) /* growOutSideValue's line scans: halo gnz (whole z extent) */ \
+  X(padEdges, 'F', 0, false, false) /* meanWide's border planes: halo gnz */ \
+  X(meanFilter, 'B', 1, false, false) /* ::mean: 3x3x3 mean */ \
+  X(meanWideStep, 'B', 1, false, false) /* one meanWide iteration: radius nW passed per call; reads an Aux image */ \
+  X(setWhereAbove, 'A', 0, false, false) /* meanWide: v = val where grad > thresh */ \
   X(remapBox, 'F', 0, false, false) /* crop / growBox / shrinkBox: another size (run_remap) */ \
   X(histogram, 'D', 0, false, true) /* reduction: per-z bin counts, bit-exact with voxlib histogram */ \
   X(median, 'C', 1,     true,    false) \
