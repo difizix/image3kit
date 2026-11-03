@@ -81,10 +81,12 @@ template <Image I> long long modeNSames(I& v, short nSameNei, bool verbose) {
     if (verbose) std::cout << "  modeNSames_" << nSameNei << ",nChanges:" << n << "; ";
     return n;
 }
-template <Image I> void shrink(I& seged, voxel_t<I> min, voxel_t<I> maks, const VoxelImageT<voxel_t<I>>& vImg) {
+template <Image I, Image J> void shrink(I& seged, voxel_t<I> min, voxel_t<I> maks, const J& vImg) {
     using T = voxel_t<I>;
+    static_assert(std::is_same_v<T, voxel_t<J>>);
+    const detail::Aux<T> src(vImg);
     detail::run_stencil<op::shrink, kernels::shrink<T>>(
-        seged, 1, [&](auto& m) { ::shrink(m, min, maks, vImg); }, min, maks, detail::Aux<T>{vImg});
+        seged, 1, [&](auto& m) { ::shrink(m, min, maks, src.host()); }, min, maks, src);
 }
 template <typename T> VoxelImageT<T> median(const VoxelImageT<T>& v, int nIter) {
     VoxelImageT<T> r = v;
@@ -148,6 +150,7 @@ bool _bilateralGauss(I& v, int nItrs, int kernRad, double sigmavv, double sharpF
     template void mode26(I&, short);                                                            \
     template long long modeNSames(I&, short, bool);                                             \
     template void shrink(I&, T, T, const VoxelImageT<T>&);                                      \
+    template void shrink(I&, T, T, const DeviceImage<T>&);                                      \
     template double varianceDbl(const I&, int, int, bool);                                      \
     template double stdevDbl(const I&, int, int);                                               \
     template double meanDbl(const I&);                                                          \

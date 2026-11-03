@@ -33,7 +33,7 @@ UTEST(VoxlideParity, device_image_chain) {
             vxhl::DeviceImage<T> d(m);
             vxhl::mode26(d, 2);
             vxhl::median(d, 3);
-            vxhl::shrink(d, T(15), T(25), src_for<T>(m.size3()));
+            vxhl::shrink(d, T(15), T(25), vxhl::DeviceImage<T>(src_for<T>(m.size3())));
             if (vxhl::modeNSames(d, 2) != refCount) ++countBad;
             vxhl::smoothBilateral(d, 1, 2, 16.0, 0.1);
             vxhl::mode26(d, 1);
@@ -71,6 +71,14 @@ UTEST(VoxlideDevice, chain_transfers) {
     EXPECT_EQ(1LL, d.transfers().down);
     d.host_mut()(1, 1, 1) = 0;  // modified on the host: the next GPU op uploads again
     vxhl::mode26(d, 1);
+    EXPECT_EQ(2LL, d.transfers().up);
+
+    // A DeviceImage as the Aux (source) image: read on the device, uploaded once, never downloaded.
+    vxhl::DeviceImage<unsigned char> src(src_for<unsigned char>(img.size3()));
+    vxhl::shrink(d, (unsigned char)15, (unsigned char)25, src);
+    vxhl::shrink(d, (unsigned char)5, (unsigned char)15, src);
+    EXPECT_EQ(1LL, src.transfers().up);
+    EXPECT_EQ(0LL, src.transfers().down);
     EXPECT_EQ(2LL, d.transfers().up);
     vxhl::set_backend(saved);
 

@@ -57,12 +57,18 @@ using CBuf = Halide::Runtime::Buffer<int32_t, 1>;  //!< per-z change counts
 
 //! Kernel argument (passed among an op's scalars) that becomes a read-only image buffer
 //! holding another image of the same size and type (e.g. shrink's source image, a mask, a
-//! gradient). Each kernel call gets the z-layers its `input` covers (slab + halo). Within one
-//! run_stencil call the buffer is reused, so on the GPU it is uploaded once for all passes.
-//! Construct it in the wrapper's run_stencil call so it lives until that call returns.
+//! gradient), a VoxelImageT or a DeviceImage. Each kernel call gets the z-layers its `input`
+//! covers (slab + halo). Within one run_stencil call the buffer is reused, so on the GPU it is
+//! uploaded once for all passes; a DeviceImage on the GPU in one piece is read in place.
+//! It must outlive the run_stencil call it is passed to.
 template <typename T>
 struct Aux {
-    const VoxelImageT<T>& img;
+    Aux(const VoxelImageT<T>& i) : img(&i) {}
+    Aux(const DeviceImage<T>& d) : dev(&d) {}
+    const VoxelImageT<T>& host() const { return dev ? dev->host() : *img; }  //!< synced
+    int3 size3() const { return dev ? dev->size3() : img->size3(); }
+    const VoxelImageT<T>* img = nullptr;
+    const DeviceImage<T>* dev = nullptr;
 #ifdef IMAGE3KIT_HAS_HALIDE
     mutable HBuf<T> buf{};
 #endif
@@ -79,33 +85,36 @@ HBuf<T> zview(VoxelField<T>& f, int kBgn, int kEnd) {
     return b;
 }
 
+template <typename T> HBuf<T>& resident(const DeviceImage<T>& d);
+
 //! The view of `a` covering the z-layers of `in` (cached: the same layers reuse the buffer).
 template <typename T>
-halide_buffer_t* aux_view(const Aux<T>& a, const HBuf<T>& in, int3 g) {
-    if (a.img.size3() != g)
+halide_buffer_t* aux_view(const Aux<T>& a, const HBuf<T>& in, int3 g, bool gpu) {
+    if (a.size3() != g)
         throw std::invalid_argument("vxhl: auxiliary image size differs from the image");
     const int kBgn = in.dim(2).min(), kEnd = kBgn + in.dim(2).extent();
+    if (gpu && a.dev && kBgn == 0 && kEnd == g.z) return resident(*a.dev).raw_buffer();  // device copy
     if (!a.buf.data() || a.buf.dim(2).min() != kBgn || a.buf.dim(2).extent() != kEnd - kBgn) {
-        a.buf = zview(const_cast<VoxelImageT<T>&>(a.img), kBgn, kEnd);  // read only
+        a.buf = zview(const_cast<VoxelImageT<T>&>(a.host()), kBgn, kEnd);  // read only
         a.buf.set_host_dirty();  // uploaded on the first GPU use; ignored on the CPU
     }
     return a.buf.raw_buffer();
 }
 
 template <typename T, typename S>
-auto kernel_arg(const HBuf<T>& in, int3 g, HBuf<T>* snap, const S& s) {
+auto kernel_arg(const HBuf<T>& in, int3 g, bool gpu, HBuf<T>* snap, const S& s) {
     if constexpr (std::is_same_v<S, Snapshot>) return snap->raw_buffer();
-    else if constexpr (std::is_same_v<S, Aux<T>>) return aux_view(s, in, g);
+    else if constexpr (std::is_same_v<S, Aux<T>>) return aux_view(s, in, g, gpu);
     else return s;
 }
 
 //! Call kernel `fn` (ABI: generators/vxhl_gen.h) reading `in` (+ `snap`), writing `out`.
 //! Count: the kernel also fills `cnt` (vxhl_gen::ChangeCounts, one int32 per z of `out`).
 template <bool Count, typename Fn, typename T, typename... S>
-void call_kernel(Fn fn, HBuf<T>& in, HBuf<T>* snap, HBuf<T>& out, CBuf& cnt, int3 g, const S&... s) {
+void call_kernel(Fn fn, bool gpu, HBuf<T>& in, HBuf<T>* snap, HBuf<T>& out, CBuf& cnt, int3 g, const S&... s) {
     int rc;
-    if constexpr (Count) rc = fn(in.raw_buffer(), g.x, g.y, g.z, kernel_arg(in, g, snap, s)..., out.raw_buffer(), cnt.raw_buffer());
-    else                 rc = fn(in.raw_buffer(), g.x, g.y, g.z, kernel_arg(in, g, snap, s)..., out.raw_buffer());
+    if constexpr (Count) rc = fn(in.raw_buffer(), g.x, g.y, g.z, kernel_arg(in, g, gpu, snap, s)..., out.raw_buffer(), cnt.raw_buffer());
+    else                 rc = fn(in.raw_buffer(), g.x, g.y, g.z, kernel_arg(in, g, gpu, snap, s)..., out.raw_buffer());
     if (rc != 0) throw std::runtime_error(take_halide_error() + " (halide error " + std::to_string(rc) + ")");
 }
 
@@ -125,7 +134,7 @@ void invoke_box(Fn fn, bool gpu, VoxelField<T>& in, VoxelField<T>* snap, VoxelFi
     if (gpu) { ib.set_host_dirty(); if (snap) sb.set_host_dirty(); }
     CBuf cb;
     if constexpr (Count) { cb = CBuf(b.kEnd() - b.kBgn()); cb.set_min(b.kBgn()); }
-    call_kernel<Count>(fn, ib, snap ? &sb : nullptr, ob, cb, b.nGlobal, s...);
+    call_kernel<Count>(fn, gpu, ib, snap ? &sb : nullptr, ob, cb, b.nGlobal, s...);
     if (gpu && ob.copy_to_host() != 0) throw std::runtime_error(take_halide_error());
     if constexpr (Count) add_counts(cb, gpu, *total);
 }
@@ -177,7 +186,7 @@ void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, int radius, lo
             const int out = pick(cur, snap);
             CBuf cb;
             if constexpr (Count) cb = CBuf(n.z);
-            call_kernel<Count>(fn, view(cur), every ? &view(snap) : nullptr, view(out), cb, n, s...);
+            call_kernel<Count>(fn, gpu, view(cur), every ? &view(snap) : nullptr, view(out), cb, n, s...);
             if constexpr (Count) add_counts(cb, gpu, *total);
             cur = out;
             if (gpu && snap != 0 && !resident) v[0].device_free();  // the input is not read again
