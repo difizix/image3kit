@@ -8,6 +8,7 @@
 //! whole image's size, so image-boundary rules never use the buffer extents: a z-slab's
 //! edges are not image edges.
 
+#include <cmath>
 #include <vector>
 
 #include "Halide.h"
@@ -54,6 +55,28 @@ inline void schedule_stencil(Func out, const Target& t, Type vtype, const std::v
                 f.update(u).vectorize(fx, vec, TailStrategy::GuardWithIf);
         }
     }
+}
+
+//! Correctly rounded a / b for Float(64) expressions. Halide's Vulkan backend divides in f64 with an
+//! error of an ulp or two on this driver (103/103 != 1, which breaks truncation of exact quotients),
+//! so on GPU targets the quotient is corrected: with the exact residual e = fma(-c, |b|, |a|) a candidate
+//! c is moved by one ulp while |e| exceeds half an ulp of c times |b| (three rounds; sign handled
+//! separately). Valid for quotients in about [1e-30, 1e30]; exact ties are not rounded to even.
+//! CPU targets divide natively.
+inline Expr div64(Expr a, Expr b, const Target& t) {
+    if (!t.has_gpu_feature()) return a / b;
+    auto K = [](double v) { return Internal::make_const(Float(64), v); };
+    const Expr aa = abs(a), bb = abs(b);
+    Expr c = aa / bb;
+    for (int i = 0; i < 3; ++i) {
+        Expr p = cast<double>(reinterpret<float>(reinterpret<uint32_t>(cast<float>(c)) & 0x7f800000u));
+        p = select(p > c, p * K(0.5), p);  // 2^floor(log2 c)
+        const Expr u = p * K(std::ldexp(1.0, -52)), um = select(c == p, u * K(0.5), u);  // ulp above / below
+        const Expr e = fma(-c, bb, aa);  // exact: aa - c*bb
+        c = select(e > K(0.5) * u * bb, c + u, select(e < -(K(0.5) * um * bb), c - um, c));
+    }
+    const Expr q = select((a < K(0.0)) != (b < K(0.0)), -c, c);
+    return select(aa == K(0.0) || bb == K(0.0), a / b, q);
 }
 
 //! Second output of ops that return a change count: changes(z) = number of voxels of slice z

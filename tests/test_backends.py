@@ -224,3 +224,80 @@ def test_median_axis_matches_voxlib(backend, cls, op):
     with ik.backend(backend):
         getattr(got, op)()
     assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+def _small_values(cls, shape=(17, 23, 31), seed=6, top=5):
+    img = cls(shape, 0)
+    np.array(img, copy=False)[...] = np.random.default_rng(seed).integers(0, top, shape)
+    return img
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+@pytest.mark.parametrize("call", ["and_", "or_", "xor_", "not_", "__iadd__", "__isub__"])
+def test_two_image_ops_match_voxlib(backend, cls, call):
+    other = _small_values(cls, seed=7, top=4)
+    ref = _small_values(cls)
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        getattr(ref, call)(other)
+    with ik.backend(backend):
+        getattr(got, call)(other)
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+def test_add_sub_operators_match_voxlib(backend, cls):
+    a, b = _small_values(cls), _small_values(cls, seed=8)
+    with ik.backend("voxlib"):
+        ref = (a + b) - b
+    with ik.backend(backend):
+        got = (a + b) - b
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+def test_threshold101_circle_out_map_from_match_voxlib(backend, cls):
+    src = _small_values(cls, seed=9, top=4)
+    results = {}
+    for be in ("voxlib", backend):
+        img = _small_values(cls)
+        with ik.backend(be):
+            img.threshold101(1, 3)
+            img.circle_out(8, 11, 7, "z", 2)
+            img.map_from(src, 0, 1, 2.0, 0.5)
+        results[be] = np.array(img, copy=False).copy()
+    assert np.array_equal(results["voxlib"], results[backend])
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16])
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda m, o: m.operate("~"),
+        lambda m, o: m.operate("!"),
+        lambda m, o: m.operate("+", o),
+        lambda m, o: m.operate("-", o, 1.5),
+        lambda m, o: m.operate("*", o, 0.25),
+        lambda m, o: m.operate("/", o),
+        lambda m, o: m.operate("&", o),
+        lambda m, o: m.operate("%", o),
+        lambda m, o: m.operate("+", 7.0),
+        lambda m, o: m.operate("*", 2.5),
+        lambda m, o: m.operate("b", 2.0),
+        lambda m, o: m.operate("%", 3.0),
+    ],
+    ids=["~", "!", "img+", "img-", "img*", "img/", "img&", "img%", "+7", "*2.5", "b2", "%3"],
+)
+def test_operate_matches_voxlib(backend, cls, call):
+    other = _small_values(cls, seed=10, top=200)
+    ref = _small_values(cls, top=250)
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        call(ref, other)
+    with ik.backend(backend):
+        call(got, other)
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))

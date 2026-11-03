@@ -85,15 +85,15 @@ void addDodgyFuncsInt(py::class_<VoxelImageT<VxT>, VoxelImagesBase> &m) requires
         arg("noise_val") = 16.0, arg("resolution_sq") = 2.0,
         arg("write_dumps") = 0)
     .def("operate",
-        [](SelfT &m, std::string opr) { ::operateUnary(m, opr); },
+        [](SelfT &m, std::string opr) { vxop::operateUnary(m, opr); },
         arg("opr"),
         "Apply unary operation to image in-place ('~', '!', '-')")
     .def("operate",
-        [](SelfT &m, std::string opr, const SelfT &img2, double shift) { ::operateImg(m, opr, img2, shift); },
+        [](SelfT &m, std::string opr, const SelfT &img2, double shift) { vxop::operateImg(m, opr, img2, shift); },
         arg("opr"), arg("image2"), arg("shift") = 0.0,
         "In-place binary pixel-wise operation with another image ('+', '-', '*', '/', '&', '|', '%') and optional shift")
     .def("operate",
-        [](SelfT &m, std::string opr, double val) { ::operateScalar(m, opr, val); },
+        [](SelfT &m, std::string opr, double val) { vxop::operateScalar(m, opr, val); },
         arg("opr"), arg("val"),
         "In-place scalar operation on image ('=', '+', '-', '*', '/', '&', '|', '%', 'b', 'e')");
 
@@ -201,13 +201,13 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     .def("shrink_box", &SelfT::shrinkBox, arg("num_layers"),
          "Shrink the image boundaries, decreasing its size by the given num_layers in all directions")
     .def("fill_holes", &SelfT::fillHoles, arg("maxHoleRadius"), "Fill closed holes in the image.")
-    .def("threshold101", &SelfT::threshold101, arg("min"), arg("max"),
+    .def("threshold101", [](SelfT &m, VxT lo, VxT hi) { vxop::threshold101(m, lo, hi); }, arg("min"), arg("max"),
          "Apply a threshold to binarize the image, set voxel-values to convert to 0 in between the min and max thresholds and 1 outside of it")
     .def("write_a_connected_void_voxel", &SelfT::writeAConnectedPoreVoxel, arg("filename"), "Write a specific connected pore voxel to file.")
-    .def("and_", &SelfT::AND, arg("image2"), "Voxel-by-voxel inplace AND operation.")
-    .def("not_", &SelfT::NOT, arg("image2"), "Voxel-by-voxel inplace NOT operation, alias for img = img & !img2.")
-    .def("or_",  &SelfT::OR,  arg("image2"), "Voxel-by-voxel inplace OR operation.")
-    .def("xor_", &SelfT::XOR, arg("image2"), "Voxel-by-voxel inplace XOR operation.")
+    .def("and_", [](SelfT &m, const SelfT &o) { vxop::and_(m, o); }, arg("image2"), "Voxel-by-voxel inplace AND operation.")
+    .def("not_", [](SelfT &m, const SelfT &o) { vxop::not_(m, o); }, arg("image2"), "Voxel-by-voxel inplace NOT operation, alias for img = img & !img2.")
+    .def("or_",  [](SelfT &m, const SelfT &o) { vxop::or_(m, o); },  arg("image2"), "Voxel-by-voxel inplace OR operation.")
+    .def("xor_", [](SelfT &m, const SelfT &o) { vxop::xor_(m, o); }, arg("image2"), "Voxel-by-voxel inplace XOR operation.")
     .def("resample_mode", [](SelfT &m, double nReSampleNotSafe) { m = resampleMode(m, nReSampleNotSafe); }, arg("factor"),
          "Downsample the image, setting voxel values to mode of original encompassing voxel values.")
     .def("resample_max", [](SelfT &m, double nReSampleNotSafe) { m = resampleMax(m, nReSampleNotSafe); }, arg("factor"),
@@ -276,10 +276,10 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     .def("grow_label", [](SelfT &m, VxT vl) { vxop::growLabel(m, vl); })
     .def("keep_largest", [](SelfT &m, VxT minvv, VxT maxvv) { keepLargestvv(m, minvv, maxvv); }, arg("min"), arg("max"), "Keep largest singly-connected region with values in [min, max].")
     //.def("maskWriteFraction", &SelfT::maskWriteFraction)
-    .def("map_from", [](SelfT& m, const SelfT& vimg2, VxT vmin, VxT vmax, double scale, double shift) { mapToFrom(m, vimg2, vmin, vmax, scale, shift); }, arg("source_image"), arg("vmin"), arg("vmax"), arg("scale"), arg("shift"), "Map values from another image.")
+    .def("map_from", [](SelfT& m, const SelfT& vimg2, VxT vmin, VxT vmax, double scale, double shift) { vxop::mapToFrom(m, vimg2, vmin, vmax, scale, shift); }, arg("source_image"), arg("vmin"), arg("vmax"), arg("scale"), arg("shift"), "Map values from another image.")
     .def("add_surf_noise", [](SelfT &m, const int randMask1, const int randMask2, int trsh, int randseed) { addSurfNoise(m, randMask1, randMask2, trsh, randseed); }, arg("rand_mask1"), arg("rand_mask2"), arg("threshold"), arg("seed")=-1, "Add surface noise.")
     .def("__iadd__", [](SelfT &m, const SelfT &other) {
-        ::addEq(m, other);
+        vxop::addEq(m, other);
         return &m;
         }
         _IF_CPYTHON(
@@ -288,7 +288,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     )
     .def("__add__", [](const SelfT &m, const SelfT &other) {
         SelfT result(m);
-        ::addEq(result, other);
+        vxop::addEq(result, other);
         return result;
         }
         _IF_CPYTHON(
@@ -296,7 +296,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
         )
     )
     .def("__isub__", [](SelfT &m, const SelfT &other) {
-        ::subEq(m, other);
+        vxop::subEq(m, other);
         return &m;
     }
         _IF_CPYTHON(
@@ -305,7 +305,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     )
     .def("__sub__", [](const SelfT &m, const SelfT &other) {
         SelfT result(m);
-        ::subEq(result, other);
+        vxop::subEq(result, other);
         return result;
     }
         _IF_CPYTHON(
@@ -330,7 +330,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     #ifndef VOX_BASIC
     .def("delense032", [](SelfT &m, int nItrs, int nAdj0,  int nAdj1, intOr<VxT> lbl0, intOr<VxT> lbl1) { _delense032(m, nItrs, nAdj0, nAdj1, lbl0, lbl1); }, arg("iterations"), arg("nAdj0"), arg("nAdj1"), arg("lbl0"), arg("lbl1"),
         "Delense operation.")
-    .def("circle_out", [](SelfT &m, int x, int y, int r, std::string d, VxT v) { circleOut(m, x, y, r, d[0], v); },
+    .def("circle_out", [](SelfT &m, int x, int y, int r, std::string d, VxT v) { vxop::circleOut(m, x, y, r, d[0], v); },
          arg("x"), arg("y"), arg("r"), arg("normal_axis"), arg("val"),
          "set values outside circular region centered at (x,y) of radius r along normal_axis to val")
 

@@ -113,6 +113,25 @@ template <typename T> VoxelImageT<T> medianz(const VoxelImageT<T>& vImage);
 template <typename T> void medianx(DeviceImage<T>& vImage);  //!< in place
 template <typename T> void mediany(DeviceImage<T>& vImage);
 template <typename T> void medianz(DeviceImage<T>& vImage);
+//! In-place pointwise ops with a second image of the same size and type (a VoxelImageT or DeviceImage).
+//! and_: a && b; or_: a || b; xor_: a != b (values differ); not_: a && !b; addEq / subEq: a += b / a -= b in the voxel type.
+template <Image I, Image J> void and_(I& a, const J& b);
+template <Image I, Image J> void or_(I& a, const J& b);
+template <Image I, Image J> void xor_(I& a, const J& b);
+template <Image I, Image J> void not_(I& a, const J& b);
+template <Image I, Image J> void addEq(I& a, const J& b);
+template <Image I, Image J> void subEq(I& a, const J& b);
+//! Python `operate` (u8/u16): unary ('~' '!' '-'), with an image ('+' '-' '*' '/' '&' '|' '%' and shift), with a scalar.
+template <Image I> void operateUnary(I& m, const std::string& opr);
+template <Image I, Image J> void operateImg(I& m, const std::string& opr, const J& img2, double shift);
+template <Image I> void operateScalar(I& m, const std::string& opr, double val);
+//! v -> (v < bgn || end < v) ? 1 : 0.
+template <Image I> void threshold101(I& vImg, voxel_t<I> bgn, voxel_t<I> end);
+//! Voxels outside the circle (dir 'z': x,y around X0,Y0; 'x': y,z around X0,Y0) get outVal.
+template <Image I> void circleOut(I& vImage, int X0, int Y0, int R, char dir = 'z', voxel_t<I> outVal = maxT(voxel_t<I>));
+//! Voxels in [vmin, vmax] take the source image's value; then v -> v·scale + shift if scale > 1e-16 (Python map_from).
+//! The source may have another size or origin: that case runs voxlib.
+template <Image I, Image J> void mapToFrom(I& vImage, const J& vimg2, voxel_t<I> vmin, voxel_t<I> vmax, double scale = 0, double shift = 0.5);
 // statistics (reductions; voxlib/voxelImageI.h)
 template <Image I> double varianceDbl(const I& img, int bgn, int end, bool verbose = false);
 template <Image I> double stdevDbl(const I& img, int bgn, int end);

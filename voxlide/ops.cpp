@@ -13,6 +13,13 @@
 #include "growLabel_kernels.h"
 #include "shrinkPore_kernels.h"
 #include "growPore_kernels.h"
+#include "pairOp_kernels.h"
+#include "operateUnary_kernels.h"
+#include "operateImg_kernels.h"
+#include "operateScalar_kernels.h"
+#include "threshold101_kernels.h"
+#include "circleOut_kernels.h"
+#include "mapFrom_kernels.h"
 #include "medianAxis_kernels.h"
 #include "replaceRange_kernels.h"
 #include "zeroGrad_kernels.h"
@@ -123,6 +130,73 @@ template <Image I> std::size_t median06(I& v, int nAdj0, int nAdj1) {
 template <Image I> void growLabel(I& v, voxel_t<I> vl) {
     detail::run_stencil<op::growLabel, kernels::growLabel<voxel_t<I>>>(v, 1, [&](auto& m) { ::growLabel(m, vl); }, vl);
 }
+namespace {
+//! The host image of either image kind (a DeviceImage is synced and marked modified).
+template <typename T> VoxelImageT<T>& host_of(VoxelImageT<T>& v) { return v; }
+template <typename T> VoxelImageT<T>& host_of(DeviceImage<T>& v) { return v.host_mut(); }
+template <typename T> const VoxelImageT<T>& cmeta_of(const VoxelImageT<T>& v) { return v; }  // header data only: no sync
+template <typename T> const VoxelImageT<T>& cmeta_of(const DeviceImage<T>& v) { return v.unsynced(); }
+}  // namespace
+
+// a (op) b for a second image: code 0 && / 1 || / 2 != / 3 && ! / 4 + / 5 -
+template <Image I, Image J, typename Ref>
+void pair_op(I& a, const J& b, int code, Ref&& ref) {
+    using T = voxel_t<I>;
+    static_assert(std::is_same_v<T, voxel_t<J>>);
+    if (a.size3() != b.size3()) throw std::runtime_error("Image sizes do not match");
+    const detail::Aux<T> o(b);
+    detail::run_stencil<op::pairOp, kernels::pairOp<T>>(a, 1, [&](auto& m) { ref(m, o.host()); }, o, int32_t(code));
+}
+template <Image I, Image J> void and_(I& a, const J& b) { pair_op(a, b, 0, [](auto& m, const auto& o) { ::and_(m, o); }); }
+template <Image I, Image J> void or_(I& a, const J& b)  { pair_op(a, b, 1, [](auto& m, const auto& o) { ::or_(m, o); }); }
+template <Image I, Image J> void xor_(I& a, const J& b) { pair_op(a, b, 2, [](auto& m, const auto& o) { ::xor_(m, o); }); }
+template <Image I, Image J> void not_(I& a, const J& b) { pair_op(a, b, 3, [](auto& m, const auto& o) { ::not_(m, o); }); }
+template <Image I, Image J> void addEq(I& a, const J& b) { pair_op(a, b, 4, [](auto& m, const auto& o) { ::addEq(m, o); }); }
+template <Image I, Image J> void subEq(I& a, const J& b) { pair_op(a, b, 5, [](auto& m, const auto& o) { ::subEq(m, o); }); }
+
+// operate: the operation character is a kernel argument; an unsupported one (and an empty string) runs voxlib, which throws.
+template <Image I> void operateUnary(I& m, const std::string& opr) {
+    using T = voxel_t<I>;
+    if (opr.empty() || std::string("~!-").find(opr[0]) == std::string::npos) return ::operateUnary(host_of(m), opr);
+    detail::run_stencil<op::operateUnary, kernels::operateUnary<T>>(
+        m, 1, [&](auto& h) { ::operateUnary(h, opr); }, int32_t(opr[0]));
+}
+template <Image I, Image J> void operateImg(I& m, const std::string& opr, const J& img2, double shift) {
+    using T = voxel_t<I>;
+    static_assert(std::is_same_v<T, voxel_t<J>>);
+    if (opr.empty() || std::string("+-*/&|%").find(opr[0]) == std::string::npos) return ::operateImg(host_of(m), opr, cmeta_of(img2), shift);
+    if (m.size3() != img2.size3()) throw std::runtime_error("Image dimensions do not match for operate");
+    const detail::Aux<T> o(img2);
+    detail::run_stencil<op::operateImg, kernels::operateImg<T>>(
+        m, 1, [&](auto& h) { ::operateImg(h, opr, o.host(), shift); }, o, int32_t(opr[0]), shift);
+}
+template <Image I> void operateScalar(I& m, const std::string& opr, double val) {
+    using T = voxel_t<I>;
+    if (opr.empty() || std::string("=+-*/&|%be").find(opr[0]) == std::string::npos) return ::operateScalar(host_of(m), opr, val);
+    detail::run_stencil<op::operateScalar, kernels::operateScalar<T>>(
+        m, 1, [&](auto& h) { ::operateScalar(h, opr, val); }, int32_t(opr[0]), val);
+}
+template <Image I> void threshold101(I& v, voxel_t<I> bgn, voxel_t<I> end) {
+    detail::run_stencil<op::threshold101, kernels::threshold101<voxel_t<I>>>(v, 1, [&](auto& m) { ::threshold101(m, bgn, end); }, bgn, end);
+}
+template <Image I> void circleOut(I& v, int X0, int Y0, int R, char dir, voxel_t<I> outVal) {
+    if (dir != 'z' && dir != 'x') return ::circleOut(host_of(v), X0, Y0, R, dir, outVal);  // voxlib's error
+    detail::run_stencil<op::circleOut, kernels::circleOut<voxel_t<I>>>(
+        v, 1, [&](auto& m) { ::circleOut(m, X0, Y0, R, dir, outVal); }, int32_t(X0), int32_t(Y0), int32_t(R),
+        int32_t(dir == 'z' ? 0 : 1), outVal);
+}
+template <Image I, Image J> void mapToFrom(I& v, const J& v2, voxel_t<I> vmin, voxel_t<I> vmax, double scale, double shift) {
+    using T = voxel_t<I>;
+    static_assert(std::is_same_v<T, voxel_t<J>>);
+    const VoxelImageT<T>& a = cmeta_of(v);
+    const VoxelImageT<T>& b = cmeta_of(v2);
+    int3 Dn((a.X0() - b.X0()) / a.dx() + 0.5);  // as voxlib
+    const detail::Aux<T> src(v2);
+    auto vref = [&](auto& m) { ::mapToFrom(m, src.host(), vmin, vmax, scale, shift); };
+    if (a.size3() != b.size3() || Dn.x != 0 || Dn.y != 0 || Dn.z != 0) return vref(host_of(v));  // other grid: voxlib
+    detail::run_stencil<op::mapFrom, kernels::mapFrom<T>>(v, 1, vref, src, vmin, vmax, scale, shift);
+}
+
 template <Image I> void growPore(I& v) {
     detail::run_stencil<op::growPore, kernels::growPore<voxel_t<I>>>(v, 1, [&](auto& m) { ::growPore(m); });
 }
@@ -361,7 +435,26 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     template bool _bilateralX(I&, int, int, int, double, double, double);                       \
     template void bilateralGauss(I&, int, float, float, float, float, float);                   \
     template bool _bilateralGauss(I&, int, int, double, double, double);
+// ops with a second image: all four combinations of the two image kinds
+#define VXHL_INST_PAIR_(I, J, T)                                  \
+    template void and_(I&, const J&);                              \
+    template void or_(I&, const J&);                               \
+    template void xor_(I&, const J&);                              \
+    template void not_(I&, const J&);                              \
+    template void addEq(I&, const J&);                             \
+    template void subEq(I&, const J&);                             \
+    template void mapToFrom(I&, const J&, T, T, double, double);
+#define VXHL_INST_PAIRS_(T)                                       \
+    VXHL_INST_PAIR_(VoxelImageT<T>, VoxelImageT<T>, T)             \
+    VXHL_INST_PAIR_(VoxelImageT<T>, DeviceImage<T>, T)             \
+    VXHL_INST_PAIR_(DeviceImage<T>, VoxelImageT<T>, T)             \
+    VXHL_INST_PAIR_(DeviceImage<T>, DeviceImage<T>, T)
 #define VXHL_INST_(T)                                                \
+    VXHL_INST_PAIRS_(T)                                              \
+    template void threshold101(VoxelImageT<T>&, T, T);              \
+    template void threshold101(DeviceImage<T>&, T, T);              \
+    template void circleOut(VoxelImageT<T>&, int, int, int, char, T); \
+    template void circleOut(DeviceImage<T>&, int, int, int, char, T); \
     template class DeviceImage<T>;                                   \
     VXHL_INST_IMG_(VoxelImageT<T>, T)                                \
     VXHL_INST_IMG_(DeviceImage<T>, T)                                \
@@ -380,6 +473,22 @@ VXHL_FOR_TYPES(VXHL_INST_)
                                      intOr<T>, intOr<T>, int, double, double, double, double, double, double);    \
     template bool segment2<T>(VoxelImageT<T>&, int, vars<intOr<T>>, vars<int>, double, double, double, double, double, \
                               int, int, int);
+// `operate` is bound for 8/16-bit images only (it uses ~ and bit operations)
+#define VXHL_INST_OPERATE_(I, J)                              \
+    template void operateImg(I&, const std::string&, const J&, double);
+#define VXHL_INST_OPERATE_T_(T)                               \
+    template void operateUnary(VoxelImageT<T>&, const std::string&);  \
+    template void operateUnary(DeviceImage<T>&, const std::string&);  \
+    template void operateScalar(VoxelImageT<T>&, const std::string&, double); \
+    template void operateScalar(DeviceImage<T>&, const std::string&, double); \
+    VXHL_INST_OPERATE_(VoxelImageT<T>, VoxelImageT<T>)        \
+    VXHL_INST_OPERATE_(VoxelImageT<T>, DeviceImage<T>)        \
+    VXHL_INST_OPERATE_(DeviceImage<T>, VoxelImageT<T>)        \
+    VXHL_INST_OPERATE_(DeviceImage<T>, DeviceImage<T>)
+VXHL_INST_OPERATE_T_(unsigned char)
+VXHL_INST_OPERATE_T_(unsigned short)
+#undef VXHL_INST_OPERATE_T_
+#undef VXHL_INST_OPERATE_
 VXHL_INST_SEG_(unsigned char)
 VXHL_INST_SEG_(unsigned short)  // segment2 is bound for u8/u16 only (voxlib's tables have maxT(T)+1 entries)
 #undef VXHL_INST_SEG_

@@ -20,7 +20,7 @@ public:
         const Type t = input.type();
         const Expr v = cast<double>(input(x, y, z));
         const Expr dmax = cast<double>(t.max());
-        const Expr scaled = min(dmax, v * Internal::make_const(Float(64), 10.0) / avg);
+        const Expr scaled = min(dmax, vxhl_gen::div64(v * Internal::make_const(Float(64), 10.0), avg, get_target()));
         output(x, y, z) = select(v < avg, cast(t, 10), cast(t, cast<int32_t>(scaled)));
     }
     void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }

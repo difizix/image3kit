@@ -31,6 +31,13 @@ struct OpTraits {
   X(shrinkPore, 'B', 1, false, false) \
   X(growPore, 'B', 1, false, false) \
   X(medianAxis, 'B', 1, false, false) /* median_x/y/z: axis is a kernel argument */ \
+  X(pairOp, 'A', 0, false, false) /* and_/or_/xor_/not_/+=/-= with an Aux image */ \
+  X(operateUnary, 'A', 0, false, false) \
+  X(operateImg, 'A', 0, false, false) \
+  X(operateScalar, 'A', 0, false, false) \
+  X(threshold101, 'A', 0, false, false) \
+  X(circleOut, 'A', 0, false, false) \
+  X(mapFrom, 'A', 0, false, false) /* same-grid source image only */ \
   X(moments, 'D', 0,   false,   true)  /* reduction: count, Σ, Σ², min, max per z */ \
   X(median, 'C', 1,     true,    false) \
   X(smoothBilateral, 'C', 1, true, false) /* radius per pass; kernRad passes per iteration */ \
