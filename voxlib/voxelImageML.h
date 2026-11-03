@@ -693,26 +693,58 @@ dbls convertToDbls(piece<T> hist) {
 
 
 
+//! Histogram binning for Otsu (and the voxlide histogram kernels): `nBins` equal bins over the
+//! voxel values [shift, shift+span): bin(v) = floor((v - shift) * nBins / span), and a bin's lower
+//! edge is level(b) = shift + b * span / nBins. So voxel values map to 0..nBins-1 ("scale and
+//! shift") and thresholds map back to the original scale. (v - shift) * nBins is exact for integer
+//! voxels, so scaling every value, shift and span by the same factor gives identical bins.
+struct HistBins {
+  double shift = 0, span = 256;
+  int    nBins = 256;
+  double scale() const { return span/nBins; }                       //!< voxel values per bin
+  int    bin(double v) const { return std::clamp(int(std::floor((v-shift)*nBins/span)), 0, nBins-1); }
+  double level(double b) const { return shift + b*span/nBins; }
+};
+
+//! Bins for the voxel values [minv, maxv): span = maxv-minv and min(span, maxBins) bins, so an
+//! integer range of at most `maxBins` values has one bin per value (as before for 8-bit images),
+//! and a larger one (16-bit images) is binned to `maxBins`: a 256-entry histogram instead of 65536
+//! (or the old ~6553 bins, whose width was truncated to an integer and which could index past the
+//! end of the histogram).
+inline HistBins otsuBins(double minv, double maxv, bool integral, int maxBins=256) {
+  HistBins b;  b.shift = minv;
+  b.span = std::max(maxv-minv, 1.);
+  b.nBins = integral ? int(std::min(b.span, double(maxBins))) : maxBins;
+  return b;
+}
+
+//! Counts of the voxels with lo <= v < hi (inside the skipFrac margins) per bin.
 template<typename T>
-array<double,5> otsu_minAvgThresholdAvgMax(const VoxelImageT<T>& vImg, Tint  minvi, Tint  maxvi, double skipFrac=0.)
-{//! Warning doesn't work for negatives
+vars<long long> histogram(const VoxelImageT<T>& vImg, const HistBins& bins, double lo, double hi, double skipFrac=0.) {
   int3 nnn1=skipFrac*vImg.size3();
   int3 nnn2=(1.000000000001-skipFrac)*vImg.size3();
-  T  minv=minvi, maxv=maxvi;
-
-  const int nHist = std::min(maxvi-minvi, Tint(65536/10));
-  double delta = std::max((maxvi-minvi)/ nHist, Tint(T(1)));
-
-  vars<long long> hist(nHist+1, 0l);
-
+  vars<long long> hist(bins.nBins, 0l);
   for (int k=nnn1[2]; k<nnn2[2]; ++k)
     for (int j=nnn1[1]; j<nnn2[1]; ++j)
       for (int i=nnn1[0]; i<nnn2[0]; ++i) {
-        T vv = vImg(i,j,k);
-        if (minv<=vv && vv<maxv)  ++hist[(vv-minv)/delta];
+        const double vv = vImg(i,j,k);
+        if (lo<=vv && vv<hi)  ++hist[bins.bin(vv)];
       }
-  dbls histd = convertToDbls(hist);
-  return otsu_minAvThresholdAvMx(histd, 0, nHist, minvi, delta);
+  return hist;
+}
+
+//! Otsu thresholds from a histogram with the given binning: {min, mean_0, threshold, mean_1, max},
+//! all in voxel values, for the voxels in [lo, hi).
+template<typename T>
+array<double,5> otsu_minAvgThresholdAvgMax(const VoxelImageT<T>& vImg, const HistBins& bins, double lo, double hi, double skipFrac=0.) {
+  dbls histd = convertToDbls(histogram(vImg, bins, lo, hi, skipFrac));
+  return otsu_minAvThresholdAvMx(histd, 0, bins.nBins-1, bins.shift, bins.scale());
+}
+
+template<typename T>
+array<double,5> otsu_minAvgThresholdAvgMax(const VoxelImageT<T>& vImg, Tint  minvi, Tint  maxvi, double skipFrac=0., int maxBins=256)
+{//! Warning doesn't work for negatives
+  return otsu_minAvgThresholdAvgMax(vImg, otsuBins(minvi, maxvi, std::is_integral_v<T>, maxBins), minvi, maxvi, skipFrac);
 }
 
 template<typename T>
