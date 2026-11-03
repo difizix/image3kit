@@ -936,9 +936,9 @@ void  multiSegment(VoxelImageT<T>& vImg, vector<int> trshlds, vector<int> minSiz
   vector<int> meds(nSegs,-2);
   {
     VoxelImageT<T> vxls = median(median(vImg));
-    array<double,256> histi{{0}};
+    array<double,maxT(T)> histi{{0}};  // was array<double,256>: out of bounds for u16
     forAllvv_seq(vxls)  { if (1<=vv && vv<maxT(T)) { histi[vv]+=1.;} }
-    double myu[256], cdf[256];   // mean value for separation, omega is CDF
+    double myu[imaxT(T)+1], cdf[imaxT(T)+1];   // mean value for separation, omega is CDF
     int minv=trshlds[0], maxv=trshlds[nSegs];
     cdf[minv] = histi[minv];
     myu[minv] = minv*histi[minv];       // 0. times prob[0] equals zero
@@ -1013,6 +1013,16 @@ void  multiSegment(VoxelImageT<T>& vImg, vector<int> trshlds, vector<int> minSiz
 
   //T avgMagGrad=average2p(grad);
   int noisv=sqrt(noisVSqr+1)+1;
+  // vote accumulators per distinct segment value (slot 0: value 0, the "no change" baseline);
+  // they were array<double,256> indexed by the value, out of bounds for u16
+  vector<int> slotVals{0};
+  vector<int> slot(meds.size());
+  for (size_t s=0; s<meds.size(); ++s) {
+    slot[s] = int(std::find(slotVals.begin(), slotVals.end(), meds[s]) - slotVals.begin());
+    if (slot[s] == int(slotVals.size())) slotVals.push_back(meds[s]);
+  }
+  constexpr int kMaxSlots = 64;
+  ensure(int(slotVals.size()) <= kMaxSlots, "segment: too many segments", -1);
   for (int iter=0; iter<8; ++iter) {
     if(writeDumps) vImg.write("dumpseg"+to_string(2+iter)+".tif");
 
@@ -1031,31 +1041,31 @@ void  multiSegment(VoxelImageT<T>& vImg, vector<int> trshlds, vector<int> minSiz
       const auto gv = grad(i,j,k);
 
       if(gv && capmin<=ov && ov<=capmax)  {
-        array<double,256> coVar;///. not efficient
-        array<double,256> coVarSum;///. not efficient
+        double coVar[kMaxSlots], coVarSum[kMaxSlots];
         coVar[0]=0.;  coVarSum[0]=1.;
-        for (int mid: meds) {coVar[mid]=0.; coVarSum[mid]=0.;}
+        for (int sl: slot) {coVar[sl]=0.; coVarSum[sl]=0.;}
 
       //if(nearMid)
       //{
         //for (const T* neip : {&vImg.v_i(-1,vp), &vImg.v_i(1,vp), &vImg.v_j(-1,vp), &vImg.v_j(1,vp), &vImg.v_k(-1,vp), &vImg.v_k(1,vp)})
         forAllNei(-2,2) {
-          for (int mid: meds)
-            if (mid==_nei(vImg,i,j,k)) {
+          for (size_t s=0; s<meds.size(); ++s)
+            if (const int mid=meds[s], sl=slot[s]; mid==_nei(vImg,i,j,k)) {
               const int nei=_nei(origimg,i,j,k);
               const int neig=max(_nei(grad,i,j,k),_nei1(grad,i,j,k));
               const double weit=10000000./(std::max(neig,2)*(distSqrNei()+2)+noisv);
-              coVar[mid]+=weit/(abs(nei-mid)*0+abs(nei-ov)+2*noisv);
-              coVarSum[mid]+=weit;
+              coVar[sl]+=weit/(abs(nei-mid)*0+abs(nei-ov)+2*noisv);
+              coVarSum[sl]+=weit;
             }
         }
-        int newmid = 0;
-        for (int mid: meds)
-          if ( coVar[   mid]/((coVarSum[   mid]+2000000.)*(abs(ov-   mid)+8*noisv))>
-              coVar[newmid]/((coVarSum[newmid]+2000000.)*(abs(ov-newmid)+8*noisv)))
-            newmid=mid;
+        int newmid = 0, newsl = 0;
+        for (size_t s=0; s<meds.size(); ++s)
+          if (const int mid=meds[s], sl=slot[s];
+              coVar[    sl]/((coVarSum[    sl]+2000000.)*(abs(ov-   mid)+8*noisv))>
+              coVar[newsl]/((coVarSum[newsl]+2000000.)*(abs(ov-newmid)+8*noisv)))
+            newmid=mid, newsl=sl;
 
-        if(newmid && coVar[newmid]>1e-12) vImg(i,j,k) = T(newmid);
+        if(newmid && coVar[newsl]>1e-12) vImg(i,j,k) = T(newmid);
       //}
       }
     }
