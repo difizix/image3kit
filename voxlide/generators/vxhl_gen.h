@@ -56,4 +56,32 @@ inline void schedule_stencil(Func out, const Target& t, Type vtype, const std::v
     }
 }
 
+//! Second output of ops that return a change count: changes(z) = number of voxels of slice z
+//! where `out` differs from `in` (the per-z partials are summed on the host, so they merge
+//! across slabs). ABI: the kernel's last argument, after `output`. Uses per-row partial sums
+//! so the GPU reduction is parallel over (y,z). Call from generate(); schedule with
+//! schedule_change_counts() after schedule_stencil().
+struct ChangeCounts {
+    Func rows{"change_rows"};
+    Var y{"cy"}, z{"cz"};
+    void define(Func changes, Func out, Func in, Expr gnx, Expr gny) {
+        RDom rx(0, gnx), ry(0, gny);
+        rows(y, z) = 0;
+        rows(y, z) += select(out(rx, y, z) != in(rx, y, z), 1, 0);
+        changes(z) = sum(rows(ry, z));
+    }
+    void schedule(Func changes, const Target& t) {
+        rows.compute_root();
+        if (t.has_gpu_feature()) {
+            Var yi{"cyi"}, zi{"czi"}, zo{"czo"};
+            rows.gpu_tile(y, z, yi, zi, 8, 8, TailStrategy::GuardWithIf);
+            rows.update().gpu_tile(y, z, yi, zi, 8, 8, TailStrategy::GuardWithIf);
+            changes.gpu_tile(z, zi, 32, TailStrategy::GuardWithIf);
+        } else {
+            rows.parallel(z);
+            rows.update().parallel(z);
+        }
+    }
+};
+
 }  // namespace vxhl_gen

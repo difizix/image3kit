@@ -77,3 +77,16 @@ def test_bilateral_wide_matches_voxlib(backend, cls):
         assert np.abs(a - b).max() <= 2.0
     else:
         assert np.abs(a - b).max() <= 1 and np.count_nonzero(a != b) <= 1e-4 * a.size + 1
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+def test_mode6_matches_voxlib(backend, cls):
+    ref = _labelled(cls, (17, 23, 31))
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        n_ref = ref.mode6(2)
+    with ik.backend(backend):
+        n_got = got.mode6(2)
+    assert n_ref > 0 and n_got == n_ref
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))

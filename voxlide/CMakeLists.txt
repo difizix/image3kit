@@ -153,6 +153,7 @@ endfunction()
 voxlide_add_op(mode26 GENERATOR generators/mode26_gen.cpp)
 voxlide_add_op(median GENERATOR generators/median_gen.cpp)
 voxlide_add_op(smoothBilateral GENERATOR generators/smooth_bilateral_gen.cpp IMAGES orig FP64)
+voxlide_add_op(mode6 GENERATOR generators/mode6_gen.cpp)
 voxlide_add_op(bilateralX GENERATOR generators/bilateral_x_gen.cpp STRICT_FLOAT)
 
 if(BUILD_TESTING)

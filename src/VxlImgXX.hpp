@@ -354,7 +354,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
          "Read image data from  a .raw, .raw/.raw.gz, or reset and read from a .am or .tif file.")
     // //.def("readAtZ", &SelfT::readAtZ)
     .def("mode6", [](SelfT &m, const short n_same_nei) {
-            return modeNSames(m, n_same_nei);
+            return vxop::modeNSames(m, n_same_nei);
         }, arg("n_same_neighbors"),
          "Apply mode filter based on nearest 6 neighbor voxels.\n"
          "returns number of changed voxels used for iteration termination")

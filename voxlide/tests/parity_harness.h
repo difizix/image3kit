@@ -135,3 +135,20 @@ long long parity_sweep(const std::string& op, Make make, Ref ref, Test test, Gpu
         EXPECT_EQ(0LL, vxhl::testing::parity_sweep(#NAME, MAKE, REF, TEST,                           \
                                                    vxhl::testing::GpuTol{INT_FRACTION, FLOAT_ABS})); \
     }
+//! For ops that also return a change count: REF/TEST are (auto& img) -> long long. The counts
+//! must be equal on every backend/slab count, besides the images.
+#define VXHL_PARITY_TEST_COUNT(NAME, MAKE, REF, TEST)                                              \
+    UTEST(VoxlideParity, NAME) {                                                                    \
+        long long refCount = 0, countBad = 0;                                                       \
+        const long long bad = vxhl::testing::parity_sweep(                                          \
+            #NAME, MAKE, [&](auto& m) { refCount = (REF)(m); },                                     \
+            [&](auto& m) {                                                                          \
+                const long long c = (TEST)(m);                                                      \
+                if (c != refCount) {                                                                \
+                    ++countBad;                                                                     \
+                    std::cout << #NAME << ": count " << c << " != reference " << refCount << "\n"; \
+                }                                                                                   \
+            });                                                                                     \
+        EXPECT_EQ(0LL, bad);                                                                        \
+        EXPECT_EQ(0LL, countBad);                                                                   \
+    }

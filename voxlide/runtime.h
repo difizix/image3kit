@@ -50,6 +50,7 @@ constexpr int snapshot_every(const Snapshot& s) { return s.every; }
 
 #ifdef IMAGE3KIT_HAS_HALIDE
 template <typename T> using HBuf = Halide::Runtime::Buffer<T, 3>;
+using CBuf = Halide::Runtime::Buffer<int32_t, 1>;  //!< per-z change counts
 
 //! z-layers [kBgn,kEnd) of `f` as a Halide buffer in global coordinates (zero-copy).
 template <typename T>
@@ -67,22 +68,35 @@ auto kernel_arg(HBuf<T>* snap, const S& s) {
 }
 
 //! Call kernel `fn` (ABI: generators/vxhl_gen.h) reading `in` (+ `snap`), writing `out`.
-template <typename Fn, typename T, typename... S>
-void call_kernel(Fn fn, HBuf<T>& in, HBuf<T>* snap, HBuf<T>& out, int3 g, const S&... s) {
-    const int rc = fn(in.raw_buffer(), g.x, g.y, g.z, kernel_arg(snap, s)..., out.raw_buffer());
+//! A counting kernel (change_counts in vxhl_gen.h) also fills `cnt` (one int32 per z of `out`).
+//! `cnt`: the kernel's second output (per-z-slice number of changed voxels), or nullptr.
+template <bool Count, typename Fn, typename T, typename... S>
+void call_kernel(Fn fn, HBuf<T>& in, HBuf<T>* snap, HBuf<T>& out, CBuf& cnt, int3 g, const S&... s) {
+    int rc;
+    if constexpr (Count) rc = fn(in.raw_buffer(), g.x, g.y, g.z, kernel_arg(snap, s)..., out.raw_buffer(), cnt.raw_buffer());
+    else                 rc = fn(in.raw_buffer(), g.x, g.y, g.z, kernel_arg(snap, s)..., out.raw_buffer());
     if (rc != 0) throw std::runtime_error(take_halide_error() + " (halide error " + std::to_string(rc) + ")");
 }
 
+//! Add the per-z counts a kernel wrote to `total`.
+inline void add_counts(CBuf& cb, bool gpu, long long& total) {
+    if (gpu && cb.copy_to_host() != 0) throw std::runtime_error(take_halide_error());
+    for (int z = cb.dim(0).min(); z <= cb.dim(0).max(); ++z) total += cb(z);
+}
+
 //! One box of one pass: read box+halo of `in` (and `snap`), write the box interior of `out`.
-template <typename Fn, typename T, typename... S>
+template <bool Count, typename Fn, typename T, typename... S>
 void invoke_box(Fn fn, bool gpu, VoxelField<T>& in, VoxelField<T>* snap, VoxelField<T>& out, const Box& b,
-                const S&... s) {
+                long long* total, const S&... s) {
     auto ib = zview(in, b.kBgnRead(), b.kEndRead());
     auto ob = zview(out, b.kBgn(), b.kEnd());
     HBuf<T> sb = snap ? zview(*snap, b.kBgnRead(), b.kEndRead()) : HBuf<T>();
     if (gpu) { ib.set_host_dirty(); if (snap) sb.set_host_dirty(); }
-    call_kernel(fn, ib, snap ? &sb : nullptr, ob, b.nGlobal, s...);
+    CBuf cb;
+    if constexpr (Count) { cb = CBuf(b.kEnd() - b.kBgn()); cb.set_min(b.kBgn()); }
+    call_kernel<Count>(fn, ib, snap ? &sb : nullptr, ob, cb, b.nGlobal, s...);
     if (gpu && ob.copy_to_host() != 0) throw std::runtime_error(take_halide_error());
+    if constexpr (Count) add_counts(cb, gpu, *total);
 }
 
 //! Run kernel `fn` nIter times over the whole image. Images rotate between `img` (read
@@ -91,8 +105,9 @@ void invoke_box(Fn fn, bool gpu, VoxelField<T>& in, VoxelField<T>* snap, VoxelFi
 //!  - one piece: on the GPU all buffers stay on the device: one upload, one download;
 //!  - image larger than max_slab_bytes(): every pass is a pass over z-slabs with a halo
 //!    of the op's radius, through host memory.
-template <typename Op, typename Fn, typename T, typename... S>
-void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, int radius, const S&... s) {
+template <typename Op, bool Count, typename Fn, typename T, typename... S>
+void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, int radius, long long* total, const S&... s) {
+    *total = 0;
     const int3 n = img.size3();
     const bool gpu = b == Backend::Gpu;
     int every = 0;
@@ -120,7 +135,10 @@ void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, int radius, co
         for (int p = 0; p < nIter; ++p) {
             if (every && p % every == 0) snap = cur;
             const int out = pick(cur, snap);
-            call_kernel(fn, view(cur), every ? &view(snap) : nullptr, view(out), n, s...);
+            CBuf cb;
+            if constexpr (Count) cb = CBuf(n.z);
+            call_kernel<Count>(fn, view(cur), every ? &view(snap) : nullptr, view(out), cb, n, s...);
+            if constexpr (Count) add_counts(cb, gpu, *total);
             cur = out;
             if (gpu && snap != 0) v[0].device_free();  // the input is not read again
         }
@@ -130,7 +148,7 @@ void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, int radius, co
         for (int p = 0; p < nIter; ++p) {
             if (every && p % every == 0) snap = cur;
             const int out = pick(cur, snap);
-            for (const Box& box : boxes) invoke_box(fn, gpu, *f[cur], every ? f[snap] : nullptr, *f[out], box, s...);
+            for (const Box& box : boxes) invoke_box<Count>(fn, gpu, *f[cur], every ? f[snap] : nullptr, *f[out], box, total, s...);
             cur = out;
         }
     }
@@ -139,12 +157,13 @@ void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, int radius, co
 #endif
 
 //! The one implementation every ported op goes through.
+//! `count` (run_stencil_count): the sum, over all passes, of the kernel's changed-voxel counts.
 //! Op: vxhl::op::<name> (traits); K: kernels::<name><T> (generated, cpu/gpu may be nullptr);
 //! ps: kernel passes (iterated ops; 1 otherwise) and, for parameter-dependent radii, the halo; ref: the voxlib reference,
 //! applied in place, doing all nIter iterations itself; s: the kernel's op scalars and
 //! Snapshot{} image arguments, in the generator's Input order.
-template <typename Op, typename K, typename T, typename Ref, typename... S>
-void run_stencil(VoxelImageT<T>& img, Passes ps, Ref&& ref, const S&... s) {
+template <typename Op, typename K, bool Count, typename T, typename Ref, typename... S>
+void run_stencil_impl(VoxelImageT<T>& img, Passes ps, long long* count, Ref&& ref, const S&... s) {
     const int nIter = ps.n, radius = ps.radius ? ps.radius : Op::traits.radius;
     if (nIter <= 0) return;
     constexpr bool hasCpu = !std::is_null_pointer_v<std::remove_cv_t<decltype(K::cpu)>>;
@@ -155,8 +174,8 @@ void run_stencil(VoxelImageT<T>& img, Passes ps, Ref&& ref, const S&... s) {
 #ifdef IMAGE3KIT_HAS_HALIDE
     while (c.backend != Backend::Voxlib) {
         try {
-            if constexpr (hasGpu) if (c.backend == Backend::Gpu) { run_kernel<Op>(K::gpu, c.backend, img, nIter, radius, s...); return; }
-            if constexpr (hasCpu) if (c.backend == Backend::HalideCpu) { run_kernel<Op>(K::cpu, c.backend, img, nIter, radius, s...); return; }
+            if constexpr (hasGpu) if (c.backend == Backend::Gpu) { run_kernel<Op, Count>(K::gpu, c.backend, img, nIter, radius, count, s...); return; }
+            if constexpr (hasCpu) if (c.backend == Backend::HalideCpu) { run_kernel<Op, Count>(K::cpu, c.backend, img, nIter, radius, count, s...); return; }
             throw std::logic_error("no kernel for resolved backend");
         } catch (const std::exception& e) {
             if (c.strict) throw std::runtime_error(std::string("vxhl::") + Op::traits.name + " on " +
@@ -173,6 +192,20 @@ void run_stencil(VoxelImageT<T>& img, Passes ps, Ref&& ref, const S&... s) {
     }
 #endif
     ref(img);
+}
+
+template <typename Op, typename K, typename T, typename Ref, typename... S>
+void run_stencil(VoxelImageT<T>& img, Passes ps, Ref&& ref, const S&... s) {
+    long long unused = 0;
+    run_stencil_impl<Op, K, false>(img, ps, &unused, ref, s...);
+}
+//! Ops that also return how many voxels changed (voxlib: `long long`): the kernel has a second
+//! output from vxhl_gen::change_counts. `ref` must set `count` (it runs only on the voxlib path).
+template <typename Op, typename K, typename T, typename Ref, typename... S>
+long long run_stencil_count(VoxelImageT<T>& img, Passes ps, Ref&& ref, const S&... s) {
+    long long count = 0;
+    run_stencil_impl<Op, K, true>(img, ps, &count, [&](auto& m) { count = ref(m); }, s...);
+    return count;
 }
 
 }  // namespace vxhl::detail
