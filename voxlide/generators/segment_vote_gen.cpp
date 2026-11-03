@@ -66,9 +66,20 @@ public:
         const Expr nx = x + di, ny = y + dj, nz = z + dk;
         const Expr gj = avgGradInv * cast<double>(gr(nx, ny, nz));
         const Expr w = rg / ((cast<double>(dk * dk + dj * dj + di * di) + resolSqr_1) + (gradFactor * gj) * gj);
-        const Expr hit = seg(nx, ny, nz) == s;
-        acc(x, y, z, s) = {acc(x, y, z, s)[0] + select(hit, w * cast<double>(og(nx, ny, nz)), dbl(0.0)),
-                           acc(x, y, z, s)[1] + select(hit, w, dbl(0.0))};
+        const Expr sn = seg(nx, ny, nz);
+        if (get_target().has_gpu_feature()) {
+            // GPU (f64 is slow there, so the division per neighbour dominates): w does not depend on the segment,
+            // compute it once per neighbour and add it to the slot of the neighbour's segment (slot kMaxSegs takes
+            // the neighbours in no segment). Each segment still sums its neighbours in (k, j, i) order, so the sums
+            // are those of voxlib's per-segment loops. max: bounds inference sees sn >= -1.
+            const Expr slot = select(sn >= 0, max(sn, 0), Expr(int32_t(kMaxSegs)));
+            acc(x, y, z, slot) = {acc(x, y, z, slot)[0] + w * cast<double>(og(nx, ny, nz)), acc(x, y, z, slot)[1] + w};
+        } else {
+            // CPU: one vectorised pass per segment (a data-dependent slot would not vectorise: 1.5x slower)
+            const Expr hit = sn == s;
+            acc(x, y, z, s) = {acc(x, y, z, s)[0] + select(hit, w * cast<double>(og(nx, ny, nz)), dbl(0.0)),
+                               acc(x, y, z, s)[1] + select(hit, w, dbl(0.0))};
+        }
 
         best(x, y, z) = {Expr(int32_t(0)), dbl(10e64), acc(x, y, z, 0)[1]};  // vid, prob, sumW[vid]
         RDom rs(0, nSegs);
@@ -95,7 +106,8 @@ public:
         } else {
             seg.parallel(z).vectorize(x, t.natural_vector_size(Int(32)), TailStrategy::GuardWithIf);
         }
-        acc.bound_storage(s, kMaxSegs);
+        if (t.has_gpu_feature()) acc.bound(s, 0, kMaxSegs + 1).bound_storage(s, kMaxSegs + 1);
+        else acc.bound_storage(s, kMaxSegs);
         vxhl_gen::schedule_stencil(output, t, Float(64), {acc, best});
         cc.schedule(changes, t);
     }

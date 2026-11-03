@@ -151,6 +151,8 @@ template <Image I> double meanDbl(const I& img);
 template <Image I> double minDbl(const I& img);
 template <Image I> double maxDbl(const I& img);
 template <Image I> double porosityDbl(const I& img, voxel_t<I> threshold = 0);
+//! voxlib histogram(img, HistBins{shift, span, nBins}, lo, hi) (no skipFrac margins): counts of the voxels lo <= v < hi per bin; nBins <= 256.
+template <Image I> vars<long long> histogram(const I& img, double shift, double span, int nBins, double lo, double hi);
 //! One segment2 voting pass (voxlib segmentVote); returns the number of changed voxels. u8/u16.
 template <Image I, Image J, Image K>
 std::size_t segmentVote(I& vImg, const J& origimg, const K& grad, const vars<voxel_t<I>>& meds, intOr<voxel_t<I>> capmin,

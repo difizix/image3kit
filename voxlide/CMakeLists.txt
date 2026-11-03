@@ -187,6 +187,7 @@ voxlide_add_op(paintShape GENERATOR generators/paint_shape_gen.cpp FP64)
 voxlide_add_op(paintTriangular GENERATOR generators/paint_triangular_gen.cpp FP64 CPU_ONLY)
 voxlide_add_op(setWhereEqual GENERATOR generators/set_where_equal_gen.cpp IMAGES other VALUES value)
 voxlide_add_op(moments GENERATOR generators/moments_gen.cpp FP64 REDUCE)
+voxlide_add_op(histogram GENERATOR generators/histogram_gen.cpp FP64 REDUCE)
 voxlide_add_op(bilateralX GENERATOR generators/bilateral_x_gen.cpp STRICT_FLOAT)
 voxlide_add_op(bilateralGauss GENERATOR generators/bilateral_gauss_gen.cpp FP64)
 

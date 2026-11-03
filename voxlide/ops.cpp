@@ -7,6 +7,7 @@
 #include "median_kernels.h"
 #include "shrink_kernels.h"
 #include "moments_kernels.h"
+#include "histogram_kernels.h"
 #include "median032_kernels.h"
 #include "median06Grow_kernels.h"
 #include "median06_kernels.h"
@@ -31,6 +32,9 @@
 #include "segmentVote_kernels.h"
 
 #include <cfloat>
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
 #include <cmath>
 #include <limits>
 #include "smoothBilateral_kernels.h"
@@ -103,6 +107,21 @@ template <Image I> double porosityDbl(const I& v, voxel_t<I> threshold) {
         const double nPores = m(-kInf, double(threshold), 0, 0).n;
         const double nTotal = double(v.size3().x) * v.size3().y * v.size3().z - m(double(maxT(T)), double(maxT(T)), 0, 0).n;
         return nTotal ? nPores / nTotal : 0.0;
+    });
+}
+
+// voxlib histogram(img, HistBins{shift, span, nBins}, lo, hi) without the skipFrac margins; the kernel has 256 bins.
+template <Image I> vars<long long> histogram(const I& v, double shift, double span, int nBins, double lo, double hi) {
+    HistBins bins;
+    bins.shift = shift, bins.span = span, bins.nBins = nBins;
+    auto ref = [&](const auto& h) { return ::histogram(h, bins, lo, hi); };
+    if (nBins < 1 || nBins > 256) return ref([&]() -> const auto& { if constexpr (std::is_same_v<I, VoxelImageT<voxel_t<I>>>) return v; else return v.host(); }());
+    return detail::run_reduce<op::histogram, kernels::histogram<voxel_t<I>>, 256>(v, ref, [&](auto pass) {
+        const detail::PerZ<256> p = pass(lo, hi, shift, span, int32_t(nBins));
+        vars<long long> h(nBins, 0ll);
+        for (int b = 0; b < nBins; ++b)
+            for (double c : p[b]) h[b] += (long long)c;
+        return h;
     });
 }
 
@@ -419,6 +438,34 @@ std::size_t segmentVote(I& vImg, const J& origimg, const K& grad, const vars<vox
         m[6], m[7], int32_t(capmin), int32_t(capmax), localF, flatnes, gradFactor, r1, avgGradInv, noisv, kc);
 }
 
+//! Opt-in stage timer for segment2 (VXHL_PROFILE=1): lap(name, images...) waits for the device work of the
+//! given images, then adds the time since the previous lap to `name`; the table goes to stderr.
+struct StageProfile {
+    bool on = std::getenv("VXHL_PROFILE") != nullptr;
+    std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
+    std::vector<std::pair<std::string, std::pair<double, int>>> t;  // name -> (ms, calls), in first-seen order
+    template <typename... D> void lap(const char* name, [[maybe_unused]] const D&... imgs) {
+        if (!on) return;
+#ifdef IMAGE3KIT_HAS_HALIDE
+        (void)std::initializer_list<int>{(detail::resident(imgs).raw_buffer()->device ? detail::resident(imgs).device_sync() : 0, 0)...};
+#endif
+        const auto now = std::chrono::steady_clock::now();
+        const double ms = std::chrono::duration<double, std::milli>(now - last).count();
+        last = now;
+        for (auto& e : t) if (e.first == name) { e.second.first += ms, ++e.second.second; return; }
+        t.push_back({name, {ms, 1}});
+    }
+    ~StageProfile() {
+        if (!on) return;
+        double sum = 0;
+        for (auto& e : t) sum += e.second.first;
+        std::fprintf(stderr, "segment2 stage profile (%s):\n", backend_name(get_backend()));
+        for (auto& e : t)
+            std::fprintf(stderr, "  %-14s %9.1f ms  %5.1f%%  x%d\n", e.first.c_str(), e.second.first, 100 * e.second.first / sum, e.second.second);
+        std::fprintf(stderr, "  %-14s %9.1f ms\n", "total", sum);
+    }
+};
+
 // voxlib segment2 + multiSegment2 (voxelImageML.h) on DeviceImages: the image, origimg and grad stay
 // on the GPU from the first median to the last vote. Inputs voxlib handles differently (dumps,
 // > 8 segments, thresholds not increasing) go to voxlib.
@@ -447,7 +494,9 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     ensure(th[nSegs] <= maxT(T), "incompatible threshold value and image type", -1);
     if (th[nSegs] > i254) { th[nSegs] = i254; vxhl::replaceRange(vImg, T(i254 + 1), T(maxT(T)), T(i254)); }
     std::cout << "{ segment2 (voxlide), nSegs: " << nSegs << ", ranges: " << th << ", minSizs: " << minSizs << "\n";
+    StageProfile prof;
     vImg.growBox(8);
+    prof.lap("growBox");
 
     // ---- multiSegment2(vImg, th, minSizs, sqr(resolution), noisev, localF, krnl, flatnes, gradFactor, nItrs)
     const double resolutionSqr = resolution * resolution, noisv = noisev;
@@ -455,7 +504,9 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     vars<T> meds(nSegs, -2);
     {  // voxlib: means of median(median(vImg)) over (th[i], th[i+1]] from cumulative histograms of [1, maxT-1]
         DeviceImage<T> m2(vImg);
+        prof.lap("copy");
         vxhl::median(m2, 2);
+        prof.lap("median2", m2);
         for (int i = 0; i < nSegs; ++i) {
             const double lo = th[i] + 1, hi = th[i + 1];
             const auto [n, sum] = moments(m2,
@@ -467,17 +518,24 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
                 [&](auto m) { const Mom r = m(lo, hi, 0, 0); return std::pair<double, double>(r.n, r.sum); });
             meds[i] = T(sum / std::max(n, 1.));
         }
+        prof.lap("moments");
     }
     std::cout << "  -> mid+ranges: "; for (int i = 0; i < nSegs; ++i) std::cout << "  t" << int(th[i]) << " m" << int(meds[i]);
     std::cout << "  " << int(th[nSegs]) << std::endl;
     ensure(meds.back() > 0, "meds:" + _s(meds), -1);
 
     DeviceImage<T> img(vImg), orig(vImg), grad(vImg);
+    prof.lap("copy");
     vxhl::median(img, 1);
+    prof.lap("median1", img);
     vxhl::magGradient(grad, resolutionSqr * (dmaxT(T) / (meds.back() - meds[0])));
+    prof.lap("magGradient", grad);
     vxhl::bilateralX(grad, 1, 1, float(noisv * noisv), float(0.05), float(12));
+    prof.lap("bilateralX", grad);
     vxhl::scaleGradient(grad, vxhl::average2p(grad) * 0.2 + 0.01);
+    prof.lap("scaleGrad+avg", grad);
     const double avgGradInv = 1. / vxhl::average2p(grad);
+    prof.lap("average2p", grad);
     for (size_t tt = 0; tt < meds.size(); ++tt) {
         vxhl::replaceRange(orig, T(meds[tt]), T(meds[tt]), T(meds[tt] - 1));  // to avoid conflict with seg values in shrink
         T bgnh = 0.5 * (1.5 * meds[tt] + 0.5 * th[tt]) + 0.5;
@@ -488,19 +546,27 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
         if (tt + 1 == meds.size()) vxhl::replaceRange(img, endh, T(th[tt + 1]), meds[tt]);
         else                       vxhl::replaceRange(img, endh, T(th[tt + 1]), T(meds[tt] + 1));
     }
+    prof.lap("replaceRange", img, orig);
     vxhl::mode26(img, 1);
     vxhl::mode26(img, 1);
+    prof.lap("mode26 init", img);
     for (size_t tt = 0; tt < meds.size(); ++tt)
         for (int i = 0; i < minSizs[tt]; ++i) vxhl::shrink(img, meds[tt], meds[tt], orig);
+    prof.lap("shrink", img);
     for (int iter = 0; iter < nItrs; ++iter) {
         for (int i = 0; i < minSizs[0]; ++i) vxhl::mode26(img, 1);
+        prof.lap("mode26 loop", img);
         vxhl::zeroGrad(img, 2);
+        prof.lap("zeroGrad", img);
         const std::size_t nc = vxhl::segmentVote(img, orig, grad, meds, capmin, capmax, krnl, localF, flatnes, gradFactor,
                                                  resolutionSqr, avgGradInv, noisv);
+        prof.lap("segmentVote", img);
         std::cout << "  nChang:" << nc << std::endl;
     }
     vImg = img.host();
+    prof.lap("download");
     vImg.shrinkBox(8);
+    prof.lap("shrinkBox");
     std::cout << "}" << std::endl;
     return true;
 }
@@ -528,6 +594,7 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     template double minDbl(const I&);                                                           \
     template double maxDbl(const I&);                                                           \
     template double porosityDbl(const I&, T);                                                   \
+    template vars<long long> histogram(const I&, double, double, int, double, double);          \
     template bool smoothBilateral(I&, int, int, double, double);                                \
     template void bilateralX(I&, int, int, float, float, float, float, float);                  \
     template bool _bilateralX(I&, int, int, int, double, double, double);                       \
