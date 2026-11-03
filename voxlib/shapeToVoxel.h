@@ -9,6 +9,7 @@ Developed by:
 
 \*-------------------------------------------------------------------------*/
 
+#include <array>
 #include <cmath>
 #include <cassert>
 #include <iostream>
@@ -93,6 +94,8 @@ class cylinder : public shape {
     {}
 
   int value(dbl3 ij) const { return ( magSqr((ij-p1)^(ij-p2)) <= r2mag2p12 )  ?  insidev : shape::invalidv; }
+  //! p1, p2, r2mag2p12 (for the voxlide kernels, which mirror value())
+  std::array<double,7> params() const { return {p1.x,p1.y,p1.z, p2.x,p2.y,p2.z, r2mag2p12}; }
  };
 
 class triangular : public shape {
@@ -137,6 +140,8 @@ class triangular : public shape {
     if (dz < L1*dy || dz > L2*dy)  return shape::invalidv;
     return insidev;
   }
+  //! po, L1, L2, h_, hInv, LtInv, ch, ctsInv (for the voxlide kernel, which mirrors value())
+  std::array<double,10> params() const { return {po.x,po.y,po.z, L1, L2, h_, hInv, LtInv, ch, ctsInv}; }
 };
 
 
@@ -213,6 +218,8 @@ class kube : public shape {
 
   int value(dbl3 ij)  const {  return ij.x >= p1.x && ij.y >= p1.y && ij.z >= p1.z &&   ij.x < p2.x && ij.y < p2.y && ij.z < p2.z
                                      ? insidev : shape::invalidv;  }
+  //! p1, p2 (for the voxlide kernels, which mirror value())
+  std::array<double,7> params() const { return {p1.x,p1.y,p1.z, p2.x,p2.y,p2.z, 0.}; }
 };
 
 class plate : public shape {
@@ -243,6 +250,8 @@ class sphere : public shape {
     {}
 
   int value(dbl3 ij) const {  return  ( magSqr(ij-p1)<r2 )  ?  insidev : shape::invalidv;  }
+  //! p1, r2 (for the voxlide kernels, which mirror value())
+  std::array<double,7> params() const { return {p1.x,p1.y,p1.z, r2, 0.,0.,0.}; }
 };
 
 
@@ -352,3 +361,11 @@ template<typename T>  bool PaintAddAfter( stringstream& ins, VoxelImageT<T> & vI
 }
 
 } // namespace MCTProcessing
+
+
+namespace VoxLib {
+//! Python paint / paint_add (the shapes the Python module exposes: sphere, cylinder, cube, triangular).
+//! Free-function forms of MCTProcessing's switch, so vxhl:: and vxop:: can mirror them by name.
+template<typename T> void paint(VoxelImageT<T>& vImg, const shape& sh)    { using namespace MCTProcessing; _SHAPERATEPy(vImg, sh, setIn); }
+template<typename T> void paintAdd(VoxelImageT<T>& vImg, const shape& sh) { using namespace MCTProcessing; _SHAPERATEPy(vImg, sh, addTo); }
+}  // namespace VoxLib

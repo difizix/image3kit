@@ -301,3 +301,26 @@ def test_operate_matches_voxlib(backend, cls, call):
     with ik.backend(backend):
         call(got, other)
     assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+@pytest.mark.parametrize("which", ["sphere", "cylinder", "cube", "triangular"])
+def test_paint_matches_voxlib(backend, cls, which):
+    shapes = {
+        "sphere": lambda v: ik.sphere((8, 11, 15), 7.5, v),
+        "cylinder": lambda v: ik.cylinder((0, 10, 10), (17, 12, 20), 5, v),
+        "cube": lambda v: ik.cube((3, 4, 5), (9, 12, 14), v),
+        "triangular": lambda v: ik.triangular((0, 20, 14), L1=8, L2=8, h=14, Lt=12, c_rp_rt=3.2, c_side_mid=1.6, val=v),
+    }
+    results = {}
+    for be in ("voxlib", backend):
+        img = _small_values(cls)
+        with ik.backend(be):
+            if be == "gpu" and which == "triangular":
+                pytest.skip("triangular is Halide-CPU only (no f64 cos/sin in Halide's Vulkan backend)")
+            img.paint(shapes[which](7))
+            img.paint_add(shapes[which](2))
+        results[be] = np.array(img, copy=False).copy()
+    assert not np.array_equal(results["voxlib"], np.array(_small_values(cls), copy=False))  # it painted something
+    assert np.array_equal(results["voxlib"], results[backend])

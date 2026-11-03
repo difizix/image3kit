@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include "voxelImage.h"
+#include "shapeToVoxel.h"
 
 namespace vxhl {
 
@@ -132,6 +133,10 @@ template <Image I> void circleOut(I& vImage, int X0, int Y0, int R, char dir = '
 //! Voxels in [vmin, vmax] take the source image's value; then v -> v·scale + shift if scale > 1e-16 (Python map_from).
 //! The source may have another size or origin: that case runs voxlib.
 template <Image I, Image J> void mapToFrom(I& vImage, const J& vimg2, voxel_t<I> vmin, voxel_t<I> vmax, double scale = 0, double shift = 0.5);
+//! Python paint / paint_add with a shape (sphere, cylinder, cube: GPU and CPU kernels; triangular: Halide CPU only;
+//! other shape types run voxlib). paint_before / _after variants stay voxlib: for the shapes Python exposes they change nothing.
+template <Image I> void paint(I& vImg, const VoxLib::shape& sh);
+template <Image I> void paintAdd(I& vImg, const VoxLib::shape& sh);
 // statistics (reductions; voxlib/voxelImageI.h)
 template <Image I> double varianceDbl(const I& img, int bgn, int end, bool verbose = false);
 template <Image I> double stdevDbl(const I& img, int bgn, int end);

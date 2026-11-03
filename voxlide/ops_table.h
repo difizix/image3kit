@@ -38,6 +38,8 @@ struct OpTraits {
   X(threshold101, 'A', 0, false, false) \
   X(circleOut, 'A', 0, false, false) \
   X(mapFrom, 'A', 0, false, false) /* same-grid source image only */ \
+  X(paintShape, 'A', 0, false, false) /* paint / paint_add: sphere, cylinder, cube */ \
+  X(paintTriangular, 'A', 0, false, false) /* triangular: CPU only */ \
   X(moments, 'D', 0,   false,   true)  /* reduction: count, Σ, Σ², min, max per z */ \
   X(median, 'C', 1,     true,    false) \
   X(smoothBilateral, 'C', 1, true, false) /* radius per pass; kernRad passes per iteration */ \

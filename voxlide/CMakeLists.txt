@@ -71,11 +71,12 @@ if(_VOXLIDE_HALIDE)
   target_compile_definitions(voxlide PRIVATE IMAGE3KIT_HAS_HALIDE=1)
 endif()
 
-# ---- voxlide_add_op(<op> GENERATOR <file> [TYPES u8 u16 i32 f32] [IMAGES <input>...] [VALUES <input>...] [STRICT_FLOAT] [FP64] [REDUCE])
+# ---- voxlide_add_op(<op> GENERATOR <file> [TYPES u8 u16 i32 f32] [IMAGES <input>...] [VALUES <input>...] [STRICT_FLOAT] [FP64] [REDUCE] [CPU_ONLY])
 # Builds <op>_{cpu,gpu}_<type> kernels and writes <op>_kernels.h with the table
 # vxhl::kernels::<op><T>{cpu, gpu}. Types not listed (or no Halide) get nullptr entries,
 # so the op falls back to voxlib for them.
 #   IMAGES: extra image Inputs of the generator with the op's voxel type (Snapshot / Aux args).
+#   CPU_ONLY: no GPU kernel (e.g. it needs f64 cos/sin, which Halide's Vulkan backend lacks): the GPU backend throws, Auto uses Halide CPU.
 #   REDUCE: a reduction kernel (run_reduce): fixed-type per-z outputs, no voxel-typed `output`.
 #   VALUES: scalar Input<Expr>s with the op's voxel type (voxlib arguments of type T).
 #   STRICT_FLOAT: float32 in voxlib's exact operation order (no FMA fusion, no reassociation).
@@ -92,7 +93,7 @@ set(_vxhl_c_i32 int32_t)
 set(_vxhl_c_f32 float)
 
 function(voxlide_add_op OP)
-  cmake_parse_arguments(A "FP64;STRICT_FLOAT;REDUCE" "GENERATOR" "TYPES;IMAGES;VALUES" ${ARGN})
+  cmake_parse_arguments(A "FP64;STRICT_FLOAT;REDUCE;CPU_ONLY" "GENERATOR" "TYPES;IMAGES;VALUES" ${ARGN})
   if(NOT A_TYPES)
     set(A_TYPES ${VOXLIDE_TYPES})
   endif()
@@ -107,6 +108,9 @@ function(voxlide_add_op OP)
     if(A_STRICT_FLOAT AND NOT A_FP64)
       set(_cpu_tgt host-strict_float)
       set(_gpu_tgt ${VOXLIDE_GPU_TARGET}-strict_float)
+    endif()
+    if(A_CPU_ONLY)
+      set(_devs cpu)
     endif()
     if(A_FP64)
       set(_cpu_tgt host-strict_float)
@@ -179,6 +183,8 @@ voxlide_add_op(operateScalar GENERATOR generators/operate_gen.cpp TYPES u8 u16 F
 voxlide_add_op(threshold101 GENERATOR generators/threshold101_gen.cpp VALUES bgn end)
 voxlide_add_op(circleOut GENERATOR generators/circle_out_gen.cpp VALUES outVal)
 voxlide_add_op(mapFrom GENERATOR generators/map_from_gen.cpp IMAGES src VALUES vmin vmax FP64)
+voxlide_add_op(paintShape GENERATOR generators/paint_shape_gen.cpp FP64)
+voxlide_add_op(paintTriangular GENERATOR generators/paint_triangular_gen.cpp FP64 CPU_ONLY)
 voxlide_add_op(moments GENERATOR generators/moments_gen.cpp FP64 REDUCE)
 voxlide_add_op(bilateralX GENERATOR generators/bilateral_x_gen.cpp STRICT_FLOAT)
 voxlide_add_op(bilateralGauss GENERATOR generators/bilateral_gauss_gen.cpp FP64)

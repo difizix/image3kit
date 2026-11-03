@@ -20,6 +20,8 @@
 #include "threshold101_kernels.h"
 #include "circleOut_kernels.h"
 #include "mapFrom_kernels.h"
+#include "paintShape_kernels.h"
+#include "paintTriangular_kernels.h"
 #include "medianAxis_kernels.h"
 #include "replaceRange_kernels.h"
 #include "zeroGrad_kernels.h"
@@ -196,6 +198,32 @@ template <Image I, Image J> void mapToFrom(I& v, const J& v2, voxel_t<I> vmin, v
     if (a.size3() != b.size3() || Dn.x != 0 || Dn.y != 0 || Dn.z != 0) return vref(host_of(v));  // other grid: voxlib
     detail::run_stencil<op::mapFrom, kernels::mapFrom<T>>(v, 1, vref, src, vmin, vmax, scale, shift);
 }
+
+// paint / paint_add: the shape's parameters are kernel arguments; voxel centres are (index + 0.5)·dx + X0.
+template <Image I> void paint_shape(I& v, const VoxLib::shape& sh, int mode) {
+    using T = voxel_t<I>;
+    auto ref = [&](auto& m) { if (mode == 0) ::VoxLib::paint(m, sh); else ::VoxLib::paintAdd(m, sh); };
+    const VoxelImageT<T>& meta = cmeta_of(v);
+    const dbl3 dx = meta.dx(), x0 = meta.X0();
+    const int32_t iv = sh.insidev;
+    if (sh.polyType == 's' || sh.polyType == 'c' || sh.polyType == 'k') {
+        std::array<double, 7> p{};
+        if (sh.polyType == 's') p = static_cast<const VoxLib::sphere&>(sh).params();
+        if (sh.polyType == 'c') p = static_cast<const VoxLib::cylinder&>(sh).params();
+        if (sh.polyType == 'k') p = static_cast<const VoxLib::kube&>(sh).params();
+        const int32_t kind = sh.polyType == 's' ? 0 : sh.polyType == 'c' ? 1 : 2;
+        detail::run_stencil<op::paintShape, kernels::paintShape<T>>(
+            v, 1, ref, kind, int32_t(mode), iv, dx.x, dx.y, dx.z, x0.x, x0.y, x0.z, p[0], p[1], p[2], p[3], p[4], p[5], p[6]);
+    } else if (sh.polyType == 't') {
+        const auto p = static_cast<const VoxLib::triangular&>(sh).params();
+        detail::run_stencil<op::paintTriangular, kernels::paintTriangular<T>>(
+            v, 1, ref, int32_t(mode), iv, dx.x, dx.y, dx.z, x0.x, x0.y, x0.z, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9]);
+    } else {
+        ref(host_of(v));  // other shapes (not exposed to Python): voxlib
+    }
+}
+template <Image I> void paint(I& v, const VoxLib::shape& sh) { paint_shape(v, sh, 0); }
+template <Image I> void paintAdd(I& v, const VoxLib::shape& sh) { paint_shape(v, sh, 1); }
 
 template <Image I> void growPore(I& v) {
     detail::run_stencil<op::growPore, kernels::growPore<voxel_t<I>>>(v, 1, [&](auto& m) { ::growPore(m); });
@@ -451,6 +479,10 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     VXHL_INST_PAIR_(DeviceImage<T>, DeviceImage<T>, T)
 #define VXHL_INST_(T)                                                \
     VXHL_INST_PAIRS_(T)                                              \
+    template void paint(VoxelImageT<T>&, const VoxLib::shape&);     \
+    template void paint(DeviceImage<T>&, const VoxLib::shape&);     \
+    template void paintAdd(VoxelImageT<T>&, const VoxLib::shape&);  \
+    template void paintAdd(DeviceImage<T>&, const VoxLib::shape&);  \
     template void threshold101(VoxelImageT<T>&, T, T);              \
     template void threshold101(DeviceImage<T>&, T, T);              \
     template void circleOut(VoxelImageT<T>&, int, int, int, char, T); \
