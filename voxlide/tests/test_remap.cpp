@@ -84,3 +84,29 @@ UTEST(VoxlideRemap, redirect_header) {
     }
     vxhl::set_backend(saved);
 }
+
+#define RESAMPLE_PARITY(NAME, FN, F)                                                                 \
+    VXHL_PARITY_TEST(NAME, make, [](auto& m) { m = ::FN(m, F); }, [](auto& m) { m = vxhl::FN(m, F); }) \
+    VXHL_PARITY_TEST(NAME##_dev, make, [](auto& m) { m = ::FN(m, F); },                               \
+                     [](auto& m) { on_dev(m, [](auto& d) { d = vxhl::FN(d, F); }); })
+RESAMPLE_PARITY(resample_up_2, resampleMean, 0.5)
+RESAMPLE_PARITY(resample_up_3, resampleMean, 0.3)
+RESAMPLE_PARITY(resample_mean_2, resampleMean, 2.0)
+RESAMPLE_PARITY(resample_mean_3, resampleMean, 3.0)
+RESAMPLE_PARITY(reslice_up, resliceZ, 0.4)
+RESAMPLE_PARITY(reslice_up_07, resliceZ, 0.7)
+RESAMPLE_PARITY(reslice_down_2, resliceZ, 2.0)
+UTEST(VoxlideRemap, resample_header) {
+    const vxhl::Backend saved = vxhl::get_backend();
+    for (vxhl::Backend b : vxhl::available_backends()) {
+        vxhl::set_backend(b);
+        for (double f : {0.5, 2.0}) {
+            const VoxelImageT<unsigned char> a(int3(9, 8, 7), 3, dbl3(0.5, 2, 3), dbl3(1, 2, 3));
+            const auto r = ::resampleMean(a, f), g = vxhl::resampleMean(a, f);
+            EXPECT_TRUE(r.X0() == g.X0() && r.dx() == g.dx() && r.size3() == g.size3());
+            const auto rz = ::resliceZ(a, f), gz = vxhl::resliceZ(a, f);
+            EXPECT_TRUE(rz.X0() == gz.X0() && rz.dx() == gz.dx() && rz.size3() == gz.size3());
+        }
+    }
+    vxhl::set_backend(saved);
+}

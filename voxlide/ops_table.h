@@ -46,6 +46,10 @@ struct OpTraits {
   X(swapXZ, 'F', 0, false, false) /* redirect('z'): needs every input layer per output slab */ \
   X(swapXY, 'F', 0, false, false) /* redirect('y') */ \
   X(flipX, 'F', 0, false, false) /* redirect('-') */ \
+  X(resampleUp, 'F', 0, false, false) /* resampleMean, factor < 1 */ \
+  X(resampleMeanDn, 'F', 0, false, false) /* resampleMean, factor > 1 */ \
+  X(resliceUp, 'F', 0, false, false) /* resliceZ, factor < 1 */ \
+  X(resliceDn, 'F', 0, false, false) /* resliceZ, factor > 1 (integer voxels) */ \
   X(remapBox, 'F', 0, false, false) /* crop / growBox / shrinkBox: another size (run_remap) */ \
   X(histogram, 'D', 0, false, true) /* reduction: per-z bin counts, bit-exact with voxlib histogram */ \
   X(median, 'C', 1,     true,    false) \

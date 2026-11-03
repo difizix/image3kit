@@ -161,6 +161,9 @@ template <Image I> void growBox(I& img, int nLayers);
 template <Image I> void shrinkBox(I& img, int nLayers);
 //! voxlib VoxelImageT::rotate (Python redirect / direction): swap x with y ('y') or z ('z'), or flip x ('-').
 template <Image I> void redirect(I& img, char direction);
+//! voxlib resampleMean (Python resample / resample_mean) and resliceZ (reslice_z): a new image of another size.
+template <Image I> std::remove_const_t<I> resampleMean(const I& img, double factor);
+template <Image I> std::remove_const_t<I> resliceZ(const I& img, double factor);
 //! A u8 image of the same kind as I (VoxelImageT or DeviceImage).
 template <Image I> using MaskOf = std::conditional_t<std::is_same_v<std::remove_const_t<I>, DeviceImage<voxel_t<I>>>,
                                                      DeviceImage<uint8_t>, VoxelImageT<uint8_t>>;

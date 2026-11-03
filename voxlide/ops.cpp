@@ -13,6 +13,10 @@
 #include "swapXZ_kernels.h"
 #include "swapXY_kernels.h"
 #include "flipX_kernels.h"
+#include "resampleUp_kernels.h"
+#include "resampleMeanDn_kernels.h"
+#include "resliceUp_kernels.h"
+#include "resliceDn_kernels.h"
 #include "median032_kernels.h"
 #include "median06Grow_kernels.h"
 #include "median06_kernels.h"
@@ -254,6 +258,61 @@ template <Image I> void redirect(I& v, char direction) {
         v = detail::run_remap<op::swapXY, kernels::swapXY<T>, T>(std::as_const(v), int3(n.y, n.x, n.z), dx, X0, ref,
                                                                  [](int k0, int k1) { return std::pair<int, int>(k0, k1); });
     }
+}
+namespace {
+//! A copy of v (VoxelImageT or DeviceImage; a DeviceImage copy is made on the host).
+template <typename T> VoxelImageT<T> copy_of(const VoxelImageT<T>& v) { return v; }
+template <typename T> DeviceImage<T> copy_of(const DeviceImage<T>& v) { return DeviceImage<T>(v.host()); }
+}  // namespace
+
+// voxlib resampleMean (Python resample / resample_mean): factor < 1 upsamples (nearest), > 1 averages n³ blocks.
+template <Image I> std::remove_const_t<I> resampleMean(const I& v, double factor) {
+    using T = voxel_t<I>;
+    auto ref = [&](const VoxelImageT<T>& h) { return ::resampleMean(h, factor); };
+    const VoxelImageT<T>& hdr = cmeta_of(v);
+    const int3 n = v.size3();
+    if (factor < .999) {
+        const int k = int(1. / factor + 0.5);
+        return detail::run_remap<op::resampleUp, kernels::resampleUp<T>, T>(
+            v, k * n, hdr.dx() / k, hdr.X0() / k, ref,
+            [&, k](int k0, int k1) { return std::pair<int, int>((2 * k0 + 1) / (2 * k), (2 * (k1 - 1) + 1) / (2 * k) + 1); },
+            int32_t(k));
+    }
+    if (factor > 1.001) {
+        const int k = int(factor + 0.5);
+        return detail::run_remap<op::resampleMeanDn, kernels::resampleMeanDn<T>, T>(
+            v, n / k, hdr.dx() * k, hdr.X0() * k, ref, [k](int k0, int k1) { return std::pair<int, int>(k0 * k, k1 * k); },
+            int32_t(k));
+    }
+    return copy_of(v);
+}
+// voxlib resliceZ (Python reslice_z): resample z only; factor ~0 takes dx.x/dx.z.
+template <Image I> std::remove_const_t<I> resliceZ(const I& v, double factor) {
+    using T = voxel_t<I>;
+    const VoxelImageT<T>& hdr = cmeta_of(v);
+    if (factor < 1e-64) { factor = hdr.dx().x / hdr.dx().z; (std::cout << " nResample: " << factor << ", ").flush(); }
+    auto ref = [&](const VoxelImageT<T>& h) { return ::resliceZ(h, factor); };
+    const int3 n = v.size3();
+    if (factor < .999) {
+        dbl3 dx = hdr.dx(), X0 = hdr.X0();
+        dx.z *= factor, X0.z *= factor;
+        return detail::run_remap<op::resliceUp, kernels::resliceUp<T>, T>(
+            v, int3(n.x, n.y, int(n.z / factor)), dx, X0, ref,
+            [&](int k0, int k1) { return std::pair<int, int>(int((0.5 + k0) * factor), int((0.5 + k1 - 1) * factor) + 1); }, factor);
+    }
+    if (factor > 1.001) {
+        if constexpr (std::is_floating_point_v<T>) {  // voxlib sums and divides in float: no kernel (Vulkan ignores strict_float)
+            if constexpr (std::is_same_v<I, VoxelImageT<T>>) return ::resliceZ(v, factor);
+            else return DeviceImage<T>(::resliceZ(v.host(), factor));
+        }
+        std::cout << "resliceZ >1 not tested" << std::endl;
+        const int k = int(factor + 0.5);
+        return detail::run_remap<op::resliceDn, kernels::resliceDn<T>, T>(
+            v, int3(n.x, n.y, n.z / k), hdr.dx() * k, hdr.X0() * k,
+            ref,
+            [k](int k0, int k1) { return std::pair<int, int>(k0 * k, k1 * k); }, int32_t(k));
+    }
+    return copy_of(v);
 }
 template <Image I> void shrinkBox(I& v, int nLayers) {
     const int3 b(nLayers, nLayers, nLayers);
@@ -700,6 +759,8 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     template void growBox(I&, int);                                                             \
     template void shrinkBox(I&, int);                                                           \
     template void redirect(I&, char);                                                           \
+    template I resampleMean(const I&, double);                                                  \
+    template I resliceZ(const I&, double);                                                      \
     template std::array<double, 5> otsu_minAvgThresholdAvgMax(const I&, intOr<T>, intOr<T>, double, int); \
     template MaskOf<I> threshold01_otsu(const I&, int, int, double);                            \
     template bool smoothBilateral(I&, int, int, double, double);                                \

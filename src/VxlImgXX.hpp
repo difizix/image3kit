@@ -212,8 +212,8 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
          "Downsample the image, setting voxel values to mode of original encompassing voxel values.")
     .def("resample_max", [](SelfT &m, double nReSampleNotSafe) { m = resampleMax(m, nReSampleNotSafe); }, arg("factor"),
          "Downsample the image, setting voxel values to maximum of original encompassing voxel values.")
-    .def("resample_mean", [](SelfT &m, double nReSampleNotSafe) { m = resampleMean(m, nReSampleNotSafe); }, arg("factor"), "Resample the image using mean interpolation.")
-    .def("reslice_z", [](SelfT &m, double nReSampleNotSafe) { m = resliceZ(m, nReSampleNotSafe); }, arg("factor"), "Reslice along the Z axis.")
+    .def("resample_mean", [](SelfT &m, double nReSampleNotSafe) { m = vxop::resampleMean(m, nReSampleNotSafe); }, arg("factor"), "Resample the image using mean interpolation.")
+    .def("reslice_z", [](SelfT &m, double nReSampleNotSafe) { m = vxop::resliceZ(m, nReSampleNotSafe); }, arg("factor"), "Reslice along the Z axis.")
     .def("paint"         , [](SelfT &m, const shape& sh) { vxop::paint(m, sh); }, arg("shape"), "Paint (set values of) a shape into the image.")
     .def("paint_add"      , [](SelfT &m, const shape& sh) { vxop::paintAdd(m, sh); }, arg("shape"), "Add (+) a shape's value to the image.")
     .def("paint_before"   , [](SelfT &m, const shape& sh) { _SHAPERATEPy(m, sh, setBefor); }, arg("shape"), "Paint before the shape (plane...)")
@@ -238,7 +238,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     .def("direction", [](SelfT &m, char d) { vxop::redirect(m, d); }, "Swap X axis with the given axis (y or z).")
     .def("grow0", [](SelfT &m) { vxop::growPore(m); }, "Grow pore phase (voxel values of 0).")
     .def("shrink0", [](SelfT &m) { vxop::shrinkPore(m); }, "Shrink pore phase (voxel values of 0).")
-    .def("resample", [](SelfT &m, double f) { m = resampleMean(m, f); }, arg("factor"),
+    .def("resample", [](SelfT &m, double f) { m = vxop::resampleMean(m, f); }, arg("factor"),
          "Resample image by factor f, using averaging (downsampling, f>1) or nearest when upsampling (f<1)")
     .def("range_to", [](SelfT &m, VxT min, VxT max, VxT val) { vxop::replaceRange(m, min, max, val); }, arg("min"), arg("max"), arg("val"),
          "Set values in range [min, max] to val.")

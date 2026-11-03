@@ -368,8 +368,13 @@ def test_delense032_matches_voxlib(backend, cls):
         lambda m: m.redirect("z"),
         lambda m: m.direction("y"),
         lambda m: m.redirect("-"),
+        lambda m: m.resample(0.5),
+        lambda m: m.resample_mean(2.0),
+        lambda m: m.reslice_z(0.4),
+        lambda m: m.reslice_z(2.0),
     ],
-    ids=["grow_box", "shrink_box", "crop", "crop_empty_layers", "redirect_z", "direction_y", "flip"],
+    ids=["grow_box", "shrink_box", "crop", "crop_empty_layers", "redirect_z", "direction_y", "flip",
+         "resample_up", "resample_mean", "reslice_up", "reslice_down"],
 )
 def test_box_ops_match_voxlib(backend, cls, call):
     ref = _labelled(cls, (17, 23, 31))
