@@ -1,4 +1,4 @@
-add_executable(voxlib_tests test_main.cpp test_voxelImgUtils.cpp)
+add_executable(voxlib_tests test_main.cpp test_voxelImgUtils.cpp test_otsu.cpp)
 
 target_link_libraries(voxlib_tests PRIVATE voxlib)
 

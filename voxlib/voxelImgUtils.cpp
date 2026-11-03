@@ -236,9 +236,12 @@ array<double,5> otsu_minAvThresholdAvMx(const piece<double>& hist, int  ibgn, in
 
   double level = shift + ilevel*scale;
   double minv = shift + ibgn*scale;
-  double maxv = shift + iend*scale;
+  double maxv = shift + (iend+1)*scale;  // upper edge of the last bin (the histogram's exclusive upper bound)
 
-  double  avgs[2] = {sunL/wL, (sumB-sunL)/(wB-wL)};
+  // class averages of the bin indices, mapped back to voxel values like the level (they were
+  // returned in bin units, i.e. off by `shift` and by `scale` whenever shift != 0 or scale != 1)
+  // (class 1 from the totals: sumB/wB stop one bin short, because the loop skips the last occupied bin)
+  double  avgs[2] = {shift + sunL/wL*scale, shift + (sumiw-sunL)/(sumw-wL)*scale};
   cout<<"   Otsu: ** "<< level<<" **  N: "<< sumw<<",  cdf_"<<level<<": "<< std::setprecision(3)<<wL<<"  cdf_"<<maxv<<": "<< std::setprecision(3)<<wB;
   cout<<"   segment 2   "<<minv<<"  "<< int(avgs[0]) <<"  "<<level<<"  "<<int(avgs[1])<<"  "<<maxv<<endl;
 
