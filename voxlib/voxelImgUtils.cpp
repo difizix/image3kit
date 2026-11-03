@@ -208,7 +208,11 @@ void getMhdHeaderData(const string& hdrNam, string& fnam, int3& nnn, dbl3& dx_, 
 }
 
 array<double,5> otsu_minAvThresholdAvMx(const piece<double>& hist, int  ibgn, int  iend, double shift, double scale) {
-  /* binarization by Otsu's method based on maximization of inter-class variance */
+  /* binarization by Otsu's method based on maximization of inter-class variance.
+   * Bin b covers the values [shift + b*scale, shift + (b+1)*scale). Returns {min, mean_0, threshold,
+   * mean_1, max} in voxel values: class 0 is the bins up to the best one, so `threshold` is that
+   * bin's UPPER edge: voxels with value < threshold are class 0, the others class 1. (It used to be
+   * the bin's lower edge, which put the split bin's own voxels in the wrong class.) */
   double sumw(0), sumiw(0);
   for (int i = ibgn; i <= iend; ++i) { sumw += hist[i];  sumiw += hist[i]*i; }
 
@@ -234,7 +238,7 @@ array<double,5> otsu_minAvThresholdAvMx(const piece<double>& hist, int  ibgn, in
     }
   }
 
-  double level = shift + ilevel*scale;
+  double level = shift + (ilevel+1)*scale;  // upper edge of the best bin: v < level is class 0
   double minv = shift + ibgn*scale;
   double maxv = shift + (iend+1)*scale;  // upper edge of the last bin (the histogram's exclusive upper bound)
 

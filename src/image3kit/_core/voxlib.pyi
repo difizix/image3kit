@@ -328,7 +328,7 @@ class VxlImgF32(VoxelImagesBase):
         max_val: typing.SupportsInt | typing.SupportsIndex = 3.4028234663852886e38,
     ) -> list[float]:
         """
-        returns an array containing [min, avg_0, threshold, avg_1, max] of voxel values
+        returns [min, avg_0, threshold, avg_1, max]: the range, the means of the two Otsu classes and the threshold, all in voxel values. Voxels with value < threshold are class 0 (threshold is the upper edge of the best histogram bin). The histogram has at most 256 bins, so for images with more than 256 values in [min_val, max_val) the threshold is resolved to (max_val - min_val)/256.
         """
     def paint(self, shape: shape) -> None:
         """
@@ -881,7 +881,7 @@ class VxlImgI32(VoxelImagesBase):
         max_val: typing.SupportsInt | typing.SupportsIndex = 2147483647,
     ) -> list[float]:
         """
-        returns an array containing [min, avg_0, threshold, avg_1, max] of voxel values
+        returns [min, avg_0, threshold, avg_1, max]: the range, the means of the two Otsu classes and the threshold, all in voxel values. Voxels with value < threshold are class 0 (threshold is the upper edge of the best histogram bin). The histogram has at most 256 bins, so for images with more than 256 values in [min_val, max_val) the threshold is resolved to (max_val - min_val)/256.
         """
     def paint(self, shape: shape) -> None:
         """
@@ -1461,7 +1461,7 @@ class VxlImgU16(VoxelImagesBase):
         max_val: typing.SupportsInt | typing.SupportsIndex = 65535,
     ) -> list[float]:
         """
-        returns an array containing [min, avg_0, threshold, avg_1, max] of voxel values
+        returns [min, avg_0, threshold, avg_1, max]: the range, the means of the two Otsu classes and the threshold, all in voxel values. Voxels with value < threshold are class 0 (threshold is the upper edge of the best histogram bin). The histogram has at most 256 bins, so for images with more than 256 values in [min_val, max_val) the threshold is resolved to (max_val - min_val)/256.
         """
     def paint(self, shape: shape) -> None:
         """
@@ -2088,7 +2088,7 @@ class VxlImgU8(VoxelImagesBase):
         max_val: typing.SupportsInt | typing.SupportsIndex = 255,
     ) -> list[float]:
         """
-        returns an array containing [min, avg_0, threshold, avg_1, max] of voxel values
+        returns [min, avg_0, threshold, avg_1, max]: the range, the means of the two Otsu classes and the threshold, all in voxel values. Voxels with value < threshold are class 0 (threshold is the upper edge of the best histogram bin). The histogram has at most 256 bins, so for images with more than 256 values in [min_val, max_val) the threshold is resolved to (max_val - min_val)/256.
         """
     def paint(self, shape: shape) -> None:
         """
@@ -2490,7 +2490,7 @@ def threshold01_otsu(
     skipFrac: typing.SupportsFloat | typing.SupportsIndex = 0.0,
 ) -> VxlImgU8:
     """
-    returns a binary (0&1) 8bit image obtained using Otsu thresholding of image
+    returns a binary (0&1) 8bit image obtained using Otsu thresholding of image: 0 where the value is below the Otsu threshold (see otsu_threshold), 1 elsewhere
     """
 
 @typing.overload
@@ -2501,5 +2501,5 @@ def threshold01_otsu(
     skipFrac: typing.SupportsFloat | typing.SupportsIndex = 0.0,
 ) -> VxlImgU8:
     """
-    returns a binary (0&1) 8bit image obtained using Otsu thresholding of image
+    returns a binary (0&1) 8bit image obtained using Otsu thresholding of image: 0 where the value is below the Otsu threshold (see otsu_threshold), 1 elsewhere
     """

@@ -718,6 +718,10 @@ inline HistBins otsuBins(double minv, double maxv, bool integral, int maxBins=25
   return b;
 }
 
+//! The largest integer voxel value below an Otsu threshold: the last value of class 0, for callers
+//! that take inclusive upper bounds (segment's (t_i, t_i+1] ranges).
+inline int otsuLastLow(double threshold) { return int(std::ceil(threshold)) - 1; }
+
 //! Counts of the voxels with lo <= v < hi (inside the skipFrac margins) per bin.
 template<typename T>
 vars<long long> histogram(const VoxelImageT<T>& vImg, const HistBins& bins, double lo, double hi, double skipFrac=0.) {
@@ -751,7 +755,7 @@ template<typename T>
 VoxelImageT<uint8_t> threshold01_otsu(const VoxelImageT<T>& vImg, int  minvi=0, int  maxvi=maxT(T), double skipFrac=0.)
 {//! Warning doesn't work for negatives
   // TODO expose this as image3kit.otsu_threshold01
-  T otst2 = otsu_minAvgThresholdAvgMax(vImg, minvi, maxvi, skipFrac)[2];
+  const double otst2 = otsu_minAvgThresholdAvgMax(vImg, minvi, maxvi, skipFrac)[2];  // v < otst2: class 0
   VoxelImageT<uint8_t> msk(vImg.size3(), 1, vImg.dx(),vImg.X0());
   forAlliii_(vImg)  if(vImg(iii)<otst2) msk(iii)=0;
   return msk;
@@ -1422,13 +1426,13 @@ double noisev, double localF, double flatnes, double resolution, double gradFact
       cout<<"  Ges ranges: " <<th<<endl;
       for_i_(0,10)
       {
-        for_i_(1,nSegs)  th[i] = otsu_minAvThresholdAvMx(hist, th[i-1]/delta, th[i+1]/delta, 0, delta)[2];
+        for_i_(1,nSegs)  th[i] = otsuLastLow(otsu_minAvThresholdAvMx(hist, th[i-1]/delta, th[i+1]/delta, 0, delta)[2]);
         cout<<"  New ranges: "  <<th<<endl;
       }
     }
     else
     {  th[0]=1; th[nSegs]=i254;
-      th[1] = otsu_minAvThresholdAvMx(hist, th[0]/delta, th[2]/delta, 0, delta)[2];
+      th[1] = otsuLastLow(otsu_minAvThresholdAvMx(hist, th[0]/delta, th[2]/delta, 0, delta)[2]);
       cout<<"  New ranges: " <<th<<endl;
     }
   }
