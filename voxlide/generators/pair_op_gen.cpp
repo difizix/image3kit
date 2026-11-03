@@ -5,6 +5,7 @@
 //   code 3  a && !b           ::NOT  (not_)
 //   code 4  a + b             addEq  (Python +=, +)   in the voxel type, wrapping for 8/16-bit
 //   code 5  a - b             subEq  (-=, -)
+//   code 6  b                 a = b  (device-side copy for chains such as fillHoles' `*this = dataTmp`)
 // voxlib/voxelImageI.h. Truthiness is "!= 0".
 
 #include "vxhl_gen.h"
@@ -31,7 +32,8 @@ public:
                           select(code == 1, select(na || nb, one, zero),
                           select(code == 2, select(a != b, one, zero),
                           select(code == 3, select(na && !nb, one, zero),
-                          select(code == 4, a + b, a - b)))));
+                          select(code == 4, a + b,
+                          select(code == 5, a - b, b))))));
     }
     void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
 };

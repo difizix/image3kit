@@ -114,6 +114,13 @@ template <typename T> VoxelImageT<T> medianz(const VoxelImageT<T>& vImage);
 template <typename T> void medianx(DeviceImage<T>& vImage);  //!< in place
 template <typename T> void mediany(DeviceImage<T>& vImage);
 template <typename T> void medianz(DeviceImage<T>& vImage);
+//! Chains over the ops above, run on DeviceImages (no host round trips on the GPU between steps):
+//! fillHoles: Python fill_holes (small closed holes, voxlib VoxelImageT::fillHoles); _delense032: Python delense032
+//! (labels outside the voxel type's range run voxlib).
+template <Image I> void fillHoles(I& vImg, int maxHoleRadius);
+template <Image I> bool _delense032(I& vImg, int nItrs, int nAdj0, int nAdj1, intOr<voxel_t<I>> lbl0, intOr<voxel_t<I>> lbl1);
+//! a = b (data only, same size): the device-side copy chains use.
+template <Image I, Image J> void copyFrom(I& a, const J& b);
 //! In-place pointwise ops with a second image of the same size and type (a VoxelImageT or DeviceImage).
 //! and_: a && b; or_: a || b; xor_: a != b (values differ); not_: a && !b; addEq / subEq: a += b / a -= b in the voxel type.
 template <Image I, Image J> void and_(I& a, const J& b);

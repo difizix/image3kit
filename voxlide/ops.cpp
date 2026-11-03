@@ -22,6 +22,7 @@
 #include "mapFrom_kernels.h"
 #include "paintShape_kernels.h"
 #include "paintTriangular_kernels.h"
+#include "setWhereEqual_kernels.h"
 #include "medianAxis_kernels.h"
 #include "replaceRange_kernels.h"
 #include "zeroGrad_kernels.h"
@@ -224,6 +225,73 @@ template <Image I> void paint_shape(I& v, const VoxLib::shape& sh, int mode) {
 }
 template <Image I> void paint(I& v, const VoxLib::shape& sh) { paint_shape(v, sh, 0); }
 template <Image I> void paintAdd(I& v, const VoxLib::shape& sh) { paint_shape(v, sh, 1); }
+
+template <Image I, Image J> void copyFrom(I& a, const J& b) {
+    pair_op(a, b, 6, [](auto& m, const auto& o) { m.data_ = o.data_; });
+}
+// delense032's merge: where `other` equals `value`, the image is set to it
+template <Image I, Image J> void set_where_equal(I& a, const J& other, voxel_t<I> value) {
+    using T = voxel_t<I>;
+    if (a.size3() != other.size3()) throw std::runtime_error("Image sizes do not match");
+    const detail::Aux<T> o(other);
+    detail::run_stencil<op::setWhereEqual, kernels::setWhereEqual<T>>(
+        a, 1, [&](auto& m) { const auto& h = o.host(); for (std::size_t i = 0; i < m.data_.size(); ++i) if (h.data_[i] == value) m.data_[i] = value; }, o, value);
+}
+namespace {
+//! Run f(DeviceImage&) on `v`: a VoxelImageT is copied in and moved back after f succeeded (so an exception leaves it intact).
+template <typename T, typename F> void on_device(VoxelImageT<T>& v, F&& f) { DeviceImage<T> d(v); f(d); v = std::move(d.host_mut()); }
+template <typename T, typename F> void on_device(DeviceImage<T>& d, F&& f) { f(d); }
+}  // namespace
+
+// voxlib VoxelImageT::fillHoles: shrink/grow chains against copies of the image; here all on DeviceImages.
+template <Image I> void fillHoles(I& v, int maxHoleRadius) {
+    using T = voxel_t<I>;
+    if (get_backend() == Backend::Voxlib) return ::fillHoles(host_of(v), maxHoleRadius);
+    on_device(v, [&](DeviceImage<T>& self) {
+        DeviceImage<T> tmp{VoxelImageT<T>(self.size3(), T(0))};
+        copyFrom(tmp, self);
+        shrinkPore(tmp);
+        for (int i = 0; i < 6; ++i) { growPore(tmp); or_(tmp, self); }
+        copyFrom(self, tmp);
+        growPore(tmp);
+        for (int i = 0; i < 4; ++i) { shrinkPore(tmp); and_(tmp, self); }
+        copyFrom(self, tmp);
+        if (maxHoleRadius > 1) {
+            for (int i = 0; i < maxHoleRadius; ++i) shrinkPore(tmp);
+            for (int i = 0; i < maxHoleRadius * 4; ++i) { growPore(tmp); or_(tmp, self); }
+            copyFrom(self, tmp);
+            for (int i = 0; i < maxHoleRadius; ++i) growPore(tmp);
+            for (int i = 0; i < maxHoleRadius * 3; ++i) { shrinkPore(tmp); and_(tmp, self); }
+            copyFrom(self, tmp);
+        }
+    });
+}
+
+// voxlib _delense032 (growBox(2), a chain of median032 / FaceMedGrowToFrom, a merge, shrinkBox(2)).
+// Labels outside the voxel type's range (voxlib compares and converts them differently) run voxlib.
+template <Image I> bool _delense032(I& v, int nItrs, int nAdj0, int nAdj1, intOr<voxel_t<I>> lbl0, intOr<voxel_t<I>> lbl1) {
+    using T = voxel_t<I>;
+    auto inRange = [](auto l) { return double(l) >= double(std::numeric_limits<T>::lowest()) && double(l) <= double(std::numeric_limits<T>::max()); };
+    if (get_backend() == Backend::Voxlib || !inRange(lbl0) || !inRange(lbl1))
+        return ::_delense032(host_of(v), nItrs, nAdj0, nAdj1, lbl0, lbl1);
+    host_of(v).growBox(2);
+    on_device(v, [&](DeviceImage<T>& d) {
+        DeviceImage<T> vimgo{VoxelImageT<T>(d.unsynced())};  // the grown image, copied on the host before any upload
+        const T l0 = T(lbl0), l1 = T(lbl1);
+        for (int i = 0; i < nItrs; ++i) median032(d, 25, nAdj1, l0, l1);
+        FaceMedGrowToFrom(d, l1, l0, 1);
+        FaceMedGrowToFrom(d, l0, l1, -1);
+        for (int i = 0; i < 2 * nItrs; ++i) { median032(d, nAdj0, 25, l0, l1); FaceMedGrowToFrom(d, l0, l1, -1); }
+        FaceMedGrowToFrom(d, l0, l1, -3);
+        FaceMedGrowToFrom(d, l0, l1, -1);
+        FaceMedGrowToFrom(d, l0, l1, -1);
+        FaceMedGrowToFrom(vimgo, l1, l0, 2);
+        FaceMedGrowToFrom(vimgo, l1, l0, 2);
+        set_where_equal(d, vimgo, l1);
+    });
+    host_of(v).shrinkBox(2);
+    return false;  // as voxlib (`return 0`)
+}
 
 template <Image I> void growPore(I& v) {
     detail::run_stencil<op::growPore, kernels::growPore<voxel_t<I>>>(v, 1, [&](auto& m) { ::growPore(m); });
@@ -440,6 +508,8 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
 #define VXHL_INST_IMG_(I, T)                                                                    \
     template void mode26(I&, short);                                                            \
     template void growPore(I&);                                                                 \
+    template void fillHoles(I&, int);                                                           \
+    template bool _delense032(I&, int, int, int, intOr<T>, intOr<T>);                           \
     template void shrinkPore(I&);                                                               \
     template void median032(I&, int, int, T, T);                                                \
     template void FaceMedGrowToFrom(I&, T, T, int);                                             \
@@ -471,6 +541,7 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     template void not_(I&, const J&);                              \
     template void addEq(I&, const J&);                             \
     template void subEq(I&, const J&);                             \
+    template void copyFrom(I&, const J&);                          \
     template void mapToFrom(I&, const J&, T, T, double, double);
 #define VXHL_INST_PAIRS_(T)                                       \
     VXHL_INST_PAIR_(VoxelImageT<T>, VoxelImageT<T>, T)             \

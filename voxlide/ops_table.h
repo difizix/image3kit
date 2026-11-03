@@ -40,6 +40,7 @@ struct OpTraits {
   X(mapFrom, 'A', 0, false, false) /* same-grid source image only */ \
   X(paintShape, 'A', 0, false, false) /* paint / paint_add: sphere, cylinder, cube */ \
   X(paintTriangular, 'A', 0, false, false) /* triangular: CPU only */ \
+  X(setWhereEqual, 'A', 0, false, false) /* delense032's merge */ \
   X(moments, 'D', 0,   false,   true)  /* reduction: count, Σ, Σ², min, max per z */ \
   X(median, 'C', 1,     true,    false) \
   X(smoothBilateral, 'C', 1, true, false) /* radius per pass; kernRad passes per iteration */ \

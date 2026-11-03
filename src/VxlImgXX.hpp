@@ -200,7 +200,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
          "Expand the image boundaries, increasing its size by `num_layers` in all directions")
     .def("shrink_box", &SelfT::shrinkBox, arg("num_layers"),
          "Shrink the image boundaries, decreasing its size by the given num_layers in all directions")
-    .def("fill_holes", &SelfT::fillHoles, arg("maxHoleRadius"), "Fill closed holes in the image.")
+    .def("fill_holes", [](SelfT &m, int maxHoleRadius) { vxop::fillHoles(m, maxHoleRadius); }, arg("maxHoleRadius"), "Fill closed holes in the image.")
     .def("threshold101", [](SelfT &m, VxT lo, VxT hi) { vxop::threshold101(m, lo, hi); }, arg("min"), arg("max"),
          "Apply a threshold to binarize the image, set voxel-values to convert to 0 in between the min and max thresholds and 1 outside of it")
     .def("write_a_connected_void_voxel", &SelfT::writeAConnectedPoreVoxel, arg("filename"), "Write a specific connected pore voxel to file.")
@@ -328,7 +328,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
         "Fraction of voxels with value<=threshold, out of the valid (non-sentinel) voxels.")
 
     #ifndef VOX_BASIC
-    .def("delense032", [](SelfT &m, int nItrs, int nAdj0,  int nAdj1, intOr<VxT> lbl0, intOr<VxT> lbl1) { _delense032(m, nItrs, nAdj0, nAdj1, lbl0, lbl1); }, arg("iterations"), arg("nAdj0"), arg("nAdj1"), arg("lbl0"), arg("lbl1"),
+    .def("delense032", [](SelfT &m, int nItrs, int nAdj0,  int nAdj1, intOr<VxT> lbl0, intOr<VxT> lbl1) { vxop::_delense032(m, nItrs, nAdj0, nAdj1, lbl0, lbl1); }, arg("iterations"), arg("nAdj0"), arg("nAdj1"), arg("lbl0"), arg("lbl1"),
         "Delense operation.")
     .def("circle_out", [](SelfT &m, int x, int y, int r, std::string d, VxT v) { vxop::circleOut(m, x, y, r, d[0], v); },
          arg("x"), arg("y"), arg("r"), arg("normal_axis"), arg("val"),

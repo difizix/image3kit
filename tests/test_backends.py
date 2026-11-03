@@ -324,3 +324,33 @@ def test_paint_matches_voxlib(backend, cls, which):
         results[be] = np.array(img, copy=False).copy()
     assert not np.array_equal(results["voxlib"], np.array(_small_values(cls), copy=False))  # it painted something
     assert np.array_equal(results["voxlib"], results[backend])
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+@pytest.mark.parametrize("radius", [1, 2])
+def test_fill_holes_matches_voxlib(backend, cls, radius):
+    img = cls((17, 23, 31), 0)
+    a = np.array(img, copy=False)
+    x, y, z = np.indices(a.shape)
+    a[...] = ((x // 6 + y // 6 + z // 6) % 2) * 1
+    holes = np.random.default_rng(11).random(a.shape) < 0.06
+    a[...] = np.where(holes, 1 - a, a)  # flip some voxels: holes and specks
+    ref, got = img, cls(img)
+    with ik.backend("voxlib"):
+        ref.fill_holes(radius)
+    with ik.backend(backend):
+        got.fill_holes(radius)
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+def test_delense032_matches_voxlib(backend, cls):
+    ref = _three_labels(cls)
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        ref.delense032(2, 14, 14, 5, 15)
+    with ik.backend(backend):
+        got.delense032(2, 14, 14, 5, 15)
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))

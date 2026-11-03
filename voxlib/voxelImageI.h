@@ -1156,6 +1156,7 @@ size_t  VoxelImageT<T>::FaceMedian06(int nAdj0,int nAdj1)  {
 template<typename T> void   median032(VoxelImageT<T>& v, int nAdj0, int nAdj1, T lbl0, T lbl1) { v.PointMedian032(nAdj0, nAdj1, lbl0, lbl1); }
 template<typename T> size_t median06(VoxelImageT<T>& v, int nAdj0, int nAdj1) { return v.FaceMedian06(nAdj0, nAdj1); }
 template<typename T> void   growPore(VoxelImageT<T>& v) { v.growPore(); }
+template<typename T> void   fillHoles(VoxelImageT<T>& v, int maxHoleRadius) { v.fillHoles(maxHoleRadius); }
 // Python and_/or_/xor_/not_ and threshold101: the members are the specification (a && b, a || b, a != b, a && !b).
 template<typename T> void and_(VoxelImageT<T>& a, const VoxelImageT<T>& b) { if (a.size3() != b.size3()) throw std::runtime_error("Image sizes do not match"); a.AND(b); }
 template<typename T> void or_ (VoxelImageT<T>& a, const VoxelImageT<T>& b) { if (a.size3() != b.size3()) throw std::runtime_error("Image sizes do not match"); a.OR(b); }
