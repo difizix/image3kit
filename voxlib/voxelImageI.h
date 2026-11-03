@@ -1686,6 +1686,129 @@ void mapToFrom(VoxelImageT<T>& vImage, const VoxelImageT<T>& vimg2)  { // no int
 
 
 
+//! Python `operate` (u8/u16 images): in-place pixel-wise operations, moved here from the bindings so
+//! they have a reference implementation (voxlide mirrors it). `opr`: its first character selects the operation.
+//! Unary: '~' bitwise not, '!' logical not, '-' negation clamped to [0, maxT].
+template<typename T> void operateUnary(VoxelImageT<T>& m, const std::string& opr) {
+  if (opr.empty()) throw std::runtime_error("Empty operation string");
+  char op = opr[0];
+  if (op == '~') {
+    forAllvp_(m) { *vp = ~(*vp); }
+  } else if (op == '!') {
+    forAllvp_(m) { *vp = !(*vp); }
+  } else if (op == '-') {
+    forAllvp_(m) {
+      double v = -double(*vp);
+      *vp = T(std::max(0.0, std::min(v, double(maxT(T)))));
+    }
+  } else {
+    throw std::runtime_error("Unsupported unary operation: " + opr);
+  }
+}
+
+//! Binary with another image of the same size ('+', '-', '*', '/', '&', '|', '%') and optional shift.
+template<typename T> void operateImg(VoxelImageT<T>& m, const std::string& opr, const VoxelImageT<T>& img2, double shift) {
+  if (opr.empty()) throw std::runtime_error("Empty operation string");
+  if (m.size3() != img2.size3()) throw std::runtime_error("Image dimensions do not match for operate");
+  char op = opr[0];
+  double maxVal = double(maxT(T));
+  if (op == '+') {
+    forAlliii_(m) {
+      double v = double(m(iii)) + (double(img2(iii)) - shift);
+      m(iii) = T(std::max(0.0, std::min(v, maxVal)));
+    }
+  } else if (op == '-') {
+    forAlliii_(m) {
+      double v = double(m(iii)) - (double(img2(iii)) - shift);
+      m(iii) = T(std::max(0.0, std::min(v, maxVal)));
+    }
+  } else if (op == '*') {
+    double sFact = (shift != 0.0) ? (shift + 1.0) : 1.0;
+    forAlliii_(m) {
+      double v = double(m(iii)) * double(img2(iii)) * sFact;
+      m(iii) = T(std::max(0.0, std::min(v, maxVal)));
+    }
+  } else if (op == '/') {
+    double sFact = (shift != 0.0) ? (shift + 1.0) : 1.0;
+    forAlliii_(m) {
+      double d = double(img2(iii));
+      double v = (d != 0.0) ? (double(m(iii)) / d * sFact) : 0.0;
+      m(iii) = T(std::max(0.0, std::min(v, maxVal)));
+    }
+  } else if (op == '&') {
+    forAlliii_(m) { m(iii) = m(iii) & img2(iii); }
+  } else if (op == '|') {
+    forAlliii_(m) { m(iii) = m(iii) | img2(iii); }
+  } else if (op == '%') {
+    forAlliii_(m) {
+      T d = img2(iii);
+      m(iii) = (d != 0) ? (m(iii) % d) : 0;
+    }
+  } else {
+    throw std::runtime_error("Unsupported image binary operation: " + opr);
+  }
+}
+
+//! With a scalar ('=', '+', '-', '*', '/', '&', '|', '%', 'b' (lower bound), 'e' (upper bound)).
+template<typename T> void operateScalar(VoxelImageT<T>& m, const std::string& opr, double val) {
+  if (opr.empty()) throw std::runtime_error("Empty operation string");
+  char op = opr[0];
+  double maxVal = double(maxT(T));
+  if (op == '=') {
+    T fillV = T(std::max(0.0, std::min(val, maxVal)));
+    forAllvp_(m) { *vp = fillV; }
+  } else if (op == '+') {
+    forAllvp_(m) {
+      double v = double(*vp) + val;
+      *vp = T(std::max(0.0, std::min(v, maxVal)));
+    }
+  } else if (op == '-') {
+    forAllvp_(m) {
+      double v = double(*vp) - val;
+      *vp = T(std::max(0.0, std::min(v, maxVal)));
+    }
+  } else if (op == '*') {
+    forAllvp_(m) {
+      double v = double(*vp) * val;
+      *vp = T(std::max(0.0, std::min(v, maxVal)));
+    }
+  } else if (op == '/') {
+    forAllvp_(m) {
+      double v = (val != 0.0) ? (double(*vp) / val) : 0.0;
+      *vp = T(std::max(0.0, std::min(v, maxVal)));
+    }
+  } else if (op == '&') {
+    T valInt = T(std::max(0.0, std::min(val, maxVal)));
+    forAllvp_(m) { *vp = (*vp) & valInt; }
+  } else if (op == '|') {
+    T valInt = T(std::max(0.0, std::min(val, maxVal)));
+    forAllvp_(m) { *vp = (*vp) | valInt; }
+  } else if (op == '%') {
+    T valInt = T(std::max(0.0, std::min(val, maxVal)));
+    if (valInt != 0) {
+      forAllvp_(m) { *vp = (*vp) % valInt; }
+    }
+  } else if (op == 'b') {
+    T bgnV = T(std::max(0.0, std::min(val, maxVal)));
+    forAllvp_(m) { *vp = std::max(bgnV, *vp); }
+  } else if (op == 'e') {
+    T endV = T(std::max(0.0, std::min(val, maxVal)));
+    forAllvp_(m) { *vp = std::min(endV, *vp); }
+  } else {
+    throw std::runtime_error("Unsupported scalar operation: " + opr);
+  }
+}
+
+//! Python `+=` / `-=` / `+` / `-` on images: elementwise in the voxel type (u8/u16 wrap).
+template<typename T> void addEq(VoxelImageT<T>& a, const VoxelImageT<T>& b) {
+  if (a.size3() != b.size3()) throw std::runtime_error("Image sizes do not match");
+  a.data_ += b.data_;
+}
+template<typename T> void subEq(VoxelImageT<T>& a, const VoxelImageT<T>& b) {
+  if (a.size3() != b.size3()) throw std::runtime_error("Image sizes do not match");
+  a.data_ -= b.data_;
+}
+
 template<typename T>
 typename std::enable_if<std::is_integral<T>::value,bool>::type
 operat( VoxelImageT<T>& img1, char opr, const VoxelImageT<T>& img2, std::stringstream& ins)  {
