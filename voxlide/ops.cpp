@@ -9,6 +9,7 @@
 #include "moments_kernels.h"
 #include "replaceRange_kernels.h"
 #include "zeroGrad_kernels.h"
+#include "magGradient_kernels.h"
 
 #include <cfloat>
 #include <cmath>
@@ -98,6 +99,16 @@ template <Image I, Image J> void shrink(I& seged, voxel_t<I> min, voxel_t<I> mak
     detail::run_stencil<op::shrink, kernels::shrink<T>>(
         seged, 1, [&](auto& m) { ::shrink(m, min, maks, src.host()); }, min, maks, src);
 }
+template <typename T> VoxelImageT<T> magGradient(const VoxelImageT<T>& v, double diffuseLSqr) {
+    VoxelImageT<T> r = v;
+    detail::run_stencil<op::magGradient, kernels::magGradient<T>>(
+        r, 1, [&](auto& m) { m = ::magGradient(m, diffuseLSqr); }, diffuseLSqr);
+    return r;
+}
+template <typename T> void magGradient(DeviceImage<T>& v, double diffuseLSqr) {
+    detail::run_stencil<op::magGradient, kernels::magGradient<T>>(
+        v, 1, [&](auto& m) { m = ::magGradient(m, diffuseLSqr); }, diffuseLSqr);
+}
 template <typename T> VoxelImageT<T> median(const VoxelImageT<T>& v, int nIter) {
     VoxelImageT<T> r = v;
     detail::run_stencil<op::median, kernels::median<T>>(r, nIter, [&](auto& m) { m = ::median(m, nIter); });
@@ -179,7 +190,9 @@ bool _bilateralGauss(I& v, int nItrs, int kernRad, double sigmavv, double sharpF
     VXHL_INST_IMG_(VoxelImageT<T>, T)                                \
     VXHL_INST_IMG_(DeviceImage<T>, T)                                \
     template VoxelImageT<T> median<T>(const VoxelImageT<T>&, int);   \
-    template void median<T>(DeviceImage<T>&, int);
+    template void median<T>(DeviceImage<T>&, int);                   \
+    template VoxelImageT<T> magGradient<T>(const VoxelImageT<T>&, double); \
+    template void magGradient<T>(DeviceImage<T>&, double);
 VXHL_FOR_TYPES(VXHL_INST_)
 #undef VXHL_INST_
 #undef VXHL_INST_IMG_

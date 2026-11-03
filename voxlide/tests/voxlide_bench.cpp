@@ -1,6 +1,7 @@
 //! Throughput of vxhl:: ops per backend vs voxlib (not run by ctest).
 //! Usage: voxlide_bench [n=256] [reps=3] [block=6] [backend=all] [op=all]
 //! ops: mode26, mode6 (returns the change count), shrink (Aux source image), mean / variance (reductions: 1 / 2 passes),
+//!      maggrad (magGradient, f64; GPU: exact sqrt emulation),
 //!      dev20 (20 × shrink on one DeviceImage),
 //!      chain / chain_dev (mode26, median×3, shrink, mode6, mode26 on VoxelImageT / DeviceImage), median, median5 (5 iterations: device-resident ping-pong),
 //!      bilat1x1 / bilat2x3 (smooth_bilateral nItrs x kernRad, f64),
@@ -54,6 +55,7 @@ int main(int argc, char** argv) {
              vxhl::DeviceImage<unsigned char> d(std::move(m));
              for (int i = 0; i < 20; ++i) vxhl::shrink(d, (unsigned char)5, (unsigned char)15, input);
              m = d.host(); }},
+        {"maggrad", [](Img& m) { m = vxhl::magGradient(m, 2.0); }},
         {"median", [](Img& m) { m = vxhl::median(m, 1); }},
         {"median5", [](Img& m) { m = vxhl::median(m, 5); }},
         {"bilat1x1", [](Img& m) { vxhl::smoothBilateral(m, 1, 1, 16.0, 0.1); }},

@@ -98,6 +98,8 @@ template <Image I> double meanDbl(const I& img);
 template <Image I> double minDbl(const I& img);
 template <Image I> double maxDbl(const I& img);
 template <Image I> double porosityDbl(const I& img, voxel_t<I> threshold = 0);
+template <typename T> VoxelImageT<T> magGradient(const VoxelImageT<T>& vImg, double diffuseLSqr);
+template <typename T> void magGradient(DeviceImage<T>& vImg, double diffuseLSqr);  //!< in place
 template <typename T> VoxelImageT<T> median(const VoxelImageT<T>& vImg, int nIter = 1);
 template <typename T> void median(DeviceImage<T>& vImg, int nIter = 1);  //!< in place
 template <Image I> bool smoothBilateral(I& vImg, int nItrs, int kernRad, double sigmavv, double sharpFact);
