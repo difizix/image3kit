@@ -5,7 +5,6 @@
 
 #include <array>
 #include <atomic>
-#include <tuple>
 #include <vector>
 #include <cstdint>
 #include <iostream>
@@ -203,21 +202,21 @@ void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, int radius, lo
 template <std::size_t N> using PerZ = std::array<std::vector<double>, N>;
 
 #ifdef IMAGE3KIT_HAS_HALIDE
-using DBuf = Halide::Runtime::Buffer<double, 1>;
+using DBuf2 = Halide::Runtime::Buffer<double, 2>;
 
 //! One reduction kernel call on the z-layers of `in`; ABI (generators/vxhl_gen.h):
-//!     int <op>_<dev>_<type>(input, gnx, gny, gnz, <scalars...>, out_0, …, out_{N-1})
+//!     int <op>_<dev>_<type>(input, gnx, gny, gnz, <scalars...>, stats)
+//! stats(i, z), i in [0, N): the kernel's N partial results per z-layer (one download).
 template <std::size_t N, typename Fn, typename T, typename... S>
 void reduce_box(Fn fn, bool gpu, HBuf<T>& in, int3 g, PerZ<N>& out, const S&... s) {
     const int k0 = in.dim(2).min(), nk = in.dim(2).extent();
-    std::array<DBuf, N> ob;
-    for (auto& b : ob) { b = DBuf(nk); b.set_min(k0); }
-    const int rc = std::apply([&](auto&... b) { return fn(in.raw_buffer(), g.x, g.y, g.z, s..., b.raw_buffer()...); }, ob);
+    DBuf2 ob(static_cast<int>(N), nk);
+    ob.set_min(0, k0);
+    const int rc = fn(in.raw_buffer(), g.x, g.y, g.z, s..., ob.raw_buffer());
     if (rc != 0) throw std::runtime_error(take_halide_error() + " (halide error " + std::to_string(rc) + ")");
-    for (std::size_t i = 0; i < N; ++i) {
-        if (gpu && ob[i].copy_to_host() != 0) throw std::runtime_error(take_halide_error());
-        for (int k = k0; k < k0 + nk; ++k) out[i][k] = ob[i](k);
-    }
+    if (gpu && ob.copy_to_host() != 0) throw std::runtime_error(take_halide_error());
+    for (std::size_t i = 0; i < N; ++i)
+        for (int k = k0; k < k0 + nk; ++k) out[i][k] = ob(int(i), k);
 }
 #endif
 

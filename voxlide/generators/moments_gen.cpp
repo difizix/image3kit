@@ -1,7 +1,7 @@
 // Reduction kernel shared by voxlib's statistics (voxlib/voxelImageI.h:119-166: varianceDbl,
 // stdevDbl, meanDbl, minDbl, maxDbl, porosityDbl). Per z-layer of the input it returns, over
 // the voxels v with lo <= v <= hi (all voxels when flags & 2):
-//   count, Σ(v−center), Σ(v−center)², min v, max v          (5 outputs, double per z)
+//   stats(0..4, z) = count, Σ(v−center), Σ(v−center)², min v, max v   (double)
 // with v = double(voxel), or double(int(voxel)) when flags & 1 (varianceDbl's `int vv=*vp`).
 // The host merges the per-z partials (vxhl ops.cpp), so slabs/ranks combine exactly.
 // min/max start from DBL_MAX/-DBL_MAX as voxlib does. NaN voxels are outside every range,
@@ -21,9 +21,9 @@ public:
     VXHL_STENCIL_INPUTS
     Input<double> lo{"lo"}, hi{"hi"}, center{"center"};
     Input<int32_t> flags{"flags"};
-    Output<Buffer<double, 1>> count{"count"}, sum{"sum"}, sumsq{"sumsq"}, vmin{"vmin"}, vmax{"vmax"};
+    Output<Buffer<double, 2>> stats{"stats"};  // run_reduce ABI: stats(i, z)
 
-    Var x{"x"}, z{"z"};
+    Var x{"x"}, z{"z"}, c{"c"};
     Func cols{"cols"}, slices{"slices"};  // partials per (x, z) over y: GPU threads read along x
 
     void generate() {
@@ -42,14 +42,11 @@ public:
         slices(z) = {zero, zero, zero, big, low};
         slices(z) = {slices(z)[0] + cols(rx, z)[0], slices(z)[1] + cols(rx, z)[1], slices(z)[2] + cols(rx, z)[2],
                      min(slices(z)[3], cols(rx, z)[3]), max(slices(z)[4], cols(rx, z)[4])};
-        count(z) = slices(z)[0];
-        sum(z) = slices(z)[1];
-        sumsq(z) = slices(z)[2];
-        vmin(z) = slices(z)[3];
-        vmax(z) = slices(z)[4];
+        stats(c, z) = mux(c, {slices(z)[0], slices(z)[1], slices(z)[2], slices(z)[3], slices(z)[4]});
     }
 
     void schedule() {
+        stats.bound(c, 0, 5).unroll(c);
         cols.compute_root();
         slices.compute_root();
         if (get_target().has_gpu_feature()) {
@@ -58,7 +55,7 @@ public:
             cols.update().gpu_tile(x, z, xi, zi, 64, 1, TailStrategy::GuardWithIf);
             slices.gpu_tile(z, zi, 32, TailStrategy::GuardWithIf);
             slices.update().gpu_tile(z, zi, 32, TailStrategy::GuardWithIf);
-            for (Func o : std::vector<Func>{Func(count), Func(sum), Func(sumsq), Func(vmin), Func(vmax)}) o.gpu_tile(z, zi, 32, TailStrategy::GuardWithIf);
+            stats.gpu_tile(z, zi, 32, TailStrategy::GuardWithIf);
         } else {
             const int vec = get_target().natural_vector_size(Float(64));
             cols.parallel(z).vectorize(x, vec, TailStrategy::GuardWithIf);
