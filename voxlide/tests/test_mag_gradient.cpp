@@ -49,3 +49,19 @@ UTEST(VoxlideParity, mag_gradient_half_integers) {
         }
     EXPECT_EQ(0LL, bad);
 }
+
+// voxlib saturates at maxT(T): a step of 200 levels with diffuse 10 has sqrt(200²·10) ≈ 632, which
+// used to wrap (u8: 632 mod 256 = 120) because T() was applied before the clamp.
+UTEST(VoxlideParity, mag_gradient_saturates) {
+    VoxelImageT<unsigned char> img(int3(8, 8, 8), 0);
+    for (int k = 0; k < 8; ++k)
+        for (int j = 0; j < 8; ++j)
+            for (int i = 4; i < 8; ++i) img(i, j, k) = 200;
+    const auto g = ::magGradient(img, 10.0);
+    EXPECT_EQ(255, int(g(3, 4, 4)));
+    EXPECT_EQ(255, int(g(4, 4, 4)));
+    EXPECT_EQ(0, int(g(1, 4, 4)));
+    VoxelImageT<unsigned short> big(int3(8, 8, 8), 0);  // 4·65000² > 2^32: the uint32 sum overflowed before
+    for (int k = 0; k < 8; ++k) for (int j = 0; j < 8; ++j) for (int i = 4; i < 8; ++i) big(i, j, k) = 65000;
+    EXPECT_EQ(65535, int(::magGradient(big, 4.0)(3, 4, 4)));
+}
