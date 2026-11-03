@@ -7,6 +7,10 @@
 #include "median_kernels.h"
 #include "shrink_kernels.h"
 #include "moments_kernels.h"
+#include "median032_kernels.h"
+#include "median06Grow_kernels.h"
+#include "median06_kernels.h"
+#include "growLabel_kernels.h"
 #include "replaceRange_kernels.h"
 #include "zeroGrad_kernels.h"
 #include "magGradient_kernels.h"
@@ -100,6 +104,21 @@ template <Image I> void zeroGrad(I& v, int nLayers) {
 template <Image I> void scaleGradient(I& v, double avgGrad) {
     detail::run_stencil<op::scaleGradient, kernels::scaleGradient<voxel_t<I>>>(
         v, 1, [&](auto& m) { ::scaleGradient(m, avgGrad); }, avgGrad);
+}
+template <Image I> void median032(I& v, int nAdj0, int nAdj1, voxel_t<I> lbl0, voxel_t<I> lbl1) {
+    detail::run_stencil<op::median032, kernels::median032<voxel_t<I>>>(
+        v, 1, [&](auto& m) { ::median032(m, nAdj0, nAdj1, lbl0, lbl1); }, int32_t(nAdj0), int32_t(nAdj1), lbl0, lbl1);
+}
+template <Image I> void FaceMedGrowToFrom(I& v, voxel_t<I> lblTo, voxel_t<I> lblFrm, int ndif) {
+    detail::run_stencil<op::median06Grow, kernels::median06Grow<voxel_t<I>>>(
+        v, 1, [&](auto& m) { ::FaceMedGrowToFrom(m, lblTo, lblFrm, ndif); }, lblTo, lblFrm, int32_t(ndif));
+}
+template <Image I> std::size_t median06(I& v, int nAdj0, int nAdj1) {
+    return detail::run_stencil_count<op::median06, kernels::median06<voxel_t<I>>>(
+        v, 1, [&](auto& m) { return (long long)::median06(m, nAdj0, nAdj1); }, int32_t(nAdj0), int32_t(nAdj1));
+}
+template <Image I> void growLabel(I& v, voxel_t<I> vl) {
+    detail::run_stencil<op::growLabel, kernels::growLabel<voxel_t<I>>>(v, 1, [&](auto& m) { ::growLabel(m, vl); }, vl);
 }
 template <Image I> void mode26(I& v, short minDif) {
     detail::run_stencil<op::mode26, kernels::mode26<voxel_t<I>>>(v, 1, [&](auto& m) { ::mode26(m, minDif); }, int32_t(minDif));
@@ -295,6 +314,10 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
 
 #define VXHL_INST_IMG_(I, T)                                                                    \
     template void mode26(I&, short);                                                            \
+    template void median032(I&, int, int, T, T);                                                \
+    template void FaceMedGrowToFrom(I&, T, T, int);                                             \
+    template std::size_t median06(I&, int, int);                                                \
+    template void growLabel(I&, T);                                                             \
     template void replaceRange(I&, T, T, T);                                                    \
     template void zeroGrad(I&, int);                                                            \
     template void scaleGradient(I&, double);                                                    \

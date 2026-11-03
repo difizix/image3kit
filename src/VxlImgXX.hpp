@@ -366,15 +366,16 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     .def("median_x", [](SelfT &m) { m = medianx(m); }, "Apply median filter with kernel size of 1 voxels in x-direction")
     .def("median_y", [](SelfT &m) { m = mediany(m); }, "Apply median filter with kernel size of 1 voxels in y-direction")
     .def("median_z", [](SelfT &m) { m = medianz(m); }, "Apply median filter with kernel size of 1 voxels in z-direction")
-    .def("median06", &SelfT::FaceMedian06, arg("nAdj0"), arg("nAdj1"),
+    .def("median06", [](SelfT &m, int nAdj0, int nAdj1) { return vxop::median06(m, nAdj0, nAdj1); }, arg("nAdj0"), arg("nAdj1"),
          "Set voxel value to 0/1 if it has more than nAdj0/1 neighbours with value 0/1, in its 6 nearest voxels")
-    .def("median032", &SelfT::PointMedian032, arg("nAdj0"), arg("nAdj1"), arg("lbl0"), arg("lbl1"),
+    .def("median032", [](SelfT &m, int nAdj0, int nAdj1, VxT lbl0, VxT lbl1) { vxop::median032(m, nAdj0, nAdj1, lbl0, lbl1); },
+         arg("nAdj0"), arg("nAdj1"), arg("lbl0"), arg("lbl1"),
          "Set voxel value to lbl0/1 if it has more than nAdj0/1 neighbours with value lbl0/1, in its 6+26 nearest voxels")
     .def("median06_grow", [](SelfT &m, VxT lblFrm, VxT lblTo, int ndif) { // FIXME: invert order of to&from in C++ (FaceMedGrowToFrom)
-            FaceMedGrowToFrom(m, lblTo, lblFrm, ndif); },
+            vxop::FaceMedGrowToFrom(m, lblTo, lblFrm, ndif); },
         arg("label_to"), arg("label_from"), arg("n_diff"),
         "Face median grow to/from labels.")
-    .def("grow_label", &SelfT::growLabel)
+    .def("grow_label", [](SelfT &m, VxT vl) { vxop::growLabel(m, vl); })
     .def("keep_largest", [](SelfT &m, VxT minvv, VxT maxvv) { keepLargestvv(m, minvv, maxvv); }, arg("min"), arg("max"), "Keep largest singly-connected region with values in [min, max].")
     //.def("maskWriteFraction", &SelfT::maskWriteFraction)
     .def("map_from", [](SelfT& m, const SelfT& vimg2, VxT vmin, VxT vmax, double scale, double shift) { mapToFrom(m, vimg2, vmin, vmax, scale, shift); }, arg("source_image"), arg("vmin"), arg("vmax"), arg("scale"), arg("shift"), "Map values from another image.")

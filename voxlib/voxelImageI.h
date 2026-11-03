@@ -1152,6 +1152,11 @@ size_t  VoxelImageT<T>::FaceMedian06(int nAdj0,int nAdj1)  {
 
 
 
+// Free-function forms of member ops (so vxhl:: and vxop:: can mirror them by name); the members stay the specification.
+template<typename T> void   median032(VoxelImageT<T>& v, int nAdj0, int nAdj1, T lbl0, T lbl1) { v.PointMedian032(nAdj0, nAdj1, lbl0, lbl1); }
+template<typename T> size_t median06(VoxelImageT<T>& v, int nAdj0, int nAdj1) { return v.FaceMedian06(nAdj0, nAdj1); }
+template<typename T> void   growLabel(VoxelImageT<T>& v, T vl) { v.growLabel(vl); }
+
 template<typename T>
 VoxelImageT<T> medianx(const VoxelImageT<T>& vImage)  {
   (std::cout<<"  median filter along x direction ").flush();

@@ -95,6 +95,14 @@ template <Image I> void zeroGrad(I& vImg, int nLayers);
 template <Image I> void scaleGradient(I& grad, double avgGrad);
 //! (128 + Σ v) / (1 + #v) over voxels v >= minV, in integer arithmetic (segment2).
 template <Image I> int average2p(const I& vm, voxel_t<I> minV = 2);
+//! Relabel by neighbour counts (labels lbl0/lbl1 within the 27+6 voxels); voxlib/voxelImageI.h PointMedian032.
+template <Image I> void median032(I& vImg, int nAdj0, int nAdj1, voxel_t<I> lbl0, voxel_t<I> lbl1);
+//! voxels equal to lblFrm with more face neighbours lblTo than lblFrm (+ndif) become lblTo.
+template <Image I> void FaceMedGrowToFrom(I& vImg, voxel_t<I> lblTo, voxel_t<I> lblFrm, int ndif = 0);
+//! Face-neighbour (sum of values) median of a 0/1 image; returns the number of changed voxels.
+template <Image I> std::size_t median06(I& vImg, int nAdj0, int nAdj1);
+//! Voxels next to a vl voxel become vl.
+template <Image I> void growLabel(I& vImg, voxel_t<I> vl);
 // statistics (reductions; voxlib/voxelImageI.h)
 template <Image I> double varianceDbl(const I& img, int bgn, int end, bool verbose = false);
 template <Image I> double stdevDbl(const I& img, int bgn, int end);

@@ -151,3 +151,49 @@ def test_segment2_matches_voxlib(backend, cls, scale):
     with ik.backend(backend):
         got.segment2(**kw)
     assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+def _three_labels(cls, shape=(17, 23, 31), seed=4):
+    img = cls(shape, 0)
+    np.array(img, copy=False)[...] = np.random.default_rng(seed).integers(0, 3, shape) * 10 + 5
+    return img
+
+
+def _binary(cls, shape=(17, 23, 31), seed=5):
+    img = cls(shape, 0)
+    np.array(img, copy=False)[...] = np.random.default_rng(seed).integers(0, 2, shape)
+    return img
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda m: m.median032(14, 14, 15, 25),
+        lambda m: m.median06_grow(15, 5, 0),  # (the binding's argument names are swapped, see its FIXME)
+        lambda m: m.grow_label(15),
+    ],
+    ids=["median032", "median06_grow", "grow_label"],
+)
+def test_label_ops_match_voxlib(backend, cls, call):
+    ref = _three_labels(cls)
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        call(ref)
+    with ik.backend(backend):
+        call(got)
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+def test_median06_matches_voxlib(backend, cls):
+    ref = _binary(cls)
+    got = cls(ref)
+    with ik.backend("voxlib"):
+        n_ref = ref.median06(2, 4)
+    with ik.backend(backend):
+        n_got = got.median06(2, 4)
+    assert n_ref > 0 and n_got == n_ref
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
