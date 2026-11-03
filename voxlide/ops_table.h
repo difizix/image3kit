@@ -50,6 +50,8 @@ struct OpTraits {
   X(resampleMeanDn, 'F', 0, false, false) /* resampleMean, factor > 1 */ \
   X(resliceUp, 'F', 0, false, false) /* resliceZ, factor < 1 */ \
   X(resliceDn, 'F', 0, false, false) /* resliceZ, factor > 1 (integer voxels) */ \
+  X(growRange, 'B', 1, false, false) /* ::grow(vImg, midv, minv, maxv) */ \
+  X(growOutside, 'F', 0, false, false) /* growOutSideValue's line scans: halo gnz (whole z extent) */ \
   X(remapBox, 'F', 0, false, false) /* crop / growBox / shrinkBox: another size (run_remap) */ \
   X(histogram, 'D', 0, false, true) /* reduction: per-z bin counts, bit-exact with voxlib histogram */ \
   X(median, 'C', 1,     true,    false) \

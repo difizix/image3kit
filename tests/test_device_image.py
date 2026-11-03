@@ -49,6 +49,7 @@ CALLS = {
     "map_from": lambda m, o: m.map_from(o, 15, 25, 1.0, 0.5),
     "smooth_bilateral": lambda m, o: m.smooth_bilateral(iterations=2, kernel_radius=2, sigma_val=16.0, sharpness=0.1),
     "bilateral_gauss": lambda m, o: m.bilateral_gauss(iterations=2, kernel_radius=1),
+    "grow_outside_value": lambda m, o: m.grow_outside_value(0, 2, 2),
     "grow_box": lambda m, o: m.grow_box(3),
     "shrink_box": lambda m, o: m.shrink_box(2),
     "crop": lambda m, o: m.crop((1, 2, 3), (15, 20, 30), 2, 7),

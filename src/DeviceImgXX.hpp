@@ -37,6 +37,8 @@ void bind_DeviceImg(py::module &mod, const char* name) {
     .def("grow_label", [](DevT &m, VxT vl) { vxhl::growLabel(m, vl); })
     .def("grow0", [](DevT &m) { vxhl::growPore(m); })
     .def("shrink0", [](DevT &m) { vxhl::shrinkPore(m); })
+    .def("grow_outside_value", [](DevT &m, int vo, int vnew, int n) { vxhl::growOutSideValue(m, vo, vnew, n); },
+         arg("val_old") = 0, arg("val_new") = 2, arg("hole_size") = 5)
     .def("fill_holes", [](DevT &m, int r) { vxhl::fillHoles(m, r); }, arg("maxHoleRadius"))
     .def("delense032", [](DevT &m, int n, int a0, int a1, intOr<VxT> l0, intOr<VxT> l1) { vxhl::_delense032(m, n, a0, a1, l0, l1); },
          arg("iterations"), arg("nAdj0"), arg("nAdj1"), arg("lbl0"), arg("lbl1"))

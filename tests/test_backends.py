@@ -402,3 +402,20 @@ def test_otsu_matches_voxlib(backend, cls, lo, hi, skip):
         got_m = np.array(ik.threshold01_otsu(img, lo, hi, skip), copy=False)
     assert ref_t == got_t
     assert np.array_equal(ref_m, got_m)
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+@pytest.mark.parametrize("hole_size", [0, 3])
+def test_grow_outside_value_matches_voxlib(backend, cls, hole_size):
+    img = cls((21, 22, 23), 0)
+    a = np.array(img, copy=False)
+    rng = np.random.default_rng(8)
+    a[4:17, 3:18, 5:19] = rng.choice([0, 7, 9], size=(13, 15, 14), p=[0.25, 0.4, 0.35])
+    a[rng.random(a.shape) < 0.05] = 7
+    ref, got = cls(img), cls(img)
+    with ik.backend("voxlib"):
+        ref.grow_outside_value(0, 2, hole_size)
+    with ik.backend(backend):
+        got.grow_outside_value(0, 2, hole_size)
+    assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))

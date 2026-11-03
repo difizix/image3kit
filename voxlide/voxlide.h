@@ -107,6 +107,10 @@ template <Image I> std::size_t median06(I& vImg, int nAdj0, int nAdj1);
 template <Image I> void growLabel(I& vImg, voxel_t<I> vl);
 //! Pore (value 0) erosion/dilation by one voxel with voxlib's face/edge rules (Python grow0 / shrink0).
 template <Image I> void growPore(I& vImg);
+//! voxlib grow(vImg, midv, minv, maxv) (voxelImageML.h): interior voxels in [minv, maxv] next to a midv voxel become midv.
+template <Image I> void grow(I& vImg, voxel_t<I> midv, voxel_t<I> minv, voxel_t<I> maxv);
+//! VoxLib::growOutSideValue (Python grow_outside_value).
+template <Image I> bool growOutSideValue(I& vImg, int vo, int vnew, int nHoleSize);
 template <Image I> void shrinkPore(I& vImg);
 //! Median of a voxel and its two neighbours along x / y / z; returns a new image (Python median_x/y/z).
 template <typename T> VoxelImageT<T> medianx(const VoxelImageT<T>& vImage);

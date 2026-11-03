@@ -360,7 +360,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
             ::growingThreshold(m, t1, t2, t3, t4, nIter);
         }, arg("startMin"), arg("startMax"), arg("finalMin"), arg("finalMax"), arg("iterations")=4)
     .def("grow_outside_value", [](SelfT &m, int vo, int vnew, int nHoleSize) {
-            VoxLib::growOutSideValue(m, vo, vnew, nHoleSize);
+            vxop::growOutSideValue(m, vo, vnew, nHoleSize);
         }, arg("val_old")=0, arg("val_new")=2, arg("hole_size")=5)
     .def("smooth_bilateral", [](SelfT &m, int nItrs, int kernRad, double sigmavv, double sharpFact) {
             vxop::smoothBilateral(m, nItrs, kernRad, sigmavv, sharpFact);

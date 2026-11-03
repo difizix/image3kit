@@ -192,6 +192,8 @@ voxlide_add_op(setWhereEqual GENERATOR generators/set_where_equal_gen.cpp IMAGES
 voxlide_add_op(moments GENERATOR generators/moments_gen.cpp FP64 REDUCE)
 voxlide_add_op(histogram GENERATOR generators/histogram_gen.cpp FP64 REDUCE)
 voxlide_add_op(remapBox GENERATOR generators/remap_box_gen.cpp)
+voxlide_add_op(growRange GENERATOR generators/grow_range_gen.cpp VALUES midv minv maxv)
+voxlide_add_op(growOutside GENERATOR generators/grow_outside_gen.cpp VALUES vo vnew)
 voxlide_add_op(swapXZ GENERATOR generators/redirect_gen.cpp)
 voxlide_add_op(swapXY GENERATOR generators/redirect_gen.cpp)
 voxlide_add_op(flipX GENERATOR generators/redirect_gen.cpp)
