@@ -40,8 +40,8 @@ template<typename T>  bool voxelTimeMedian( std::stringstream & ins, VoxelImageT
   for(int i=1; i<imgs.size(); ++i) imgs[i]=imgs[0];
   for(auto imgnam=std::next(imgNams.begin()); imgnam!=std::prev(imgNams.end()); ++imgnam)
   {  int i=0;
-    for(; i<imgs.size()-1; ++i) imgs[i]=std::move(imgs[i+1]);
-    imgs[i+1].readBin(inDir+"/"+*imgnam);
+    for(; i<int(imgs.size())-1; ++i) std::swap(imgs[i], imgs[i+1]);  // oldest frame ends last, keeping its size
+    imgs[i].readBin(inDir+"/"+*imgnam);  // was imgs[i+1]: past the end
     forAlliii_(vImage)
     {
       std::vector<T> vvs(imgs.size(),0);
