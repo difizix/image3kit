@@ -67,3 +67,20 @@ UTEST(VoxlideRemap, device_chain_transfers) {
     EXPECT_EQ(1LL, d.transfers().down);
     vxhl::set_backend(saved);
 }
+
+VXHL_PARITY_TEST(redirect_z, make, [](auto& m) { m.rotate('z'); }, [](auto& m) { vxhl::redirect(m, 'z'); })
+VXHL_PARITY_TEST(redirect_y, make, [](auto& m) { m.rotate('y'); }, [](auto& m) { vxhl::redirect(m, 'y'); })
+VXHL_PARITY_TEST(redirect_flip, make, [](auto& m) { m.rotate('-'); }, [](auto& m) { vxhl::redirect(m, '-'); })
+VXHL_PARITY_TEST(redirect_z_dev, make, [](auto& m) { m.rotate('Z'); }, [](auto& m) { on_dev(m, [](auto& d) { vxhl::redirect(d, 'Z'); }); })
+UTEST(VoxlideRemap, redirect_header) {
+    const vxhl::Backend saved = vxhl::get_backend();
+    for (vxhl::Backend b : vxhl::available_backends()) {
+        vxhl::set_backend(b);
+        for (char d : {'z', 'y'}) {
+            VoxelImageT<unsigned char> a(int3(9, 8, 7), 3, dbl3(0.5, 2, 3), dbl3(1, 2, 3)), r = a;
+            a.rotate(d), vxhl::redirect(r, d);
+            EXPECT_TRUE(a.X0() == r.X0() && a.dx() == r.dx() && a.size3() == r.size3());
+        }
+    }
+    vxhl::set_backend(saved);
+}

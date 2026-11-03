@@ -1168,6 +1168,7 @@ template<typename T> void   growLabel(VoxelImageT<T>& v, T vl) { v.growLabel(vl)
 template<typename T> void   cropD(VoxelImageT<T>& v, int3 frm, int3 to, int emptylyrs=0, T eLyrsValue=1, bool verbose=false) { v.cropD(frm, to, emptylyrs, eLyrsValue, verbose); }
 template<typename T> void   growBox(VoxelImageT<T>& v, int nLayers) { v.growBox(nLayers); }
 template<typename T> void   shrinkBox(VoxelImageT<T>& v, int nLayers) { v.shrinkBox(nLayers); }
+template<typename T> void   redirect(VoxelImageT<T>& v, char direction) { v.rotate(direction); }
 
 template<typename T>
 VoxelImageT<T> medianx(const VoxelImageT<T>& vImage)  {

@@ -234,8 +234,8 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     //     }, arg("normalAxis"), arg("filename"), arg("sliceIndex")=0, arg("val_min")=0, arg("val_max")=255, "Read a slice from a Png image")
     // Member functions and wrappers
     .def("rescale_values", [](SelfT &m, VxT min, VxT max) { rescaleValues(m, min, max); }, arg("min"), arg("max"), "Rescale image values to [min, max].")
-    .def("redirect", &SelfT::rotate, "Swap X axis with the given axis (y or z).")
-    .def("direction", &SelfT::rotate, "Swap X axis with the given axis (y or z).")
+    .def("redirect", [](SelfT &m, char d) { vxop::redirect(m, d); }, "Swap X axis with the given axis (y or z).")
+    .def("direction", [](SelfT &m, char d) { vxop::redirect(m, d); }, "Swap X axis with the given axis (y or z).")
     .def("grow0", [](SelfT &m) { vxop::growPore(m); }, "Grow pore phase (voxel values of 0).")
     .def("shrink0", [](SelfT &m) { vxop::shrinkPore(m); }, "Shrink pore phase (voxel values of 0).")
     .def("resample", [](SelfT &m, double f) { m = resampleMean(m, f); }, arg("factor"),

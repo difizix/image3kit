@@ -159,6 +159,8 @@ template <Image I> void cropD(I& img, int3 frm, int3 to, int emptylyrs = 0, voxe
 template <Image I> void growBox(I& img, int nLayers);
 //! voxlib VoxelImageT::shrinkBox: nLayers fewer layers on every side.
 template <Image I> void shrinkBox(I& img, int nLayers);
+//! voxlib VoxelImageT::rotate (Python redirect / direction): swap x with y ('y') or z ('z'), or flip x ('-').
+template <Image I> void redirect(I& img, char direction);
 //! A u8 image of the same kind as I (VoxelImageT or DeviceImage).
 template <Image I> using MaskOf = std::conditional_t<std::is_same_v<std::remove_const_t<I>, DeviceImage<voxel_t<I>>>,
                                                      DeviceImage<uint8_t>, VoxelImageT<uint8_t>>;

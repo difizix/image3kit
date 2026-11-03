@@ -10,6 +10,9 @@
 #include "histogram_kernels.h"
 #include "remapBox_kernels.h"
 #include "threshold01_kernels.h"
+#include "swapXZ_kernels.h"
+#include "swapXY_kernels.h"
+#include "flipX_kernels.h"
 #include "median032_kernels.h"
 #include "median06Grow_kernels.h"
 #include "median06_kernels.h"
@@ -225,6 +228,32 @@ template <Image I> MaskOf<I> threshold01_otsu(const I& v, int minvi, int maxvi, 
             return msk;
         },
         [](int k0, int k1) { return std::pair<int, int>(k0, k1); }, t);
+}
+// voxlib VoxelImageT::rotate (Python redirect / direction): swap x with y or z, or flip x ('-').
+template <Image I> void redirect(I& v, char direction) {
+    using T = voxel_t<I>;
+    const char d = char(std::tolower(direction));
+    if (get_backend() == Backend::Voxlib || (d != 'z' && d != 'y' && d != '-')) return host_of(v).rotate(direction);
+    const VoxelImageT<T>& hdr = cmeta_of(v);
+    const int3 n = v.size3();
+    dbl3 X0 = hdr.X0(), dx = hdr.dx();
+    auto ref = [&](const VoxelImageT<T>& h) { VoxelImageT<T> r = h; r.rotate(direction); return r; };
+    if (d == '-') {
+        std::cout << " x<->" << direction << "  -> flipping image,  x origin will be invalid " << std::endl;
+        v = detail::run_remap<op::flipX, kernels::flipX<T>, T>(std::as_const(v), n, dx, X0, ref,
+                                                               [](int k0, int k1) { return std::pair<int, int>(k0, k1); });
+        return;
+    }
+    (std::cout << " x<->" << direction << " ").flush();
+    if (d == 'z') {
+        std::swap(X0.x, X0.z), std::swap(dx.x, dx.z);
+        v = detail::run_remap<op::swapXZ, kernels::swapXZ<T>, T>(std::as_const(v), int3(n.z, n.y, n.x), dx, X0, ref,
+                                                                 [&](int, int) { return std::pair<int, int>(0, n.z); });
+    } else {
+        std::swap(X0.x, X0.y), std::swap(dx.x, dx.y);
+        v = detail::run_remap<op::swapXY, kernels::swapXY<T>, T>(std::as_const(v), int3(n.y, n.x, n.z), dx, X0, ref,
+                                                                 [](int k0, int k1) { return std::pair<int, int>(k0, k1); });
+    }
 }
 template <Image I> void shrinkBox(I& v, int nLayers) {
     const int3 b(nLayers, nLayers, nLayers);
@@ -670,6 +699,7 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     template void cropD(I&, int3, int3, int, T, bool);                                          \
     template void growBox(I&, int);                                                             \
     template void shrinkBox(I&, int);                                                           \
+    template void redirect(I&, char);                                                           \
     template std::array<double, 5> otsu_minAvgThresholdAvgMax(const I&, intOr<T>, intOr<T>, double, int); \
     template MaskOf<I> threshold01_otsu(const I&, int, int, double);                            \
     template bool smoothBilateral(I&, int, int, double, double);                                \

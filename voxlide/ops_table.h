@@ -43,6 +43,9 @@ struct OpTraits {
   X(setWhereEqual, 'A', 0, false, false) /* delense032's merge */ \
   X(moments, 'D', 0,   false,   true)  /* reduction: count, Σ, Σ², min, max per z */ \
   X(threshold01, 'A', 0, false, true) /* threshold01_otsu's apply: u8 output (run_remap) */ \
+  X(swapXZ, 'F', 0, false, false) /* redirect('z'): needs every input layer per output slab */ \
+  X(swapXY, 'F', 0, false, false) /* redirect('y') */ \
+  X(flipX, 'F', 0, false, false) /* redirect('-') */ \
   X(remapBox, 'F', 0, false, false) /* crop / growBox / shrinkBox: another size (run_remap) */ \
   X(histogram, 'D', 0, false, true) /* reduction: per-z bin counts, bit-exact with voxlib histogram */ \
   X(median, 'C', 1,     true,    false) \
