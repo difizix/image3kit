@@ -5,7 +5,7 @@
 //! Same arguments and results either way; this is the only voxlide #ifdef in the bindings.
 
 // One entry per ported op (keep in sync with voxlide/ops_table.h).
-#define VXOP_LIST(X) X(mode26) X(modeNSames) X(median) X(bilateralX) X(_bilateralX) X(bilateralGauss) X(_bilateralGauss)
+#define VXOP_LIST(X) X(mode26) X(modeNSames) X(median) X(varianceDbl) X(stdevDbl) X(meanDbl) X(minDbl) X(maxDbl) X(porosityDbl) X(bilateralX) X(_bilateralX) X(bilateralGauss) X(_bilateralGauss)
 #define VXOP_LIST_VOXLIB(X) X(smoothBilateral)  // voxlib functions in namespace VoxLib
 
 #ifdef IMAGE3KIT_HAS_VOXLIDE

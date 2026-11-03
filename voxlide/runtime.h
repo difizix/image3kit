@@ -3,7 +3,10 @@
 //! the slab/iteration driver and the Auto fallback. Ops call detail::run_stencil and nothing else.
 //! This is the only header that switches on IMAGE3KIT_HAS_HALIDE.
 
+#include <array>
 #include <atomic>
+#include <tuple>
+#include <vector>
 #include <cstdint>
 #include <iostream>
 #include <stdexcept>
@@ -185,26 +188,47 @@ void run_kernel(Fn fn, Backend b, VoxelImageT<T>& img, int nIter, int radius, lo
 }
 #endif
 
-//! The one implementation every ported op goes through.
-//! `count` (run_stencil_count): the sum, over all passes, of the kernel's changed-voxel counts.
-//! Op: vxhl::op::<name> (traits); K: kernels::<name><T> (generated, cpu/gpu may be nullptr);
-//! ps: kernel passes (iterated ops; 1 otherwise) and, for parameter-dependent radii, the halo; ref: the voxlib reference,
-//! applied in place, doing all nIter iterations itself; s: the kernel's op scalars and
-//! Snapshot{} / Aux<T>{} image arguments, in the generator's Input order.
-template <typename Op, typename K, bool Count, typename T, typename Ref, typename... S>
-void run_stencil_impl(VoxelImageT<T>& img, Passes ps, long long* count, Ref&& ref, const S&... s) {
-    const int nIter = ps.n, radius = ps.radius >= 0 ? ps.radius : Op::traits.radius;
-    if (nIter <= 0) return;
+//! Per-z partial results of a reduction kernel: N outputs, each one double per z-layer.
+//! Partials merge exactly across slabs (and later MPI ranks); the op combines them on the host.
+template <std::size_t N> using PerZ = std::array<std::vector<double>, N>;
+
+#ifdef IMAGE3KIT_HAS_HALIDE
+using DBuf = Halide::Runtime::Buffer<double, 1>;
+
+//! One reduction kernel call on the z-layers of `in`; ABI (generators/vxhl_gen.h):
+//!     int <op>_<dev>_<type>(input, gnx, gny, gnz, <scalars...>, out_0, …, out_{N-1})
+template <std::size_t N, typename Fn, typename T, typename... S>
+void reduce_box(Fn fn, bool gpu, HBuf<T>& in, int3 g, PerZ<N>& out, const S&... s) {
+    const int k0 = in.dim(2).min(), nk = in.dim(2).extent();
+    std::array<DBuf, N> ob;
+    for (auto& b : ob) { b = DBuf(nk); b.set_min(k0); }
+    const int rc = std::apply([&](auto&... b) { return fn(in.raw_buffer(), g.x, g.y, g.z, s..., b.raw_buffer()...); }, ob);
+    if (rc != 0) throw std::runtime_error(take_halide_error() + " (halide error " + std::to_string(rc) + ")");
+    for (std::size_t i = 0; i < N; ++i) {
+        if (gpu && ob[i].copy_to_host() != 0) throw std::runtime_error(take_halide_error());
+        for (int k = k0; k < k0 + nk; ++k) out[i][k] = ob[i](k);
+    }
+}
+#endif
+
+template <typename Op, typename K> std::atomic<bool>& gpu_broken() {  // per op × type
+    static std::atomic<bool> broken{false};
+    return broken;
+}
+
+//! Backend selection + Auto fallback shared by all drivers: runs attempt(kernel, backend) on
+//! the resolved Halide backend; a failure throws for explicit backends and, under Auto, marks
+//! the GPU broken for this op × type and moves on (GPU → Halide CPU → voxlib). ref(): voxlib.
+template <typename Op, typename K, typename Ref, typename Attempt>
+auto dispatch(Ref&& ref, [[maybe_unused]] Attempt&& attempt) -> decltype(ref()) {
     constexpr bool hasCpu = !std::is_null_pointer_v<std::remove_cv_t<decltype(K::cpu)>>;
     constexpr bool hasGpu = !std::is_null_pointer_v<std::remove_cv_t<decltype(K::gpu)>>;
-    static std::atomic<bool> gpuBroken{false};  // per op × type
-    Choice c = resolve(Op::traits, hasCpu, hasGpu, gpuBroken);
-
+    [[maybe_unused]] Choice c = resolve(Op::traits, hasCpu, hasGpu, gpu_broken<Op, K>());
 #ifdef IMAGE3KIT_HAS_HALIDE
     while (c.backend != Backend::Voxlib) {
         try {
-            if constexpr (hasGpu) if (c.backend == Backend::Gpu) { run_kernel<Op, Count>(K::gpu, c.backend, img, nIter, radius, count, s...); return; }
-            if constexpr (hasCpu) if (c.backend == Backend::HalideCpu) { run_kernel<Op, Count>(K::cpu, c.backend, img, nIter, radius, count, s...); return; }
+            if constexpr (hasGpu) if (c.backend == Backend::Gpu) return attempt(K::gpu, c.backend);
+            if constexpr (hasCpu) if (c.backend == Backend::HalideCpu) return attempt(K::cpu, c.backend);
             throw std::logic_error("no kernel for resolved backend");
         } catch (const std::exception& e) {
             if (c.strict) throw std::runtime_error(std::string("vxhl::") + Op::traits.name + " on " +
@@ -212,7 +236,7 @@ void run_stencil_impl(VoxelImageT<T>& img, Passes ps, long long* count, Ref&& re
             std::cerr << "voxlide: " << Op::traits.name << " " << backend_name(c.backend)
                       << " failed, falling back: " << e.what() << std::endl;
             if (c.backend == Backend::Gpu) {
-                gpuBroken = true;
+                gpu_broken<Op, K>() = true;
                 c.backend = hasCpu ? Backend::HalideCpu : Backend::Voxlib;
             } else {
                 c.backend = Backend::Voxlib;
@@ -220,7 +244,59 @@ void run_stencil_impl(VoxelImageT<T>& img, Passes ps, long long* count, Ref&& re
         }
     }
 #endif
-    ref(img);
+    return ref();
+}
+
+//! The one implementation every ported stencil op goes through.
+//! `count` (run_stencil_count): the sum, over all passes, of the kernel's changed-voxel counts.
+//! Op: vxhl::op::<name> (traits); K: kernels::<name><T> (generated, cpu/gpu may be nullptr);
+//! ps: kernel passes (iterated ops; 1 otherwise) and, for parameter-dependent radii, the halo; ref: the voxlib reference,
+//! applied in place, doing all nIter iterations itself; s: the kernel's op scalars and
+//! Snapshot{} / Aux<T>{} image arguments, in the generator's Input order.
+template <typename Op, typename K, bool Count, typename T, typename Ref, typename... S>
+void run_stencil_impl(VoxelImageT<T>& img, Passes ps, long long* count, Ref&& ref, const S&... s) {
+    if (ps.n <= 0) return;
+    dispatch<Op, K>([&] { ref(img); }, [&]([[maybe_unused]] auto fn, [[maybe_unused]] Backend b) {
+#ifdef IMAGE3KIT_HAS_HALIDE
+        run_kernel<Op, Count>(fn, b, img, ps.n, ps.radius >= 0 ? ps.radius : Op::traits.radius, count, s...);
+#else
+        (void)count, ((void)s, ...);
+#endif
+    });
+}
+
+//! Reductions (class D): `body(pass)` computes the op's result, calling `pass(scalars...)`
+//! (one kernel run over the whole image, slab by slab) as often as it needs; it returns the
+//! kernel's N outputs per z (PerZ<N>), which `body` combines. On the GPU a one-piece image is
+//! uploaded once for all passes. ref(): the voxlib function. The image is never modified.
+template <typename Op, typename K, std::size_t N, typename T, typename Ref, typename Body>
+auto run_reduce(const VoxelImageT<T>& img, Ref&& ref, [[maybe_unused]] Body&& body) -> decltype(ref()) {
+    const int3 n = img.size3();
+    if ((long long)n.x * n.y * n.z == 0) return ref();
+    return dispatch<Op, K>(ref, [&]([[maybe_unused]] auto fn, [[maybe_unused]] Backend b) -> decltype(ref()) {
+#ifdef IMAGE3KIT_HAS_HALIDE
+        const bool gpu = b == Backend::Gpu;
+        auto& f = const_cast<VoxelImageT<T>&>(img);  // read only
+        const long long bytes = (long long)n.x * n.y * n.z * (long long)sizeof(T);
+        const long long lim = (long long)max_slab_bytes(b);
+        const auto boxes = splitZ(n, int((bytes + lim - 1) / lim), 0);
+        HBuf<T> whole;  // kept (and on the GPU, resident) across passes when there is one box
+        auto pass = [&](const auto&... s) {
+            PerZ<N> out;
+            for (auto& v : out) v.assign(n.z, 0.0);
+            for (const Box& box : boxes) {
+                HBuf<T> local;
+                HBuf<T>& in = boxes.size() == 1 ? whole : local;
+                if (!in.data()) { in = zview(f, box.kBgn(), box.kEnd()); if (gpu) in.set_host_dirty(); }
+                reduce_box<N>(fn, gpu, in, n, out, s...);
+            }
+            return out;
+        };
+        return body(pass);
+#else
+        return ref();
+#endif
+    });
 }
 
 template <typename Op, typename K, typename T, typename Ref, typename... S>

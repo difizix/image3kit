@@ -58,28 +58,29 @@ inline void schedule_stencil(Func out, const Target& t, Type vtype, const std::v
 
 //! Second output of ops that return a change count: changes(z) = number of voxels of slice z
 //! where `out` differs from `in` (the per-z partials are summed on the host, so they merge
-//! across slabs). ABI: the kernel's last argument, after `output`. Uses per-row partial sums
-//! so the GPU reduction is parallel over (y,z). Call define() from generate() and schedule()
-//! after schedule_stencil(). Valid only for ops where every changed voxel changes value.
+//! across slabs). ABI: the kernel's last argument, after `output`. Partial sums per (x, z)
+//! keep GPU reads coalesced (per-row sums were ~10× slower on the GPU).
+//! Call define() from generate() and schedule() after schedule_stencil(). Valid only for ops where every changed voxel changes value.
 struct ChangeCounts {
-    Func rows{"change_rows"};
-    Var y{"cy"}, z{"cz"};
+    Func cols{"change_cols"};  // per (x, z), summed over y: GPU threads read along x (coalesced)
+    Var x{"cx"}, z{"cz"};
     void define(Func changes, Func out, Func in, Expr gnx, Expr gny) {
         RDom rx(0, gnx), ry(0, gny);
-        rows(y, z) = 0;
-        rows(y, z) += select(out(rx, y, z) != in(rx, y, z), 1, 0);
-        changes(z) = sum(rows(ry, z));
+        cols(x, z) = 0;
+        cols(x, z) += select(out(x, ry, z) != in(x, ry, z), 1, 0);
+        changes(z) = sum(cols(rx, z));
     }
     void schedule(Func changes, const Target& t) {
-        rows.compute_root();
+        cols.compute_root();
         if (t.has_gpu_feature()) {
-            Var yi{"cyi"}, zi{"czi"};
-            rows.gpu_tile(y, z, yi, zi, 8, 8, TailStrategy::GuardWithIf);
-            rows.update().gpu_tile(y, z, yi, zi, 8, 8, TailStrategy::GuardWithIf);
+            Var xi{"cxi"}, zi{"czi"};
+            cols.gpu_tile(x, z, xi, zi, 64, 1, TailStrategy::GuardWithIf);
+            cols.update().gpu_tile(x, z, xi, zi, 64, 1, TailStrategy::GuardWithIf);
             changes.gpu_tile(z, zi, 32, TailStrategy::GuardWithIf);
         } else {
-            rows.parallel(z);
-            rows.update().parallel(z);
+            const int vec = t.natural_vector_size(Int(32));
+            cols.parallel(z).vectorize(x, vec, TailStrategy::GuardWithIf);
+            cols.update().parallel(z).vectorize(x, vec, TailStrategy::GuardWithIf);
         }
     }
 };

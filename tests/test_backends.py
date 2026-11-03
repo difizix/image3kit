@@ -106,3 +106,18 @@ def test_bilateral_gauss_matches_voxlib(backend, cls):
         assert np.abs(a.astype(float) - b.astype(float)).max() <= 2
     else:
         assert np.array_equal(a, b)
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+@pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
+def test_statistics_match_voxlib(backend, cls):
+    img = _labelled(cls, (17, 23, 31))
+    calls = [
+        lambda m: m.variance(20, 40), lambda m: m.stdev(0, 255), lambda m: m.mean_value(),
+        lambda m: m.min_value(), lambda m: m.max_value(), lambda m: m.porosity(25),
+    ]
+    with ik.backend("voxlib"):
+        ref = [f(img) for f in calls]
+    with ik.backend(backend):
+        got = [f(img) for f in calls]
+    assert got == pytest.approx(ref, rel=1e-10)

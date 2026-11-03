@@ -422,14 +422,14 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
 
     // stats: no extra deps beyond voxelImageI.h (always included above), so kept
     // outside the VOX_BASIC guard -- available in every build/consumer.
-    .def("variance", [](SelfT &m, int minV, int maxV) { return ::varianceDbl(m, minV, maxV); }, arg("min_val")=0, arg("max_val")=255,
+    .def("variance", [](SelfT &m, int minV, int maxV) { return vxop::varianceDbl(m, minV, maxV); }, arg("min_val")=0, arg("max_val")=255,
         "Variance of voxel values within [min_val, max_val].")
-    .def("stdev", [](SelfT &m, int minV, int maxV) { return ::stdevDbl(m, minV, maxV); }, arg("min_val")=0, arg("max_val")=255,
+    .def("stdev", [](SelfT &m, int minV, int maxV) { return vxop::stdevDbl(m, minV, maxV); }, arg("min_val")=0, arg("max_val")=255,
         "Standard deviation of voxel values within [min_val, max_val].")
-    .def("mean_value", [](SelfT &m) { return ::meanDbl(m); }, "Mean voxel value.")
-    .def("min_value", [](SelfT &m) { return ::minDbl(m); }, "Minimum voxel value.")
-    .def("max_value", [](SelfT &m) { return ::maxDbl(m); }, "Maximum voxel value.")
-    .def("porosity", [](SelfT &m, VxT threshold) { return ::porosityDbl(m, threshold); }, arg("threshold")=VxT(0),
+    .def("mean_value", [](SelfT &m) { return vxop::meanDbl(m); }, "Mean voxel value.")
+    .def("min_value", [](SelfT &m) { return vxop::minDbl(m); }, "Minimum voxel value.")
+    .def("max_value", [](SelfT &m) { return vxop::maxDbl(m); }, "Maximum voxel value.")
+    .def("porosity", [](SelfT &m, VxT threshold) { return vxop::porosityDbl(m, threshold); }, arg("threshold")=VxT(0),
         "Fraction of voxels with value<=threshold, out of the valid (non-sentinel) voxels.")
 
     #ifndef VOX_BASIC

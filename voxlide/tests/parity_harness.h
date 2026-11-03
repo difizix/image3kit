@@ -124,6 +124,43 @@ long long parity_sweep(const std::string& op, Make make, Ref ref, Test test, Gpu
     return bad;
 }
 
+//! Parity of ops that return a double (reductions): ref/test are (const img&) -> double; every
+//! type × backend × shape × slab count must agree within relTol·max(1, |ref|) (NaN == NaN).
+//! relTol only absorbs summation order: voxlib's OpenMP reduction order isn't fixed either.
+template <typename Make, typename Ref, typename Test>
+long long scalar_parity_sweep(const std::string& op, Make make, Ref ref, Test test, double relTol) {
+    long long bad = 0;
+    const Backend saved = get_backend();
+    auto oneType = [&](auto tag, const char* tname) {
+        for (int3 n : parity_shapes()) {
+            const auto input = make(tag, n);
+            const double expect = ref(input);
+            for (Backend b : available_backends()) {
+                set_backend(b);
+                const std::vector<int> slabs = (b == Backend::Voxlib) ? std::vector<int>{1} : parity_slab_counts();
+                for (int s : slabs) {
+                    const std::size_t bytes = std::size_t(n.x) * n.y * n.z * sizeof(decltype(tag));
+                    set_max_slab_bytes(s == 1 ? 0 : (bytes + s - 1) / s);
+                    const double got = test(input);
+                    const bool same = (std::isnan(expect) && std::isnan(got)) ||
+                                      std::abs(got - expect) <= relTol * std::max(1.0, std::abs(expect));
+                    if (!same && bad++ < 10)
+                        std::cout << op << "<" << tname << "> " << backend_name(b) << " " << n.x << "x" << n.y << "x"
+                                  << n.z << " slabs=" << s << ": ref=" << expect << " got=" << got << "\n";
+                }
+            }
+        }
+    };
+    std::cout.precision(17);
+    oneType((unsigned char)0, "u8");
+    oneType((unsigned short)0, "u16");
+    oneType(int(0), "i32");
+    oneType(float(0), "f32");
+    set_max_slab_bytes(0);
+    set_backend(saved);
+    return bad;
+}
+
 }  // namespace vxhl::testing
 
 //! One line per op: parity of vxhl::<op> vs voxlib over types × backends × shapes × slabs.
@@ -152,3 +189,6 @@ long long parity_sweep(const std::string& op, Make make, Ref ref, Test test, Gpu
         EXPECT_EQ(0LL, bad);                                                                        \
         EXPECT_EQ(0LL, countBad);                                                                   \
     }
+//! For ops returning a double (reductions); see scalar_parity_sweep.
+#define VXHL_SCALAR_PARITY_TEST(NAME, MAKE, REF, TEST, REL_TOL) \
+    UTEST(VoxlideParity, NAME) { EXPECT_EQ(0LL, vxhl::testing::scalar_parity_sweep(#NAME, MAKE, REF, TEST, REL_TOL)); }

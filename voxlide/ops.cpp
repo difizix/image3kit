@@ -6,11 +6,69 @@
 #include "mode6_kernels.h"
 #include "median_kernels.h"
 #include "shrink_kernels.h"
+#include "moments_kernels.h"
+
+#include <cfloat>
+#include <cmath>
+#include <limits>
 #include "smoothBilateral_kernels.h"
 #include "bilateralX_kernels.h"
 #include "bilateralGauss_kernels.h"
 
 namespace vxhl {
+
+namespace {
+//! moments kernel results merged over z (generators/moments_gen.cpp).
+struct Mom {
+    double n = 0, sum = 0, sq = 0, mn = DBL_MAX, mx = -DBL_MAX;
+};
+Mom merge(const detail::PerZ<5>& p) {
+    Mom m;
+    for (std::size_t k = 0; k < p[0].size(); ++k) {
+        m.n += p[0][k], m.sum += p[1][k], m.sq += p[2][k];
+        m.mn = std::min(m.mn, p[3][k]), m.mx = std::max(m.mx, p[4][k]);
+    }
+    return m;
+}
+constexpr double kInf = std::numeric_limits<double>::infinity();
+constexpr int kTrunc = 1, kAll = 2;  // moments flags: v = int(voxel); every voxel (no range)
+//! body(m) computes the result from m(lo, hi, center, flags) -> Mom (one kernel pass each).
+template <typename T, typename Ref, typename Body>
+double moments(const VoxelImageT<T>& v, Ref&& ref, Body&& body) {
+    return detail::run_reduce<op::moments, kernels::moments<T>, 5>(v, ref, [&](auto pass) {
+        return body([&](double lo, double hi, double c, int fl) { return merge(pass(lo, hi, c, int32_t(fl))); });
+    });
+}
+}  // namespace
+
+template <typename T> double varianceDbl(const VoxelImageT<T>& v, int bgn, int end, bool verbose) {
+    return moments(v, [&] { return ::varianceDbl(v, bgn, end, verbose); }, [&](auto m) {
+        const Mom a = m(bgn, end, 0, kTrunc);  // voxlib: two passes, the second around the mean
+        if (a.n <= 1) return 0.0;
+        const double mean = a.sum / a.n;
+        const Mom b = m(bgn, end, mean, kTrunc);
+        if (verbose) std::cout << "stddv: " << b.sq / (a.n - 1) << ", count: " << (long long)a.n << ", mean: " << mean << "  ";
+        return b.sq / (a.n - 1);
+    });
+}
+template <typename T> double stdevDbl(const VoxelImageT<T>& v, int bgn, int end) { return std::sqrt(vxhl::varianceDbl(v, bgn, end)); }
+template <typename T> double meanDbl(const VoxelImageT<T>& v) {
+    return moments(v, [&] { return ::meanDbl(v); }, [&](auto m) { const Mom r = m(0, 0, 0, kAll); return r.n ? r.sum / r.n : 0.0; });
+}
+template <typename T> double minDbl(const VoxelImageT<T>& v) {
+    return moments(v, [&] { return ::minDbl(v); }, [&](auto m) { return m(-kInf, kInf, 0, 0).mn; });
+}
+template <typename T> double maxDbl(const VoxelImageT<T>& v) {
+    return moments(v, [&] { return ::maxDbl(v); }, [&](auto m) { return m(-kInf, kInf, 0, 0).mx; });
+}
+// voxlib: #(v <= threshold) / #(v != maxT(T)); NaN counts in the total only, as in voxlib.
+template <typename T> double porosityDbl(const VoxelImageT<T>& v, T threshold) {
+    return moments(v, [&] { return ::porosityDbl(v, threshold); }, [&](auto m) {
+        const double nPores = m(-kInf, double(threshold), 0, 0).n;
+        const double nTotal = double(v.size3().x) * v.size3().y * v.size3().z - m(double(maxT(T)), double(maxT(T)), 0, 0).n;
+        return nTotal ? nPores / nTotal : 0.0;
+    });
+}
 
 template <typename T> void mode26(VoxelImageT<T>& v, short minDif) {
     detail::run_stencil<op::mode26, kernels::mode26<T>>(v, 1, [&](auto& m) { ::mode26(m, minDif); }, int32_t(minDif));
@@ -83,6 +141,12 @@ bool _bilateralGauss(VoxelImageT<T>& v, int nItrs, int kernRad, double sigmavv, 
     template void mode26<T>(VoxelImageT<T>&, short);     \
     template long long modeNSames<T>(VoxelImageT<T>&, short, bool); \
     template void shrink<T>(VoxelImageT<T>&, T, T, const VoxelImageT<T>&); \
+    template double varianceDbl<T>(const VoxelImageT<T>&, int, int, bool); \
+    template double stdevDbl<T>(const VoxelImageT<T>&, int, int); \
+    template double meanDbl<T>(const VoxelImageT<T>&); \
+    template double minDbl<T>(const VoxelImageT<T>&); \
+    template double maxDbl<T>(const VoxelImageT<T>&); \
+    template double porosityDbl<T>(const VoxelImageT<T>&, T); \
     template VoxelImageT<T> median<T>(const VoxelImageT<T>&, int);    \
     template bool smoothBilateral<T>(VoxelImageT<T>&, int, int, double, double);       \
     template void bilateralX<T>(VoxelImageT<T>&, int, int, float, float, float, float, float); \

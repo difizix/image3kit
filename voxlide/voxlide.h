@@ -40,6 +40,13 @@ template <typename T> void mode26(VoxelImageT<T>& vImg, short minDif);
 template <typename T> long long modeNSames(VoxelImageT<T>& vImage, short nSameNei, bool verbose = false);
 //! segment2's shrink: voxels of seged in [min, maks] next to a different value take vImg's value.
 template <typename T> void shrink(VoxelImageT<T>& seged, T min, T maks, const VoxelImageT<T>& vImg);
+// statistics (reductions; voxlib/voxelImageI.h)
+template <typename T> double varianceDbl(const VoxelImageT<T>& img, int bgn, int end, bool verbose = false);
+template <typename T> double stdevDbl(const VoxelImageT<T>& img, int bgn, int end);
+template <typename T> double meanDbl(const VoxelImageT<T>& img);
+template <typename T> double minDbl(const VoxelImageT<T>& img);
+template <typename T> double maxDbl(const VoxelImageT<T>& img);
+template <typename T> double porosityDbl(const VoxelImageT<T>& img, T threshold = 0);
 template <typename T> VoxelImageT<T> median(const VoxelImageT<T>& vImg, int nIter = 1);
 template <typename T> bool smoothBilateral(VoxelImageT<T>& vImg, int nItrs, int kernRad, double sigmavv, double sharpFact);
 template <typename T> void bilateralX(VoxelImageT<T>& vImg, int kernRad, int Xstp, float sigmaSqr = 16, float sharpFact = 0.05,
