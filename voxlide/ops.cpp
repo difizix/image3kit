@@ -10,6 +10,7 @@
 #include "replaceRange_kernels.h"
 #include "zeroGrad_kernels.h"
 #include "magGradient_kernels.h"
+#include "scaleGradient_kernels.h"
 
 #include <cfloat>
 #include <cmath>
@@ -38,7 +39,7 @@ constexpr int kTrunc = 1, kAll = 2;  // moments flags: v = int(voxel); every vox
 //! body(m) computes the result from m(lo, hi, center, flags) -> Mom (one kernel pass each).
 //! ref(host image): the voxlib function.
 template <typename I, typename Ref, typename Body>
-double moments(const I& v, Ref&& ref, Body&& body) {
+auto moments(const I& v, Ref&& ref, Body&& body) {
     return detail::run_reduce<op::moments, kernels::moments<voxel_t<I>>, 5>(v, ref, [&](auto pass) {
         return body([&](double lo, double hi, double c, int fl) { return merge(pass(lo, hi, c, int32_t(fl))); });
     });
@@ -54,6 +55,18 @@ template <Image I> double varianceDbl(const I& v, int bgn, int end, bool verbose
         if (verbose) std::cout << "stddv: " << b.sq / (a.n - 1) << ", count: " << (long long)a.n << ", mean: " << mean << "  ";
         return b.sq / (a.n - 1);
     });
+}
+// voxlib sums in long long; floats are truncated at every step there, so they stay on voxlib.
+template <Image I> int average2p(const I& v, voxel_t<I> minV) {
+    if constexpr (std::is_floating_point_v<voxel_t<I>>) {
+        if constexpr (std::is_same_v<I, VoxelImageT<voxel_t<I>>>) return ::average2p(v, minV);
+        else return ::average2p(v.host(), minV);
+    } else {
+        return moments(v, [&](const auto& h) { return ::average2p(h, minV); }, [&](auto m) {
+            const Mom r = m(double(minV), kInf, 0, 0);
+            return int((128 + (long long)r.sum) / (1 + (long long)r.n));
+        });
+    }
 }
 template <Image I> double stdevDbl(const I& v, int bgn, int end) { return std::sqrt(vxhl::varianceDbl(v, bgn, end)); }
 template <Image I> double meanDbl(const I& v) {
@@ -82,6 +95,10 @@ template <Image I> void replaceRange(I& v, voxel_t<I> minvi, voxel_t<I> maxvi, v
 template <Image I> void zeroGrad(I& v, int nLayers) {
     detail::run_stencil<op::zeroGrad, kernels::zeroGrad<voxel_t<I>>>(
         v, detail::Passes(1, nLayers), [&](auto& m) { m.zeroGrad(nLayers); }, int32_t(nLayers));
+}
+template <Image I> void scaleGradient(I& v, double avgGrad) {
+    detail::run_stencil<op::scaleGradient, kernels::scaleGradient<voxel_t<I>>>(
+        v, 1, [&](auto& m) { ::scaleGradient(m, avgGrad); }, avgGrad);
 }
 template <Image I> void mode26(I& v, short minDif) {
     detail::run_stencil<op::mode26, kernels::mode26<voxel_t<I>>>(v, 1, [&](auto& m) { ::mode26(m, minDif); }, int32_t(minDif));
@@ -171,6 +188,8 @@ bool _bilateralGauss(I& v, int nItrs, int kernRad, double sigmavv, double sharpF
     template void mode26(I&, short);                                                            \
     template void replaceRange(I&, T, T, T);                                                    \
     template void zeroGrad(I&, int);                                                            \
+    template void scaleGradient(I&, double);                                                    \
+    template int average2p(const I&, T);                                                        \
     template long long modeNSames(I&, short, bool);                                             \
     template void shrink(I&, T, T, const VoxelImageT<T>&);                                      \
     template void shrink(I&, T, T, const DeviceImage<T>&);                                      \

@@ -91,6 +91,10 @@ template <Image I, Image J> void shrink(I& seged, voxel_t<I> min, voxel_t<I> mak
 template <Image I> void replaceRange(I& vImage, voxel_t<I> minvi, voxel_t<I> maxvi, voxel_t<I> midvi);
 //! vImg.zeroGrad(nLayers): the outer nLayers layers take the nearest interior layer's values.
 template <Image I> void zeroGrad(I& vImg, int nLayers);
+//! segment2: grad < avgGrad -> 10, else scaled by 10/avgGrad (integer types; floats use voxlib).
+template <Image I> void scaleGradient(I& grad, double avgGrad);
+//! (128 + Σ v) / (1 + #v) over voxels v >= minV, in integer arithmetic (segment2).
+template <Image I> int average2p(const I& vm, voxel_t<I> minV = 2);
 // statistics (reductions; voxlib/voxelImageI.h)
 template <Image I> double varianceDbl(const I& img, int bgn, int end, bool verbose = false);
 template <Image I> double stdevDbl(const I& img, int bgn, int end);

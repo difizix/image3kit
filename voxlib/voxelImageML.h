@@ -724,6 +724,12 @@ VoxelImageT<uint8_t> threshold01_otsu(const VoxelImageT<T>& vImg, int  minvi=0, 
 }
 
 
+//! segment2: gradient values below avgGrad become 10, the others are scaled by 10/avgGrad (capped at maxT).
+template<typename T>
+void scaleGradient(VoxelImageT<T>& grad, double avgGrad) {
+  forAllvp_(grad)  { if (*vp<avgGrad) { *vp=10;} else  *vp=min(dmaxT(T),*vp*10./avgGrad);}
+}
+
 template<typename T>
 int average2p(const VoxelImageT<T>& vm, T minV=2) {
   long long sum(128);
@@ -1199,8 +1205,7 @@ void  multiSegment2(VoxelImageT<T>& vImg, vars<Tint> trshlds, vars<int> minSizs,
   grad=magGradient(origimg, resolutionSqr*(dmaxT(T)/(meds.back()-meds[0])));
 
   bilateralX(grad, 1,1, noisv*noisv, 0.05, 12);
-  { double avgGrad=average2p(grad)*0.2+0.01;
-  forAllvp_(grad)  { if (*vp<avgGrad) { *vp=10;} else  *vp=min(dmaxT(T),*vp*10./avgGrad);} }
+  scaleGradient(grad, average2p(grad)*0.2+0.01);
   if(writeDumps)
     grad.write("dumpGrad5.tif");
   double avgGradInv=1./average2p(grad);
