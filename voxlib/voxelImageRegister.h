@@ -438,7 +438,7 @@ template<typename T>  bool registerToImage(stringstream& ins, VoxelImageT<T> & v
   maskImg.FaceMedian06(2,4);
   maskImg.growPore();
   maskImg.FaceMedian06(2,4);
-  maskImg.write("maskImg.tif");
+  if (vxlDebug()) maskImg.write("maskImg.tif");
   forAlliii_(maskImg)  if(maskImg(iii)==0) vxlsmot2(iii)=0;//! 0 is exclusion mask
   maskImg.reset(int3(0,0,0));
 

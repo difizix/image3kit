@@ -1017,7 +1017,7 @@ void  multiSegment(VoxelImageT<T>& vImg, vector<int> trshlds, vector<int> minSiz
       (cout).flush();
       bilateralGauss(vImg, 3, noisVSqr, 0.1, (resolutionSqr+1.), capmin,capmax);
     }
-    //if(writeDumps)
+    if(writeDumps || vxlDebug())
       vImg.write("dumpImage5_bilateralSmooth.mhd");
   }
 

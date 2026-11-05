@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import pytest
 
@@ -424,7 +426,7 @@ def test_grow_outside_value_matches_voxlib(backend, cls, hole_size):
 @pytest.mark.parametrize("backend", ik.available_backends())
 @pytest.mark.parametrize("cls", [ik.VxlImgU8, ik.VxlImgU16, ik.VxlImgI32, ik.VxlImgF32])
 def test_mean_wide_matches_voxlib(backend, cls, tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)  # mean_wide writes dump*.raw files to the working directory
+    monkeypatch.chdir(tmp_path)  # with VXL_DEBUG set, mean_wide writes dump*.raw files to the working directory
     img = cls((24, 25, 26), 0)
     a = np.array(img, copy=False)
     rng = np.random.default_rng(12)
@@ -438,3 +440,5 @@ def test_mean_wide_matches_voxlib(backend, cls, tmp_path, monkeypatch):
         got.mean_wide(width=2, noise_val=4, average=100, delta=20, iterations=3)
     assert not np.array_equal(np.array(img, copy=False), np.array(ref, copy=False))  # the test exercises something
     assert np.array_equal(np.array(ref, copy=False), np.array(got, copy=False))
+    if not os.environ.get("VXL_DEBUG"):
+        assert not list(tmp_path.glob("dump*"))  # debug files are opt-in

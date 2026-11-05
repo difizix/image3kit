@@ -426,12 +426,12 @@ template<typename T>  bool meanWide(VoxelImageT<T>& vImg, int nW, int noisev, in
   if(smoothImg.empty()) bilateralX(vImg, 6,3, noisev*noisev, 0.05, 12);
   VoxelImageT<T> grad = smoothImg.size() ? magGradient(VoxelImageT<T>(smoothImg, readOpt::procAndConvert), 16) : magGradient(median(mean(median(vImg))), 16);
   grad=median(grad);
-  grad.write("dumpGrad5.raw");
+  if (vxlDebug()) grad.write("dumpGrad5.raw");
   double threshGrad = 2.5*noisev;
   (std::cout<<"  threshGrad:"<<threshGrad<<",  ").flush();
-  vImg.write("dumpImg4.raw");
+  if (vxlDebug()) vImg.write("dumpImg4.raw");
   keepLargest(vImg,grad,T(2),T(maxT(T)-2),T(0),T(threshGrad));
-  vImg.write("dumpImg5.raw");
+  if (vxlDebug()) vImg.write("dumpImg5.raw");
   {
     replaceRange(vImg,T(0),minvnrw,T(minvv-1));
     replaceRange(vImg,maxvnrw,maxT(T),T(maxvv+1));
@@ -454,7 +454,7 @@ template<typename T>  bool meanWide(VoxelImageT<T>& vImg, int nW, int noisev, in
     vImg=meanWide(vImg,i%nW+1,minvnrw,maxvnrw,grad,T(min(0.2*threshGrad,dmaxT(T))));
   }
 
-  vImg.write("dumpImg6.raw");
+  if (vxlDebug()) vImg.write("dumpImg6.raw");
   vImg.shrinkBox(nW+5);
 
   (std::cout<<".").flush();

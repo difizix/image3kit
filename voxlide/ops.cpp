@@ -448,8 +448,8 @@ template <typename T, typename F> void on_device(DeviceImage<T>& d, F&& f) { f(d
 }  // namespace
 
 // ---- VoxLib::meanWide (Python mean_wide): the prep and the iterations run on DeviceImages.
-// Host steps, as in voxlib: the dump*.raw files and keepLargest (labelling is not ported), so the image is
-// downloaded for those, and uploaded again after keepLargest.
+// Host steps, as in voxlib: keepLargest (labelling is not ported; download, run, upload) and, with VXL_DEBUG
+// set, the dump*.raw files (each downloads the image).
 // The building blocks are public (voxlide.h, not bound in Python) so each is tested on its own: the end-to-end
 // result is smooth enough to hide errors in the border planes or in a neighbour-count threshold.
 template <Image I> void padEdges(I& v) {  // meanWide's border planes (see generators/pad_edges_gen.cpp)
@@ -517,14 +517,14 @@ template <Image I> bool meanWide(I& vImg, int nW, int noisev, int avg, int delta
                 vxhl::magGradient(grad, 16);
             }
             vxhl::median(grad);
-            grad.host().write("dumpGrad5.raw");
+            if (vxlDebug()) grad.host().write("dumpGrad5.raw");
             double threshGrad = 2.5 * noisev;
             (std::cout << "  threshGrad:" << threshGrad << ",  ").flush();
-            d.host().write("dumpImg4.raw");
+            if (vxlDebug()) d.host().write("dumpImg4.raw");
             {
                 VoxelImageT<T>& h = d.host_mut();  // re-uploaded by the next device op
                 keepLargest(h, grad.host(), T(2), T(maxT(T) - 2), T(0), T(threshGrad));
-                h.write("dumpImg5.raw");
+                if (vxlDebug()) h.write("dumpImg5.raw");
             }
             vxhl::replaceRange(d, T(0), minvnrw, T(minvv - 1));
             vxhl::replaceRange(d, maxvnrw, maxT(T), T(maxvv + 1));
@@ -540,7 +540,7 @@ template <Image I> bool meanWide(I& vImg, int nW, int noisev, int avg, int delta
                 std::cout << " threshGrad:" << std::min(0.2 * threshGrad, dmaxT(T)) << " minvnrw:" << int(minvnrw) << " maxvnrw:" << int(maxvnrw) << " " << std::endl;
                 meanWideStep(d, i % nW + 1, minvnrw, maxvnrw, grad, T(std::min(0.2 * threshGrad, dmaxT(T))));
             }
-            d.host().write("dumpImg6.raw");
+            if (vxlDebug()) d.host().write("dumpImg6.raw");
             vxhl::shrinkBox(d, nW + 5);
         });
         (std::cout << ".").flush();
