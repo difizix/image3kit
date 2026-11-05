@@ -28,6 +28,12 @@ if(MSVC)
   add_compile_definitions(NOMINMAX)
 endif()
 
+# Per-voxel float type of voxlib's image processing (common/typses.h f32_t): double keeps voxlib and the
+# voxlide f64 kernels bit-exact; float is the intended default once the kernels follow.
+set(IMAGE3KIT_F32_T "double" CACHE STRING "voxlib f32_t: float or double")
+set_property(CACHE IMAGE3KIT_F32_T PROPERTY STRINGS float double)
+add_compile_definitions(VXL_F32_T=${IMAGE3KIT_F32_T})
+
 include(FetchContent)
 
 # Find pybind11 and Python

@@ -228,12 +228,12 @@ VoxelImageT<T> magGradient(const VoxelImageT<T>& vImg, double diffuseLSqr) {
   // *before* the conversion to T: converting an out-of-range value first wrapped the strongest
   // edges to small values (u8: sqrt(h*255*resolution^2) > 255 for contrasts h > 255/resolution^2).
   forAllkji_1_(vxls)  {
-    const double gx = double(vxls(i+1,j,k))-double(vxls(i-1,j,k));
-    const double gy = double(vxls(i,j+1,k))-double(vxls(i,j-1,k));
-    const double gz = double(vxls(i,j,k+1))-double(vxls(i,j,k-1));
-    const double neiSum = gx*gx + gy*gy + gz*gz;
+    const f32_t gx = f32_t(vxls(i+1,j,k))-f32_t(vxls(i-1,j,k));
+    const f32_t gy = f32_t(vxls(i,j+1,k))-f32_t(vxls(i,j-1,k));
+    const f32_t gz = f32_t(vxls(i,j,k+1))-f32_t(vxls(i,j,k-1));
+    const f32_t neiSum = gx*gx + gy*gy + gz*gz;
 
-    grad(i-1,j-1,k-1)=T(std::min(sqrt(neiSum*diffuseLSqr)+0.5, dmaxT(T)));
+    grad(i-1,j-1,k-1)=T(std::min(std::sqrt(neiSum*f32_t(diffuseLSqr))+f32_t(0.5), f32_t(dmaxT(T))));
   }
 
     return grad;
@@ -765,7 +765,8 @@ VoxelImageT<uint8_t> threshold01_otsu(const VoxelImageT<T>& vImg, int  minvi=0, 
 //! segment2: gradient values below avgGrad become 10, the others are scaled by 10/avgGrad (capped at maxT).
 template<typename T>
 void scaleGradient(VoxelImageT<T>& grad, double avgGrad) {
-  forAllvp_(grad)  { if (*vp<avgGrad) { *vp=10;} else  *vp=min(dmaxT(T),*vp*10./avgGrad);}
+  const f32_t avgG = avgGrad;
+  forAllvp_(grad)  { if (*vp<avgG) { *vp=10;} else  *vp=min(f32_t(dmaxT(T)),*vp*f32_t(10.)/avgG);}
 }
 
 template<typename T>
@@ -1209,7 +1210,9 @@ size_t segmentVote(VoxelImageT<T>& vImg, const VoxelImageT<T>& origimg, const Vo
   const int nSegs=meds.size();
   ints midIs(size_t(maxT(T))+1, -1);
   for (int ii=0; ii<nSegs; ++ii) { midIs[meds[ii]]=ii;  }
-  double resolSqr_1=resolutionSqr-0.99,   krnlCub=2*(krnl+0.5)*(krnl+0.5)*(krnl+0.5);
+  using R = f32_t;  // per-voxel arithmetic (see typses.h)
+  const R resolSqr_1=resolutionSqr-0.99,   krnlCub=2*(krnl+0.5)*(krnl+0.5)*(krnl+0.5);
+  const R localFR=localF, flatnesR=flatnes, gradFactorR=gradFactor, avgGradInvR=avgGradInv, noisvR=noisv;
   VoxelImageT<T> vxls = vImg;
 
     (std::cout<<"-").flush();
@@ -1225,12 +1228,12 @@ size_t segmentVote(VoxelImageT<T>& vImg, const VoxelImageT<T>& origimg, const Vo
 
 
       //const int mv = meanimg(iii);
-      double respGradFact=grad(i,j,k); respGradFact=resolSqr_1+gradFactor*respGradFact*respGradFact;
-      vector<double> meanSum  (nSegs,0);
-      vector<double> sumW (nSegs,1e-15);
+      R respGradFact=grad(i,j,k); respGradFact=resolSqr_1+gradFactorR*respGradFact*respGradFact;
+      vector<R> meanSum  (nSegs,0);
+      vector<R> sumW (nSegs,R(1e-15));
 
       if(const int tI=midIs[vxls(i,j,k)];  tI>=0)  {
-        const double weit=0.999;// *respGradFact
+        const R weit=R(0.999);// *respGradFact
         meanSum[tI]-=weit*origimg(i,j,k);
         sumW[tI]-=weit;
       }
@@ -1238,8 +1241,8 @@ size_t segmentVote(VoxelImageT<T>& vImg, const VoxelImageT<T>& origimg, const Vo
         const int tn=_nei(vxls,i,j,k);
         const int tI=midIs[tn];
         if(tI>=0) {
-          double gj=avgGradInv*_nei(grad,i,j,k);
-          const double weit=respGradFact/( distSqrNei()+resolSqr_1+ gradFactor*gj*gj );
+          R gj=avgGradInvR*_nei(grad,i,j,k);
+          const R weit=respGradFact/( R(distSqrNei())+resolSqr_1+ gradFactorR*gj*gj );
           meanSum[tI]+=weit*_nei(origimg,i,j,k);//*(abs(mn-tn)+1000);*(abs(mn-on)+1)
           sumW[tI]+=weit;
           //meanCoVarSum2[tI]+=weit/(abs(ov-mn)+noisv);
@@ -1247,10 +1250,10 @@ size_t segmentVote(VoxelImageT<T>& vImg, const VoxelImageT<T>& origimg, const Vo
       }
 
       T vid = 0;
-      double vidProb=10e64;
+      R vidProb=std::numeric_limits<R>::max();
       for (int ii=0; ii<nSegs; ++ii) { //meanSum is watershed cmponent and risky, noisv refelects far-range variations, noisF refelects short range variance
         if ( sumW[ii]>1e-9) {
-          double iiProb=(abs(meanSum[ii]/(sumW[ii]) -ov)*localF+(1.-localF)*abs(meds[ii]-ov)+noisv)/min(1.+flatnes*sumW[ii],krnlCub);
+          R iiProb=(std::abs(meanSum[ii]/(sumW[ii]) -R(ov))*localFR+(R(1)-localFR)*R(std::abs(meds[ii]-ov))+noisvR)/std::min(R(1)+flatnesR*sumW[ii],krnlCub);
           if(iiProb<vidProb)   { vid=ii; vidProb=iiProb;}
         }
         ++nAll;
