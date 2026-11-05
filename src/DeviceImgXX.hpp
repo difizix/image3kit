@@ -20,7 +20,7 @@ void bind_DeviceImg(py::module &mod, const char* name) {
       "once for a chain of them.")
     .def(py::init([](const SelfT &m) { return std::make_unique<DevT>(SelfT(m)); }), arg("image"))
     .def("to_host", [](DevT &d) { return SelfT(d.host()); }, "Download: a VxlImg copy of the current image.")
-    .def("copy", [](DevT &d) { return std::make_unique<DevT>(SelfT(d.host())); })
+    .def("copy", [](DevT &d) { return std::make_unique<DevT>(vxhl::copy(d)); }, "A copy (on the GPU when the image is there).")
     .def_property_readonly("shape", [](DevT &d) { const int3 n = d.size3(); return std::make_tuple(n.x, n.y, n.z); })
     .def("transfers", [](DevT &d) { const auto t = d.transfers(); return std::make_tuple(t.up, t.down); },
          "(uploads, downloads) of the whole image so far.")
@@ -85,6 +85,8 @@ void bind_DeviceImg(py::module &mod, const char* name) {
     .def("direction", [](DevT &m, char d) { vxhl::redirect(m, d); })
     .def("resample", [](DevT &m, double f) { m = vxhl::resampleMean(m, f); }, arg("factor"))
     .def("resample_mean", [](DevT &m, double f) { m = vxhl::resampleMean(m, f); }, arg("factor"))
+    .def("resample_max", [](DevT &m, double f) { m = vxhl::resampleMax(m, f); }, arg("factor"))
+    .def("resample_mode", [](DevT &m, double f) { m = vxhl::resampleMode(m, f); }, arg("factor"))
     .def("reslice_z", [](DevT &m, double f) { m = vxhl::resliceZ(m, f); }, arg("factor"))
     .def("threshold01_otsu", [](DevT &m, int minvi, int maxvi, double skipFrac) { return std::make_unique<Mask>(vxhl::threshold01_otsu(m, minvi, maxvi, skipFrac)); },
          arg("min_val") = 0, arg("max_val") = maxT(VxT), arg("skip_frac") = 0.0,

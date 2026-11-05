@@ -48,6 +48,8 @@ struct OpTraits {
   X(flipX, 'F', 0, false, false) /* redirect('-') */ \
   X(resampleUp, 'F', 0, false, false) /* resampleMean, factor < 1 */ \
   X(resampleMeanDn, 'F', 0, false, false) /* resampleMean, factor > 1 */ \
+  X(resampleMaxDn, 'F', 0, false, false) /* resampleMax, factor > 1 */ \
+  X(resampleModeDn, 'F', 0, false, false) /* resampleMode, factor > 1 */ \
   X(resliceUp, 'F', 0, false, false) /* resliceZ, factor < 1 */ \
   X(resliceDn, 'F', 0, false, false) /* resliceZ, factor > 1 (integer voxels) */ \
   X(growRange, 'B', 1, false, false) /* ::grow(vImg, midv, minv, maxv) */ \

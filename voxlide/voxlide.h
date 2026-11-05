@@ -175,6 +175,11 @@ template <Image I> void shrinkBox(I& img, int nLayers);
 template <Image I> void redirect(I& img, char direction);
 //! voxlib resampleMean (Python resample / resample_mean) and resliceZ (reslice_z): a new image of another size.
 template <Image I> std::remove_const_t<I> resampleMean(const I& img, double factor);
+//! voxlib resampleMax (resample_max) and resampleMode (resample_mode): the maximum / most frequent value of n³ blocks.
+template <Image I> std::remove_const_t<I> resampleMax(const I& img, double factor);
+template <Image I> std::remove_const_t<I> resampleMode(const I& img, double factor);
+//! A copy; a DeviceImage on the GPU is copied on the device (no download).
+template <Image I> std::remove_const_t<I> copy(const I& img);
 template <Image I> std::remove_const_t<I> resliceZ(const I& img, double factor);
 //! A u8 image of the same kind as I (VoxelImageT or DeviceImage).
 template <Image I> using MaskOf = std::conditional_t<std::is_same_v<std::remove_const_t<I>, DeviceImage<voxel_t<I>>>,

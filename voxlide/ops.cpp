@@ -22,6 +22,8 @@
 #include "flipX_kernels.h"
 #include "resampleUp_kernels.h"
 #include "resampleMeanDn_kernels.h"
+#include "resampleMaxDn_kernels.h"
+#include "resampleModeDn_kernels.h"
 #include "resliceUp_kernels.h"
 #include "resliceDn_kernels.h"
 #include "median032_kernels.h"
@@ -292,15 +294,21 @@ template <Image I> void redirect(I& v, char direction) {
     }
 }
 namespace {
-//! A copy of v (VoxelImageT or DeviceImage; a DeviceImage copy is made on the host).
+//! A copy of v (VoxelImageT or DeviceImage; a DeviceImage on the GPU is copied there, by remapBox with no offset).
 template <typename T> VoxelImageT<T> copy_of(const VoxelImageT<T>& v) { return v; }
-template <typename T> DeviceImage<T> copy_of(const DeviceImage<T>& v) { return DeviceImage<T>(v.host()); }
-}  // namespace
+template <typename T> DeviceImage<T> copy_of(const DeviceImage<T>& v) {
+    const VoxelImageT<T>& hdr = v.unsynced();
+    const int3 n = v.size3(), o(0, 0, 0);
+    return detail::run_remap<op::remapBox, kernels::remapBox<T>, T>(
+        v, n, hdr.dx(), hdr.X0(), [](const VoxelImageT<T>& h) { return h; }, [](int k0, int k1) { return std::pair<int, int>(k0, k1); },
+        int32_t(0), int32_t(0), int32_t(0), int32_t(0), int32_t(0), int32_t(0), int32_t(n.x), int32_t(n.y), int32_t(n.z), int32_t(0), 0.0);
+}
 
-// voxlib resampleMean (Python resample / resample_mean): factor < 1 upsamples (nearest), > 1 averages n³ blocks.
-template <Image I> std::remove_const_t<I> resampleMean(const I& v, double factor) {
+//! voxlib resampleMean / resampleMax / resampleMode: factor < 1 upsamples (nearest, the same in all three),
+//! factor > 1 reduces n³ blocks with the kernel KDn, ~1 copies.
+template <typename OpDn, template <class> class KDn, Image I, typename Ref>
+std::remove_const_t<I> resample_blocks(const I& v, double factor, Ref&& ref) {
     using T = voxel_t<I>;
-    auto ref = [&](const VoxelImageT<T>& h) { return ::resampleMean(h, factor); };
     const VoxelImageT<T>& hdr = cmeta_of(v);
     const int3 n = v.size3();
     if (factor < .999) {
@@ -312,11 +320,29 @@ template <Image I> std::remove_const_t<I> resampleMean(const I& v, double factor
     }
     if (factor > 1.001) {
         const int k = int(factor + 0.5);
-        return detail::run_remap<op::resampleMeanDn, kernels::resampleMeanDn<T>, T>(
+        return detail::run_remap<OpDn, KDn<T>, T>(
             v, n / k, hdr.dx() * k, hdr.X0() * k, ref, [k](int k0, int k1) { return std::pair<int, int>(k0 * k, k1 * k); },
             int32_t(k));
     }
     return copy_of(v);
+}
+}  // namespace
+
+template <Image I> std::remove_const_t<I> copy(const I& v) { return copy_of(v); }
+// voxlib resampleMean (Python resample / resample_mean): > 1 averages the n³ blocks.
+template <Image I> std::remove_const_t<I> resampleMean(const I& v, double factor) {
+    return resample_blocks<op::resampleMeanDn, kernels::resampleMeanDn>(
+        v, factor, [&](const VoxelImageT<voxel_t<I>>& h) { return ::resampleMean(h, factor); });
+}
+// voxlib resampleMax (Python resample_max): > 1 takes the maximum of the n³ blocks.
+template <Image I> std::remove_const_t<I> resampleMax(const I& v, double factor) {
+    return resample_blocks<op::resampleMaxDn, kernels::resampleMaxDn>(
+        v, factor, [&](const VoxelImageT<voxel_t<I>>& h) { return ::resampleMax(h, factor); });
+}
+// voxlib resampleMode (Python resample_mode): > 1 takes the most frequent value of the n³ blocks.
+template <Image I> std::remove_const_t<I> resampleMode(const I& v, double factor) {
+    return resample_blocks<op::resampleModeDn, kernels::resampleModeDn>(
+        v, factor, [&](const VoxelImageT<voxel_t<I>>& h) { return ::resampleMode(h, factor); });
 }
 // voxlib resliceZ (Python reslice_z): resample z only; factor ~0 takes dx.x/dx.z.
 template <Image I> std::remove_const_t<I> resliceZ(const I& v, double factor) {
@@ -901,6 +927,9 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     template void shrinkBox(I&, int);                                                           \
     template void redirect(I&, char);                                                           \
     template I resampleMean(const I&, double);                                                  \
+    template I resampleMax(const I&, double);                                                   \
+    template I resampleMode(const I&, double);                                                  \
+    template I copy(const I&);                                                                  \
     template I resliceZ(const I&, double);                                                      \
     template std::array<double, 5> otsu_minAvgThresholdAvgMax(const I&, intOr<T>, intOr<T>, double, int); \
     template MaskOf<I> threshold01_otsu(const I&, int, int, double);                            \

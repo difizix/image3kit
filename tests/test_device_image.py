@@ -57,7 +57,23 @@ CALLS = {
     "resample": lambda m, o: m.resample(0.5),
     "resample_mean": lambda m, o: m.resample_mean(2.0),
     "reslice_z": lambda m, o: m.reslice_z(0.4),
+    "resample_max": lambda m, o: m.resample_max(2.0),
+    "resample_mode": lambda m, o: m.resample_mode(3.0),
 }
+
+
+@pytest.mark.parametrize("backend", ik.available_backends())
+def test_copy_stays_on_device(backend):
+    ref = _labelled(ik.VxlImgU8)
+    with ik.backend(backend):
+        dev = ik.VxlImgU8(ref).to_device()
+        dev.median_filter()
+        cpy = dev.copy()
+        dev.median_filter()  # the copy is independent
+        ref.median_filter()
+        assert np.array_equal(np.array(ref, copy=False), np.array(cpy.to_host(), copy=False))
+        if backend == "gpu":
+            assert cpy.transfers()[1] == 1  # only the to_host() above
 
 
 def _pair(cls, backend):

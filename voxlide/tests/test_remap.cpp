@@ -50,6 +50,24 @@ UTEST(VoxlideRemap, header) {
     }
     vxhl::set_backend(saved);
 }
+// vxhl::copy of a DeviceImage on the GPU: no transfer, an independent image.
+UTEST(VoxlideRemap, device_copy) {
+    const vxhl::Backend saved = vxhl::get_backend();
+    for (vxhl::Backend b : vxhl::available_backends()) {
+        vxhl::set_backend(b);
+        auto img = make((unsigned char)0, int3(13, 11, 9));
+        vxhl::DeviceImage<unsigned char> d(img);
+        vxhl::median(d, 1);
+        auto c = vxhl::copy(d);
+        vxhl::median(d, 1);  // must not change c
+        VoxelImageT<unsigned char> ref = img;
+        ref = ::median(ref, 1);
+        EXPECT_TRUE(std::equal(ref.data_.begin(), ref.data_.end(), c.host().data_.begin()) && ref.data_.size() == c.host().data_.size());
+        EXPECT_TRUE(c.host().size3() == img.size3() && c.host().dx() == img.dx() && c.host().X0() == img.X0());
+        if (b == vxhl::Backend::Gpu) EXPECT_EQ(c.transfers().down, 1);  // only the host() above
+    }
+    vxhl::set_backend(saved);
+}
 // growBox → median → shrinkBox on a DeviceImage on the GPU: one upload, one download.
 UTEST(VoxlideRemap, device_chain_transfers) {
     const auto bs = vxhl::available_backends();
@@ -93,6 +111,13 @@ RESAMPLE_PARITY(resample_up_2, resampleMean, 0.5)
 RESAMPLE_PARITY(resample_up_3, resampleMean, 0.3)
 RESAMPLE_PARITY(resample_mean_2, resampleMean, 2.0)
 RESAMPLE_PARITY(resample_mean_3, resampleMean, 3.0)
+RESAMPLE_PARITY(resample_max_2, resampleMax, 2.0)
+RESAMPLE_PARITY(resample_max_3, resampleMax, 3.0)
+RESAMPLE_PARITY(resample_max_up, resampleMax, 0.5)
+RESAMPLE_PARITY(resample_mode_2, resampleMode, 2.0)
+RESAMPLE_PARITY(resample_mode_3, resampleMode, 3.0)
+RESAMPLE_PARITY(resample_mode_up, resampleMode, 0.5)
+RESAMPLE_PARITY(resample_max_1, resampleMax, 1.0)
 RESAMPLE_PARITY(reslice_up, resliceZ, 0.4)
 RESAMPLE_PARITY(reslice_up_07, resliceZ, 0.7)
 RESAMPLE_PARITY(reslice_down_2, resliceZ, 2.0)
@@ -104,6 +129,9 @@ UTEST(VoxlideRemap, resample_header) {
             const VoxelImageT<unsigned char> a(int3(9, 8, 7), 3, dbl3(0.5, 2, 3), dbl3(1, 2, 3));
             const auto r = ::resampleMean(a, f), g = vxhl::resampleMean(a, f);
             EXPECT_TRUE(r.X0() == g.X0() && r.dx() == g.dx() && r.size3() == g.size3());
+            for (const auto& [rm, gm] : {std::pair(::resampleMax(a, f), vxhl::resampleMax(a, f)),
+                                         std::pair(::resampleMode(a, f), vxhl::resampleMode(a, f))})
+                EXPECT_TRUE(rm.X0() == gm.X0() && rm.dx() == gm.dx() && rm.size3() == gm.size3());
             const auto rz = ::resliceZ(a, f), gz = vxhl::resliceZ(a, f);
             EXPECT_TRUE(rz.X0() == gz.X0() && rz.dx() == gz.dx() && rz.size3() == gz.size3());
         }

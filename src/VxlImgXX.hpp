@@ -212,9 +212,9 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
     .def("not_", [](SelfT &m, const SelfT &o) { vxop::not_(m, o); }, arg("image2"), "Voxel-by-voxel inplace NOT operation, alias for img = img & !img2.")
     .def("or_",  [](SelfT &m, const SelfT &o) { vxop::or_(m, o); },  arg("image2"), "Voxel-by-voxel inplace OR operation.")
     .def("xor_", [](SelfT &m, const SelfT &o) { vxop::xor_(m, o); }, arg("image2"), "Voxel-by-voxel inplace XOR operation.")
-    .def("resample_mode", [](SelfT &m, double nReSampleNotSafe) { m = resampleMode(m, nReSampleNotSafe); }, arg("factor"),
+    .def("resample_mode", [](SelfT &m, double nReSampleNotSafe) { m = vxop::resampleMode(m, nReSampleNotSafe); }, arg("factor"),
          "Downsample the image, setting voxel values to mode of original encompassing voxel values.")
-    .def("resample_max", [](SelfT &m, double nReSampleNotSafe) { m = resampleMax(m, nReSampleNotSafe); }, arg("factor"),
+    .def("resample_max", [](SelfT &m, double nReSampleNotSafe) { m = vxop::resampleMax(m, nReSampleNotSafe); }, arg("factor"),
          "Downsample the image, setting voxel values to maximum of original encompassing voxel values.")
     .def("resample_mean", [](SelfT &m, double nReSampleNotSafe) { m = vxop::resampleMean(m, nReSampleNotSafe); }, arg("factor"), "Resample the image using mean interpolation.")
     .def("reslice_z", [](SelfT &m, double nReSampleNotSafe) { m = vxop::resliceZ(m, nReSampleNotSafe); }, arg("factor"), "Reslice along the Z axis.")
