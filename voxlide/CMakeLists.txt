@@ -6,6 +6,17 @@ project(voxlide LANGUAGES CXX)
 add_library(voxlide STATIC runtime.cpp ops.cpp)
 set(VOXLIDE_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_include_directories(voxlide PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} PRIVATE ${VOXLIDE_GEN_DIR})
+# Bit-exact GPU parity with voxlib (generators/vxhl_gen.h VXHL_EXACT): Halide's Vulkan backend ignores
+# strict_float and its division/sqrt are not correctly rounded, so the kernels add correction and anti-fusion
+# work. OFF: faster GPU kernels whose float results may differ from voxlib in the last bits (parity tests
+# then report GPU mismatches without failing). CPU kernels are exact either way.
+option(VOXLIDE_EXACT "voxlide GPU kernels reproduce voxlib bit for bit" ON)
+if(VOXLIDE_EXACT)
+  set(_vxhl_exact 1)
+else()
+  set(_vxhl_exact 0)
+endif()
+target_compile_definitions(voxlide PUBLIC VXHL_EXACT=${_vxhl_exact})
 target_link_libraries(voxlide PUBLIC voxlib PRIVATE OpenMP::OpenMP_CXX)
 set_target_properties(voxlide PROPERTIES CXX_STANDARD 23 POSITION_INDEPENDENT_CODE ON)
 
@@ -119,6 +130,7 @@ function(voxlide_add_op OP)
   if(_VOXLIDE_HALIDE)
     add_halide_generator(${OP}.gen SOURCES ${A_GENERATOR})
     target_include_directories(${OP}.gen PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/generators)
+    target_compile_definitions(${OP}.gen PRIVATE VXHL_EXACT=${_vxhl_exact})
     set(_devs cpu gpu)
     set(_cpu_tgt host)
     set(_gpu_tgt ${VOXLIDE_GPU_TARGET})

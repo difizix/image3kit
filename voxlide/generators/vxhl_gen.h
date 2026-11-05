@@ -18,7 +18,16 @@
     Input<Buffer<void, 3>> input{"input"};                   \
     Input<int32_t> gnx{"gnx"}, gny{"gny"}, gnz{"gnz"};
 
+//! VXHL_EXACT (CMake VOXLIDE_EXACT, default 1): GPU kernels reproduce voxlib bit for bit (NoContraction,
+//! corrected divF / sqrtF). 0: those workarounds are off: faster GPU kernels, float results may differ in
+//! the last bits. CPU targets are exact either way (strict_float, IEEE division and sqrt).
+#ifndef VXHL_EXACT
+#define VXHL_EXACT 1
+#endif
+
 namespace vxhl_gen {
+
+constexpr bool kExact = VXHL_EXACT != 0;
 
 using namespace Halide;
 
@@ -64,7 +73,7 @@ public:
 //! Applies NoContraction to the definitions of `fs` on GPU targets; `zero` is any runtime expression
 //! that is 0 and that Halide cannot fold (min(gnx, 0): a buffer extent would not do, Halide knows it is >= 0).
 inline void no_contraction(const std::vector<Func>& fs, const Target& t, Expr zero) {
-    if (!t.has_gpu_feature()) return;
+    if (!kExact || !t.has_gpu_feature()) return;
     NoContraction m(std::move(zero));
     for (Func f : fs) f.function().mutate(&m);
 }
@@ -121,7 +130,7 @@ inline std::pair<Expr, Expr> ulps(Expr v) {
 //! (three rounds; sign handled separately). Valid for quotients in about [1e-30, 1e30]; exact ties are
 //! not rounded to even. CPU targets divide natively.
 inline Expr divF(Expr a, Expr b, const Target& t) {
-    if (!t.has_gpu_feature()) return a / b;
+    if (!kExact || !t.has_gpu_feature()) return a / b;
     const Type ft = a.type();
     const Expr aa = abs(a), bb = abs(b), h = fconst(ft, 0.5), zero = fconst(ft, 0.0);
     Expr c = aa / bb;
@@ -149,9 +158,11 @@ inline Expr sqrtF(Expr s, const Target& t) {
     Expr c;
     if (ft.bits() == 32) {
         c = sqrt(s);
-    } else {
+        if (!kExact) return c;
+    } else {  // no f64 sqrt on Vulkan: an estimate in any case
         c = cast(ft, sqrt(cast<float>(s)));
         for (int i = 0; i < 2; ++i) c = select(c > 0, h * (c + s / c), c);
+        if (!kExact) return select(s > 0, c, fconst(ft, 0.0));
     }
     for (int i = 0; i < 2; ++i) {
         const auto [u, um] = ulps(c);

@@ -22,6 +22,11 @@ inline std::vector<int3> parity_shapes() {
 }
 inline std::vector<int> parity_slab_counts() { return {1, 3, 7}; }
 
+//! Whether results on backend b must match voxlib exactly: always, unless the GPU kernels were built
+//! with VOXLIDE_EXACT=OFF (VXHL_EXACT=0), whose GPU mismatches are printed but not counted.
+inline bool must_match(Backend b) { return VXHL_EXACT || b != Backend::Gpu; }
+inline const char* match_note(Backend b) { return must_match(b) ? "" : " (VOXLIDE_EXACT=OFF: not counted)"; }
+
 //! Few distinct labels on a blocky pattern plus salt-and-pepper noise: many frequency ties.
 template <typename T>
 VoxelImageT<T> labelled_volume(int3 n, int nLabels, double noise, uint32_t seed, int block = 4) {
@@ -90,8 +95,9 @@ long long parity_sweep(const std::string& op, Make make, Ref ref, Test test) {
                     test(got);
                     const std::string label = op + "<" + tname + "> " + backend_name(b) + " " +
                                               std::to_string(n.x) + "x" + std::to_string(n.y) + "x" +
-                                              std::to_string(n.z) + " slabs=" + std::to_string(s);
-                    bad += count_mismatches(expect, got, label);
+                                              std::to_string(n.z) + " slabs=" + std::to_string(s) + match_note(b);
+                    const long long m = count_mismatches(expect, got, label);
+                    if (must_match(b)) bad += m;
                 }
             }
         }
@@ -125,7 +131,9 @@ long long scalar_parity_sweep(const std::string& op, Make make, Ref ref, Test te
                     const double got = test(input);
                     const bool same = (std::isnan(expect) && std::isnan(got)) ||
                                       std::abs(got - expect) <= relTol * std::max(1.0, std::abs(expect));
-                    if (!same && bad++ < 10)
+                    if (!same && !must_match(b)) {
+                        std::cout << op << "<" << tname << "> gpu: ref=" << expect << " got=" << got << match_note(b) << "\n";
+                    } else if (!same && bad++ < 10)
                         std::cout << op << "<" << tname << "> " << backend_name(b) << " " << n.x << "x" << n.y << "x"
                                   << n.z << " slabs=" << s << ": ref=" << expect << " got=" << got << "\n";
                 }
@@ -157,7 +165,7 @@ long long scalar_parity_sweep(const std::string& op, Make make, Ref ref, Test te
             [&](auto& m) {                                                                          \
                 const long long c = (TEST)(m);                                                      \
                 if (c != refCount) {                                                                \
-                    ++countBad;                                                                     \
+                    if (vxhl::testing::must_match(vxhl::get_backend())) ++countBad;                \
                     std::cout << #NAME << ": count " << c << " != reference " << refCount << "\n"; \
                 }                                                                                   \
             });                                                                                     \
