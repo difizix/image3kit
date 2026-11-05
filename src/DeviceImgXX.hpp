@@ -109,6 +109,31 @@ void bind_DeviceImg(py::module &mod, const char* name) {
     .def("operate", [](DevT &m, std::string opr, const DevT &img2, double shift) { vxhl::operateImg(m, opr, img2, shift); },
          arg("opr"), arg("image2"), arg("shift") = 0.0)
     .def("operate", [](DevT &m, std::string opr, double val) { vxhl::operateScalar(m, opr, val); }, arg("opr"), arg("val"));
+
+  // ---- chains over z-slabs (vxhl::Chain, voxlide.h): images larger than one GPU piece
+  mod.def("run_slabs", [](SelfT &img, py::list steps) {
+        vxhl::Chain<VxT> chain;
+        const py::object signature = py::module_::import("inspect").attr("signature");
+        for (py::handle st : steps) {
+          const auto t = st.cast<py::tuple>();
+          if (t.size() != 2) throw std::invalid_argument("run_slabs: each step is (halo, fn)");
+          const py::object fn = py::reinterpret_borrow<py::object>(t[1]);
+          const bool withSlab = py::len(signature(fn).attr("parameters")) >= 2;
+          chain.then(t[0].cast<int>(), [fn, withSlab](DevT &d, vxhl::ZSlab s) {
+            const py::object pd = py::cast(&d, py::return_value_policy::reference);
+            if (withSlab) fn(pd, py::make_tuple(s.k0, s.k1)); else fn(pd);
+          });
+        }
+        chain.run(img);
+      }, arg("image"), arg("steps"),
+      "Run steps [(halo, fn), ...] on the image in place, with one upload and one download per piece: fn(dev) "
+      "(or fn(dev, (k0, k1))) calls DevImg methods on the piece. Images larger than one piece (512 MiB on the "
+      "GPU) are cut into z-slabs read with halo = sum of the step halos on each side, so the result equals the "
+      "steps on the whole image when every step is local: halo >= its radius times its passes (median_filter(n): n, "
+      "mode26: 1), no global statistics, no size change. (k0, k1): the image layers the piece holds, for slab_of() "
+      "of a second image. Do not keep `dev` after fn returns.");
+  mod.def("slab_of", [](const SelfT &img, std::pair<int, int> s) { return vxhl::slab_of(img, vxhl::ZSlab{s.first, s.second}); },
+          arg("image"), arg("layers"), "Layers [k0, k1) of the image as an image of their own (a run_slabs step's second image).");
 }
 
 }  // namespace VxlPy

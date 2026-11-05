@@ -64,6 +64,9 @@ PYBIND11_MODULE(_core, mod, py::mod_gil_not_used()) {
             for (auto b : vxhl::available_backends()) v.push_back(vxhl::backend_name(b));
             return v;
         }, "Backends usable on this machine, e.g. ['voxlib', 'halide', 'gpu'].");
+    voxlib.def("set_max_slab_bytes", [](std::size_t bytes) { vxhl::set_max_slab_bytes(bytes); }, py::arg("bytes"),
+        "Max bytes of image (plus halo) processed in one piece; larger images are processed in z-slabs\n"
+        "(run_slabs: a whole chain per slab). 0 restores the default: 512 MiB on the GPU, 1 GiB on CPU.");
 
     // TODO: What does it return ? casted image or a base-class, we shall create an adaptor that does the cast automatically
     voxlib.def("read_image",

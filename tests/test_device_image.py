@@ -177,3 +177,49 @@ def test_device_image_isolated_from_source():
     dev = img.to_device()
     dev.operate("+", 5.0)
     assert np.array_equal(before, np.array(img, copy=False))  # to_device copies
+
+
+# ---- run_slabs: a chain of DevImg steps per z-slab with a deep halo equals the steps on the whole image
+@pytest.mark.parametrize("cls", CLASSES)
+def test_run_slabs_equals_whole_image(cls):
+    img = _labelled(cls, (19, 17, 41), seed=4)
+    ref = img.copy()
+    with ik.backend("voxlib"):
+        ref.median_filter(2)
+        ref.mode26(1)
+    steps = [(2, lambda d: d.median_filter(2)), (1, lambda d: d.mode26(1))]
+    layer = 19 * 17 * np.dtype(np.array(img, copy=False).dtype).itemsize
+    for be in ik.available_backends():
+        with ik.backend(be):
+            for interior in (0, 1, 5):  # 0: one piece
+                ik.set_max_slab_bytes((2 * 3 + interior) * layer if interior else 0)
+                try:
+                    got = img.copy()
+                    ik.run_slabs(got, steps)
+                finally:
+                    ik.set_max_slab_bytes(0)
+                assert np.array_equal(_arr(got), _arr(ref)), (be, interior)
+
+
+def test_run_slabs_slab_range_and_second_image():
+    img = _labelled(ik.VxlImgU8, (8, 9, 30), seed=5)
+    src = _labelled(ik.VxlImgU8, (8, 9, 30), seed=6)
+    seen = []
+
+    def step(d, z):  # the second image's slab lines up with the piece
+        seen.append(z)
+        part = ik.slab_of(src, z)
+        assert np.array(part, copy=False).shape == d.shape
+        d.and_(part.to_device())
+
+    ref = img.copy()
+    with ik.backend("voxlib"):
+        ref.and_(src)
+    ik.set_max_slab_bytes(8 * 9 * 7)  # at most 7 layers per piece, halo 0
+    try:
+        got = img.copy()
+        ik.run_slabs(got, [(0, step)])
+    finally:
+        ik.set_max_slab_bytes(0)
+    assert np.array_equal(_arr(got), _arr(ref))
+    assert seen == [(6 * i, 6 * i + 6) for i in range(5)]  # ceil(30 / 7) = 5 slabs, split evenly

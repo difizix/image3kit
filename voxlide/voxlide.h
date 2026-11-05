@@ -6,6 +6,8 @@
 
 #include <array>
 #include <cstddef>
+#include <cstring>
+#include <functional>
 #include <memory>
 #include <type_traits>
 #include <string>
@@ -222,5 +224,50 @@ template <Image I> void bilateralGauss(I& vImg, int kernRad, float sigmaSqr = 16
 template <Image I> bool _bilateralGauss(I& vImg, int nItrs, int kernRad, double sigmavv, double sharpFact, double sigmadd);
 template <Image I> bool _bilateralX(I& vImg, int nItrs, int kernRad, int Xstp, double sigmavv, double sharpFact,
                                     double sigmadd);
+
+// ---- Chains of ops over z-slabs: images larger than one piece (docs/plans/parallelism_shared.md §2.7)
+
+//! The z-layers [k0, k1) of the whole image that a Chain step's DeviceImage holds.
+struct ZSlab {
+    int k0, k1;
+};
+//! Layers [s.k0, s.k1) of img as an image of their own, with X0 moved to match: the slab of a second
+//! image (e.g. shrink's source) for a Chain step.
+template <typename U> VoxelImageT<U> slab_of(const VoxelImageT<U>& img, ZSlab s) {
+    const int3 n = img.size3();
+    dbl3 x0 = img.X0();
+    x0.z += s.k0 * img.dx().z;
+    VoxelImageT<U> r(int3(n.x, n.y, s.k1 - s.k0), U(0), img.dx(), x0);
+    if (s.k1 > s.k0) std::memcpy(r.data(), img.data_.data() + (long long)s.k0 * n.x * n.y, sizeof(U) * r.data_.size());
+    return r;
+}
+
+//! A sequence of ops run with one upload and one download per piece of the image:
+//!     vxhl::Chain<uint8_t> c;
+//!     c.then(2, [](auto& d) { vxhl::median(d, 2); })    // halo: how far the step reads, over all its passes
+//!      .then(1, [](auto& d) { vxhl::mode26(d, 1); });
+//!     c.run(img);
+//! run() hands every step the same DeviceImage. If the image fits in one piece (set_max_slab_bytes;
+//! default 512 MiB on the GPU, 1 GiB on CPU) that is the whole image; otherwise it is a z-slab plus
+//! halo() = Σ step halos layers on each side, and only the slab's interior is kept, so slabs see the
+//! same result as the whole image. Valid for local steps only: ops with a finite reach (halo >= radius ·
+//! passes, including what they do near image faces), no global statistics (average2p, otsu, keepLargest…)
+//! and no change of size (growBox… must be undone within the step). Change counts a step returns include
+//! the halo layers. A step taking (DeviceImage&, ZSlab) gets the layers its image holds, for slab_of().
+template <typename T>
+class Chain {
+public:
+    using Step = std::function<void(DeviceImage<T>&, ZSlab)>;
+    Chain& then(int halo, Step step);
+    Chain& then(int halo, const std::function<void(DeviceImage<T>&)>& step) {
+        return then(halo, [step](DeviceImage<T>& d, ZSlab) { step(d); });
+    }
+    int halo() const;           //!< Σ step halos: the layers a slab reads on each side
+    void run(VoxelImageT<T>& img) const;
+    std::size_t size() const { return steps_.size(); }
+
+private:
+    std::vector<std::pair<int, Step>> steps_;
+};
 
 }  // namespace vxhl

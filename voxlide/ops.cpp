@@ -56,7 +56,9 @@
 #include "scaleGradient_kernels.h"
 #include "segmentVote_kernels.h"
 
+#include <algorithm>
 #include <cfloat>
+#include <cstring>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -997,6 +999,57 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     return true;
 }
 
+// ---- Chain (voxlide.h)
+template <typename T> Chain<T>& Chain<T>::then(int halo, Step step) {
+    if (halo < 0) throw std::invalid_argument("vxhl::Chain: negative halo");
+    steps_.emplace_back(halo, std::move(step));
+    return *this;
+}
+template <typename T> int Chain<T>::halo() const {
+    int h = 0;
+    for (const auto& s : steps_) h += s.first;
+    return h;
+}
+template <typename T> void Chain<T>::run(VoxelImageT<T>& img) const {
+    const int3 n = img.size3();
+    if (steps_.empty() || (long long)n.x * n.y * n.z == 0) return;
+    auto runSteps = [&](DeviceImage<T>& d, ZSlab s) {
+        const int3 n0 = d.size3();
+        for (const auto& st : steps_) {
+            st.second(d, s);
+            if (d.size3() != n0) throw std::logic_error("vxhl::Chain: a step changed the image size");
+        }
+    };
+    Backend b = get_backend();  // the slab budget of the backend the steps will run on
+    if (b == Backend::Auto) {
+        const auto av = available_backends();
+        b = std::find(av.begin(), av.end(), Backend::Gpu) != av.end() ? Backend::Gpu : Backend::HalideCpu;
+    }
+    const long long layer = (long long)n.x * n.y * (long long)sizeof(T);
+    const long long maxLayers = std::max(1LL, (long long)detail::max_slab_bytes(b) / layer);
+    if (n.z <= maxLayers) {  // one piece: one upload, one download
+        DeviceImage<T> d(img);
+        runSteps(d, ZSlab{0, n.z});
+        img = d.host();
+        return;
+    }
+    const int H = halo();
+    const long long interior = maxLayers - 2LL * H;
+    if (interior < 1)
+        throw std::invalid_argument("vxhl::Chain: halo " + std::to_string(H) + " is too deep for slabs of " +
+                                    std::to_string(maxLayers) + " layers; raise set_max_slab_bytes()");
+    VoxelImageT<T> out = img;  // the input stays intact: later slabs read their halo from it
+    for (const Box& box : splitZ(n, int((n.z + interior - 1) / interior), H)) {
+        const ZSlab s{box.kBgnRead(), box.kEndRead()};
+        DeviceImage<T> d(slab_of(img, s));
+        runSteps(d, s);
+        const VoxelImageT<T>& h = d.host();
+        std::memcpy(out.data() + (long long)box.kBgn() * n.x * n.y, h.data_.data() + (long long)(box.kBgn() - s.k0) * n.x * n.y,
+                    sizeof(T) * (std::size_t)box.n.z * n.x * n.y);
+    }
+    img = std::move(out);
+}
+
 #define VXHL_INST_IMG_(I, T)                                                                    \
     template void mode26(I&, short);                                                            \
     template void growPore(I&);                                                                 \
@@ -1072,6 +1125,7 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     template void circleOut(VoxelImageT<T>&, int, int, int, char, T); \
     template void circleOut(DeviceImage<T>&, int, int, int, char, T); \
     template class DeviceImage<T>;                                   \
+    template class Chain<T>;                                         \
     VXHL_INST_IMG_(VoxelImageT<T>, T)                                \
     VXHL_INST_IMG_(DeviceImage<T>, T)                                \
     template VoxelImageT<T> median<T>(const VoxelImageT<T>&, int);   \
