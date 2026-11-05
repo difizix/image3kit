@@ -278,7 +278,7 @@ void bind_VxlImg(py::module &mod, const char* VxTypS) {
         arg("label_to"), arg("label_from"), arg("n_diff"),
         "Face median grow to/from labels.")
     .def("grow_label", [](SelfT &m, VxT vl) { vxop::growLabel(m, vl); })
-    .def("keep_largest", [](SelfT &m, VxT minvv, VxT maxvv) { keepLargestvv(m, minvv, maxvv); }, arg("min"), arg("max"), "Keep largest singly-connected region with values in [min, max].")
+    .def("keep_largest", [](SelfT &m, VxT minvv, VxT maxvv) { vxop::keepLargestvv(m, minvv, maxvv); }, arg("min"), arg("max"), "Keep largest singly-connected region with values in [min, max].")
     //.def("maskWriteFraction", &SelfT::maskWriteFraction)
     .def("map_from", [](SelfT& m, const SelfT& vimg2, VxT vmin, VxT vmax, double scale, double shift) { vxop::mapToFrom(m, vimg2, vmin, vmax, scale, shift); }, arg("source_image"), arg("vmin"), arg("vmax"), arg("scale"), arg("shift"), "Map values from another image.")
     .def("add_surf_noise", [](SelfT &m, const int randMask1, const int randMask2, int trsh, int randseed) { addSurfNoise(m, randMask1, randMask2, trsh, randseed); }, arg("rand_mask1"), arg("rand_mask2"), arg("threshold"), arg("seed")=-1, "Add surface noise.")

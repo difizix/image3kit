@@ -178,6 +178,13 @@ template <Image I> std::remove_const_t<I> resampleMean(const I& img, double fact
 //! voxlib resampleMax (resample_max) and resampleMode (resample_mode): the maximum / most frequent value of n³ blocks.
 template <Image I> std::remove_const_t<I> resampleMax(const I& img, double factor);
 template <Image I> std::remove_const_t<I> resampleMode(const I& img, double factor);
+//! voxlib keepLargest (voxelRegions.h): of the 6-connected components of the voxels of grad in [minvg, maxvg],
+//! keep the one with the most voxels of img in [minvv, maxvv] (ties: the first in raster order); every other
+//! voxel of img becomes maxT. keepLargestvv (Python keep_largest): components of img's voxels in [minvv, maxvv],
+//! the others in that range become maxT-1. Gather-only connected components, so they run on the GPU.
+template <Image I, Image J>
+void keepLargest(I& img, const J& grad, voxel_t<I> minvv, voxel_t<I> maxvv, voxel_t<I> minvg, voxel_t<I> maxvg);
+template <Image I> void keepLargestvv(I& img, voxel_t<I> minvv, voxel_t<I> maxvv);
 //! A copy; a DeviceImage on the GPU is copied on the device (no download).
 template <Image I> std::remove_const_t<I> copy(const I& img);
 template <Image I> std::remove_const_t<I> resliceZ(const I& img, double factor);

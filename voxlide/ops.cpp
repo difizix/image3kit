@@ -24,6 +24,13 @@
 #include "resampleMeanDn_kernels.h"
 #include "resampleMaxDn_kernels.h"
 #include "resampleModeDn_kernels.h"
+#include "cclInit_kernels.h"
+#include "cclWeight_kernels.h"
+#include "cclLabel_kernels.h"
+#include "cclSum_kernels.h"
+#include "cclRoots_kernels.h"
+#include "cclBest_kernels.h"
+#include "cclApply_kernels.h"
 #include "resliceUp_kernels.h"
 #include "resliceDn_kernels.h"
 #include "median032_kernels.h"
@@ -480,9 +487,114 @@ template <typename T, typename F> void on_device(VoxelImageT<T>& v, F&& f) { Dev
 template <typename T, typename F> void on_device(DeviceImage<T>& d, F&& f) { f(d); }
 }  // namespace
 
+// ---- voxlib keepLargest / keepLargestvv (voxelRegions.h): connected components on the device,
+// gather-only (generators/ccl_gen.cpp). Steps: labels from the voxels of `lab` in [labLo, labHi]
+// (rounds of line scans until nothing changes), per-component counts of the voxels of `cnt` in [cntLo, cntHi]
+// (subtree sums along the parent pointers), the largest (ties: the first in raster order, as voxlib's
+// label order), applied to v. voxlib runs for the voxlib backend, 2^28 voxels or more (packed int32
+// labels) and when a step has no kernel.
+namespace {
+struct CclFallback : std::runtime_error {
+    CclFallback() : std::runtime_error("vxhl: ccl step without kernel") {}
+};
+template <Image I, typename U> using SameKind = std::conditional_t<std::is_same_v<std::remove_const_t<I>, DeviceImage<voxel_t<I>>>,
+                                                                  DeviceImage<U>, VoxelImageT<U>>;
+template <typename T> const VoxelImageT<T>& host_view(const VoxelImageT<T>& v) { return v; }
+template <typename T> const VoxelImageT<T>& host_view(const DeviceImage<T>& v) { return v.host(); }
+
+//! The packed labels P of the voxels of `lab` in [lo, hi] (see ccl_gen.cpp).
+template <Image J> SameKind<J, int32_t> ccl_labels(const J& lab, voxel_t<J> lo, voxel_t<J> hi) {
+    using T = voxel_t<J>;
+    const VoxelImageT<T>& h = cmeta_of(lab);
+    const int3 n = lab.size3();
+    auto fail = [](const VoxelImageT<T>&) -> VoxelImageT<int32_t> { throw CclFallback(); };
+    auto same = [](int k0, int k1) { return std::pair<int, int>(k0, k1); };
+    SameKind<J, int32_t> P = detail::run_remap<op::cclInit, kernels::cclInit<T>, int32_t>(lab, n, h.dx(), h.X0(), fail, same, lo, hi);
+    auto nofb = [](auto&) -> long long { throw CclFallback(); };
+    int rounds = 0;
+    for (long long changed = 1; changed; ++rounds) {
+        changed = detail::run_stencil_count<op::cclLabel, kernels::cclLabel<int32_t>>(P, detail::Passes(1, n.z), nofb);
+    }
+    if (vxlDebug()) std::cerr << "vxhl ccl: " << rounds << " label rounds" << std::endl;
+    return P;
+}
+
+//! The label (smallest raster index) of the component with the most voxels of `cnt` in [lo, hi], or
+//! -1 when every count is 0 (voxlib then keeps no component).
+template <Image I, typename LP> int ccl_largest(const I& cnt, const LP& P, voxel_t<I> lo, voxel_t<I> hi) {
+    using T = voxel_t<I>;
+    const VoxelImageT<T>& h = cmeta_of(cnt);
+    const int3 n = cnt.size3();
+    auto fail = [](const VoxelImageT<T>&) -> VoxelImageT<int32_t> { throw CclFallback(); };
+    auto same = [](int k0, int k1) { return std::pair<int, int>(k0, k1); };
+    using LS = SameKind<I, int32_t>;
+    const LS W = detail::run_remap<op::cclWeight, kernels::cclWeight<T>, int32_t>(cnt, n, h.dx(), h.X0(), fail, same, lo, hi);
+    LS S = copy_of(W);
+    const detail::Aux<int32_t> ap(P), aw(W);
+    auto nofb = [](auto&) -> long long { throw CclFallback(); };
+    int rounds = 0;
+    for (long long changed = 1; changed; ++rounds) {
+        if (rounds > 100000) throw std::logic_error("vxhl ccl: sums do not converge");
+        changed = detail::run_stencil_count<op::cclSum, kernels::cclSum<int32_t>>(S, detail::Passes(1, n.z), nofb, ap, aw);
+    }
+    if (vxlDebug()) std::cerr << "vxhl ccl: " << rounds << " sum rounds" << std::endl;
+    detail::run_stencil<op::cclRoots, kernels::cclRoots<int32_t>>(S, 1, [](auto&) { throw CclFallback(); }, ap);
+    return detail::run_reduce<op::cclBest, kernels::cclBest<int32_t>, 2>(
+        S, [](const VoxelImageT<int32_t>&) -> int { throw CclFallback(); }, [&](auto pass) {
+            const detail::PerZ<2> o = pass();
+            double m = -1, idx = -1;
+            for (int z = 0; z < n.z; ++z)
+                if (o[0][z] > m) m = o[0][z], idx = o[1][z];  // layers in raster order: the first wins ties
+            return m > 0 ? int(idx) : -1;
+        });
+}
+
+//! Outside component `best` of P: mode 0 every voxel of v, mode 1 those in [lo, hi] become `value`.
+template <Image I, typename LP> void ccl_apply(I& v, const LP& P, int best, int mode, voxel_t<I> lo, voxel_t<I> hi, voxel_t<I> value) {
+    const detail::Aux<int32_t> ap(P);
+    detail::run_stencil<op::cclApply, kernels::cclApply<voxel_t<I>>>(
+        v, 1,
+        [&](auto& m) {
+            const auto& p = ap.host();
+            for (std::size_t i = 0; i < m.data_.size(); ++i) {
+                const int32_t q = p.data_[i];
+                if (!(q >= 0 && (q >> 3) == best) && (mode == 0 || (lo <= m.data_[i] && m.data_[i] <= hi))) m.data_[i] = value;
+            }
+        },
+        ap, int32_t(best), int32_t(mode), lo, hi, value);
+}
+template <typename T> bool ccl_supported(int3 n) {
+    const long long nv = (long long)n.x * n.y * n.z;
+    return get_backend() != Backend::Voxlib && nv > 0 && nv < (1LL << 28);
+}
+}  // namespace
+
+template <Image I, Image J>
+void keepLargest(I& v, const J& grad, voxel_t<I> minvv, voxel_t<I> maxvv, voxel_t<I> minvg, voxel_t<I> maxvg) {
+    using T = voxel_t<I>;
+    auto voxlib = [&] { ::keepLargest(host_of(v), host_view(grad), minvv, maxvv, minvg, maxvg); };
+    if (v.size3() != grad.size3()) throw std::runtime_error("Image sizes do not match");
+    if (!ccl_supported<T>(v.size3())) return voxlib();
+    try {
+        const auto P = ccl_labels(grad, minvg, maxvg);
+        ccl_apply(v, P, ccl_largest(std::as_const(v), P, minvv, maxvv), 0, T(0), T(0), maxT(T));
+    } catch (const CclFallback&) {
+        voxlib();
+    }
+}
+template <Image I> void keepLargestvv(I& v, voxel_t<I> minvv, voxel_t<I> maxvv) {
+    using T = voxel_t<I>;
+    if (!ccl_supported<T>(v.size3())) return ::keepLargestvv(host_of(v), minvv, maxvv);
+    try {
+        const auto P = ccl_labels(std::as_const(v), minvv, maxvv);
+        ccl_apply(v, P, ccl_largest(std::as_const(v), P, minvv, maxvv), 1, minvv, maxvv, T(maxT(T) - 1));
+    } catch (const CclFallback&) {
+        ::keepLargestvv(host_of(v), minvv, maxvv);
+    }
+}
+
 // ---- VoxLib::meanWide (Python mean_wide): the prep and the iterations run on DeviceImages.
-// Host steps, as in voxlib: keepLargest (labelling is not ported; download, run, upload) and, with VXL_DEBUG
-// set, the dump*.raw files (each downloads the image).
+// Host steps, as in voxlib: with VXL_DEBUG set, the dump*.raw files (each downloads the image).
 // The building blocks are public (voxlide.h, not bound in Python) so each is tested on its own: the end-to-end
 // result is smooth enough to hide errors in the border planes or in a neighbour-count threshold.
 template <Image I> void padEdges(I& v) {  // meanWide's border planes (see generators/pad_edges_gen.cpp)
@@ -554,11 +666,8 @@ template <Image I> bool meanWide(I& vImg, int nW, int noisev, int avg, int delta
             double threshGrad = 2.5 * noisev;
             (std::cout << "  threshGrad:" << threshGrad << ",  ").flush();
             if (vxlDebug()) d.host().write("dumpImg4.raw");
-            {
-                VoxelImageT<T>& h = d.host_mut();  // re-uploaded by the next device op
-                keepLargest(h, grad.host(), T(2), T(maxT(T) - 2), T(0), T(threshGrad));
-                if (vxlDebug()) h.write("dumpImg5.raw");
-            }
+            vxhl::keepLargest(d, grad, T(2), T(maxT(T) - 2), T(0), T(threshGrad));
+            if (vxlDebug()) d.host().write("dumpImg5.raw");
             vxhl::replaceRange(d, T(0), minvnrw, T(minvv - 1));
             vxhl::replaceRange(d, maxvnrw, maxT(T), T(maxvv + 1));
             vxhl::median(d), vxhl::median(d);
@@ -935,6 +1044,7 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     template MaskOf<I> threshold01_otsu(const I&, int, int, double);                            \
     template bool smoothBilateral(I&, int, int, double, double);                                \
     template void bilateralX(I&, int, int, float, float, float, float, float);                  \
+    template void keepLargestvv(I&, T, T);                                                      \
     template bool _bilateralX(I&, int, int, int, double, double, double);                       \
     template void bilateralGauss(I&, int, float, float, float, float, float);                   \
     template bool _bilateralGauss(I&, int, int, double, double, double);
@@ -949,7 +1059,8 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     template void copyFrom(I&, const J&);                          \
     template void mapToFrom(I&, const J&, T, T, double, double);                                    \
     template void setWhereAbove(I&, const J&, T, T);                                                \
-    template void meanWideStep(I&, int, T, T, const J&, T);
+    template void meanWideStep(I&, int, T, T, const J&, T);                                         \
+    template void keepLargest(I&, const J&, T, T, T, T);
 #define VXHL_INST_PAIRS_(T)                                       \
     VXHL_INST_PAIR_(VoxelImageT<T>, VoxelImageT<T>, T)             \
     VXHL_INST_PAIR_(VoxelImageT<T>, DeviceImage<T>, T)             \

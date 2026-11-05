@@ -59,6 +59,7 @@ CALLS = {
     "reslice_z": lambda m, o: m.reslice_z(0.4),
     "resample_max": lambda m, o: m.resample_max(2.0),
     "resample_mode": lambda m, o: m.resample_mode(3.0),
+    "keep_largest": lambda m, o: m.keep_largest(10, 30),
 }
 
 

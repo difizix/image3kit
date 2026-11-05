@@ -86,6 +86,7 @@ void bind_DeviceImg(py::module &mod, const char* name) {
     .def("resample", [](DevT &m, double f) { m = vxhl::resampleMean(m, f); }, arg("factor"))
     .def("resample_mean", [](DevT &m, double f) { m = vxhl::resampleMean(m, f); }, arg("factor"))
     .def("resample_max", [](DevT &m, double f) { m = vxhl::resampleMax(m, f); }, arg("factor"))
+    .def("keep_largest", [](DevT &m, VxT lo, VxT hi) { vxhl::keepLargestvv(m, lo, hi); }, arg("min"), arg("max"))
     .def("resample_mode", [](DevT &m, double f) { m = vxhl::resampleMode(m, f); }, arg("factor"))
     .def("reslice_z", [](DevT &m, double f) { m = vxhl::resliceZ(m, f); }, arg("factor"))
     .def("threshold01_otsu", [](DevT &m, int minvi, int maxvi, double skipFrac) { return std::make_unique<Mask>(vxhl::threshold01_otsu(m, minvi, maxvi, skipFrac)); },

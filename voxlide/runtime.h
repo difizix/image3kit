@@ -88,23 +88,27 @@ HBuf<T> zview(VoxelField<T>& f, int kBgn, int kEnd) {
 template <typename T> HBuf<T>& resident(const DeviceImage<T>& d);
 
 //! The view of `a` covering the z-layers of `in` (cached: the same layers reuse the buffer).
-template <typename T>
-halide_buffer_t* aux_view(const Aux<T>& a, const HBuf<T>& in, int3 g, bool gpu) {
+//! U may differ from the image's type T (keepLargest's int32 labels next to a T image).
+template <typename T, typename U>
+halide_buffer_t* aux_view(const Aux<U>& a, const HBuf<T>& in, int3 g, bool gpu) {
     if (a.size3() != g)
         throw std::invalid_argument("vxhl: auxiliary image size differs from the image");
     const int kBgn = in.dim(2).min(), kEnd = kBgn + in.dim(2).extent();
     if (gpu && a.dev && kBgn == 0 && kEnd == g.z) return resident(*a.dev).raw_buffer();  // device copy
     if (!a.buf.data() || a.buf.dim(2).min() != kBgn || a.buf.dim(2).extent() != kEnd - kBgn) {
-        a.buf = zview(const_cast<VoxelImageT<T>&>(a.host()), kBgn, kEnd);  // read only
+        a.buf = zview(const_cast<VoxelImageT<U>&>(a.host()), kBgn, kEnd);  // read only
         a.buf.set_host_dirty();  // uploaded on the first GPU use; ignored on the CPU
     }
     return a.buf.raw_buffer();
 }
 
+template <typename S> struct is_aux : std::false_type {};
+template <typename U> struct is_aux<Aux<U>> : std::true_type {};
+
 template <typename T, typename S>
 auto kernel_arg(const HBuf<T>& in, int3 g, bool gpu, HBuf<T>* snap, const S& s) {
     if constexpr (std::is_same_v<S, Snapshot>) return snap->raw_buffer();
-    else if constexpr (std::is_same_v<S, Aux<T>>) return aux_view(s, in, g, gpu);
+    else if constexpr (is_aux<S>::value) return aux_view(s, in, g, gpu);
     else return s;
 }
 

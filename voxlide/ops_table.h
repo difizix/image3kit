@@ -50,6 +50,13 @@ struct OpTraits {
   X(resampleMeanDn, 'F', 0, false, false) /* resampleMean, factor > 1 */ \
   X(resampleMaxDn, 'F', 0, false, false) /* resampleMax, factor > 1 */ \
   X(resampleModeDn, 'F', 0, false, false) /* resampleMode, factor > 1 */ \
+  X(cclInit, 'F', 0, false, false) /* keepLargest: i32 labels from the range */ \
+  X(cclWeight, 'F', 0, false, false) /* keepLargest: i32 weights */ \
+  X(cclLabel, 'E', 0, false, false) /* keepLargest: one round of line scans; halo gnz passed per call */ \
+  X(cclSum, 'E', 0, false, false) \
+  X(cclRoots, 'A', 0, false, false) \
+  X(cclBest, 'D', 0, false, true) \
+  X(cclApply, 'A', 0, false, false) \
   X(resliceUp, 'F', 0, false, false) /* resliceZ, factor < 1 */ \
   X(resliceDn, 'F', 0, false, false) /* resliceZ, factor > 1 (integer voxels) */ \
   X(growRange, 'B', 1, false, false) /* ::grow(vImg, midv, minv, maxv) */ \
