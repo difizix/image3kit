@@ -71,7 +71,7 @@ if(_VOXLIDE_HALIDE)
   target_compile_definitions(voxlide PRIVATE IMAGE3KIT_HAS_HALIDE=1)
 endif()
 
-# ---- voxlide_add_op(<op> GENERATOR <file> [TYPES u8 u16 i32 f32] [IMAGES <input>...] [VALUES <input>...] [STRICT_FLOAT] [FP64] [REDUCE] [CPU_ONLY])
+# ---- voxlide_add_op(<op> GENERATOR <file> [TYPES u8 u16 i32 f32] [IMAGES <input>...] [VALUES <input>...] [STRICT_FLOAT] [FP64] [F32T [FLOATS <input>...]] [REDUCE] [CPU_ONLY])
 # Builds <op>_{cpu,gpu}_<type> kernels and writes <op>_kernels.h with the table
 # vxhl::kernels::<op><T>{cpu, gpu}. Types not listed (or no Halide) get nullptr entries,
 # so the op falls back to voxlib for them.
@@ -83,6 +83,8 @@ endif()
 #   STRICT_FLOAT: float32 in voxlib's exact operation order (no FMA fusion, no reassociation).
 #   FP64:   the kernel computes in double to match voxlib bit for bit: strict IEEE float
 #           (no FMA fusion) and vk_float64 on Vulkan; Metal has no doubles, so no GPU kernel.
+#   F32T:   the kernel computes in voxlib's f32_t (IMAGE3KIT_F32_T, common/typses.h): generator param
+#           ftype=float32|float64, and FP64 (double) or STRICT_FLOAT (float). FLOATS: scalar Input<Expr>s of type f32_t.
 set(VOXLIDE_TYPES u8 u16 i32 f32)
 set(_vxhl_hl_u8 uint8)   # Halide type name
 set(_vxhl_hl_u16 uint16)
@@ -94,7 +96,21 @@ set(_vxhl_c_i32 int32_t)
 set(_vxhl_c_f32 float)
 
 function(voxlide_add_op OP)
-  cmake_parse_arguments(A "FP64;STRICT_FLOAT;REDUCE;CPU_ONLY" "GENERATOR;OUTPUT_TYPE" "TYPES;IMAGES;VALUES" ${ARGN})
+  cmake_parse_arguments(A "FP64;STRICT_FLOAT;REDUCE;CPU_ONLY;F32T" "GENERATOR;OUTPUT_TYPE" "TYPES;IMAGES;VALUES;FLOATS" ${ARGN})
+  set(_fparams "")
+  if(A_F32T)
+    if(IMAGE3KIT_F32_T STREQUAL "float")
+      set(_ft float32)
+      set(A_STRICT_FLOAT TRUE)
+    else()
+      set(_ft float64)
+      set(A_FP64 TRUE)
+    endif()
+    list(APPEND _fparams ftype=${_ft})
+    foreach(f IN LISTS A_FLOATS)
+      list(APPEND _fparams ${f}.type=${_ft})
+    endforeach()
+  endif()
   if(NOT A_TYPES)
     set(A_TYPES ${VOXLIDE_TYPES})
   endif()
@@ -131,6 +147,7 @@ function(voxlide_add_op OP)
       foreach(img IN LISTS A_IMAGES A_VALUES)
         list(APPEND _params ${img}.type=${_vxhl_hl_${t}})
       endforeach()
+      list(APPEND _params ${_fparams})
       foreach(dev IN LISTS _devs)
         add_halide_library(${OP}_${dev}_${t} FROM ${OP}.gen GENERATOR ${OP}
                            USE_RUNTIME voxlide_runtime TARGETS ${_${dev}_tgt} PARAMS ${_params})
@@ -169,9 +186,10 @@ voxlide_add_op(mode6 GENERATOR generators/mode6_gen.cpp)
 voxlide_add_op(shrink GENERATOR generators/shrink_gen.cpp IMAGES src VALUES lo hi)
 voxlide_add_op(replaceRange GENERATOR generators/replace_range_gen.cpp VALUES lo hi mid)
 voxlide_add_op(zeroGrad GENERATOR generators/zero_grad_gen.cpp)
-voxlide_add_op(magGradient GENERATOR generators/mag_gradient_gen.cpp TYPES u8 u16 i32 FP64)
-voxlide_add_op(scaleGradient GENERATOR generators/scale_gradient_gen.cpp TYPES u8 u16 i32 FP64)
-voxlide_add_op(segmentVote GENERATOR generators/segment_vote_gen.cpp TYPES u8 u16 IMAGES orig grad FP64)
+voxlide_add_op(magGradient GENERATOR generators/mag_gradient_gen.cpp TYPES u8 u16 i32 F32T FLOATS diffuse)
+voxlide_add_op(scaleGradient GENERATOR generators/scale_gradient_gen.cpp TYPES u8 u16 i32 F32T FLOATS avg)
+voxlide_add_op(segmentVote GENERATOR generators/segment_vote_gen.cpp TYPES u8 u16 IMAGES orig grad
+               F32T FLOATS localF flatnes gradFactor resolSqr_1 avgGradInv noisv krnlCub)
 voxlide_add_op(median032 GENERATOR generators/median032_gen.cpp VALUES lbl0 lbl1)
 voxlide_add_op(median06Grow GENERATOR generators/median06_grow_gen.cpp VALUES lblTo lblFrm)
 voxlide_add_op(median06 GENERATOR generators/median06_gen.cpp STRICT_FLOAT)

@@ -24,7 +24,7 @@ public:
         output(x, y, z) = select(vxhl_gen::interior(x, y, z, gnx, gny, gnz, 1), med, a);
     }
 
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type()); }
 };
 
 }  // namespace

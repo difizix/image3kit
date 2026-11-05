@@ -37,7 +37,7 @@ public:
     }
 
     void schedule() {
-        vxhl_gen::schedule_stencil(output, get_target(), input.type());
+        vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type());
         cc.schedule(changes, get_target());
     }
 };

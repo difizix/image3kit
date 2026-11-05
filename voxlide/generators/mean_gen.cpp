@@ -23,7 +23,7 @@ public:
         const Expr mean = Internal::make_const(Float(64), 0.5) + vxhl_gen::div64(cast<double>(acc(x, y, z)), Internal::make_const(Float(64), 27.0), get_target());
         output(x, y, z) = select(vxhl_gen::interior(x, y, z, gnx, gny, gnz, 1), cast(output.type(), cast<int32_t>(mean)), input(x, y, z));
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), Float(64), {acc}); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), Float(64), {acc}); }
 };
 
 }  // namespace

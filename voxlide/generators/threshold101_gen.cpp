@@ -17,7 +17,7 @@ public:
         const Expr v = input(x, y, z);
         output(x, y, z) = select(v < bgn || end < v, cast(input.type(), 1), cast(input.type(), 0));
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type()); }
 };
 
 }  // namespace

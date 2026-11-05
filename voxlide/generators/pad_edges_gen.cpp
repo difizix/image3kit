@@ -20,7 +20,7 @@ public:
 
     static Expr m(Expr j, Expr n) { return select(j >= n - 4 && j <= n - 2, Expr(4), select(j >= 1 && j <= 3, n - 5, j)); }
     void generate() { output(x, y, z) = input(m(x, gnx), m(y, gny), m(z, gnz)); }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type()); }
 };
 
 }  // namespace

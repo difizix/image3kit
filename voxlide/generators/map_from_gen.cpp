@@ -26,7 +26,7 @@ public:
         const Expr conv = t.is_float() ? cast(t, sc) : cast(t, cast<int32_t>(sc));
         output(x, y, z) = select(scale > Internal::make_const(Float(64), 1e-16), conv, mapped);
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type()); }
 };
 
 }  // namespace

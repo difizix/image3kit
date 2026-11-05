@@ -38,7 +38,7 @@ public:
                             grad(x, y, z) <= gradthresh && nNeis > 5;
         output(x, y, z) = select(change, cast(output.type(), mean), vv);
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type()); }
 };
 
 }  // namespace

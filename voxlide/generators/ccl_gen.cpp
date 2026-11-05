@@ -83,7 +83,7 @@ public:
     }
     void schedule() {
         for (int k = 0; k < 6; ++k) schedule_scan(kAxis[k], st[k], get_target(), x, y, z);
-        vxhl_gen::schedule_stencil(output, get_target(), Int(32));
+        vxhl_gen::schedule_stencil(gnx, output, get_target(), Int(32));
         cc.schedule(changes, get_target());
     }
 };
@@ -132,7 +132,7 @@ public:
     }
     void schedule() {
         for (int k = 0; k < 6; ++k) schedule_scan(kAxis[k], st[k], get_target(), x, y, z);
-        vxhl_gen::schedule_stencil(output, get_target(), Int(32));
+        vxhl_gen::schedule_stencil(gnx, output, get_target(), Int(32));
         cc.schedule(changes, get_target());
     }
 };
@@ -147,7 +147,7 @@ public:
         const Expr v = input(x, y, z);
         output(x, y, z) = select(lo <= v && v <= hi, (x + gnx * (y + gny * z)) << 3, -1);
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), Int(32)); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), Int(32)); }
 };
 
 class CclWeight : public Generator<CclWeight> {
@@ -160,7 +160,7 @@ public:
         const Expr v = input(x, y, z);
         output(x, y, z) = select(lo <= v && v <= hi, 1, 0);
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), Int(32)); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), Int(32)); }
 };
 
 class CclRoots : public Generator<CclRoots> {
@@ -173,7 +173,7 @@ public:
         const Expr p = par(x, y, z);
         output(x, y, z) = select(p >= 0 && (p & 7) == 0, cast<int32_t>(input(x, y, z)), -1);
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), Int(32)); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), Int(32)); }
 };
 
 class CclBest : public Generator<CclBest> {
@@ -228,7 +228,7 @@ public:
         const Expr reset = !(p >= 0 && lbl(p) == best) && (mode == 0 || (lo <= v && v <= hi));
         output(x, y, z) = select(reset, value, v);
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type()); }
 };
 
 }  // namespace

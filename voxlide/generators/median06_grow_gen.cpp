@@ -33,7 +33,7 @@ public:
         output(x, y, z) = select(change, lblTo, vv);
     }
 
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type()); }
 };
 
 }  // namespace

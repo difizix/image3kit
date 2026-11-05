@@ -59,7 +59,7 @@ public:
         output(x, y, z) = select(change, stored, in(x, y, z));
     }
 
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), Float(32), {acc}); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), Float(32), {acc}); }
 };
 
 }  // namespace

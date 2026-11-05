@@ -67,9 +67,8 @@
 #include "bilateralGauss_kernels.h"
 
 namespace vxhl {
-//! voxlib's per-voxel float type is double (typses.h f32_t): the f64 kernels below (magGradient, scaleGradient,
-//! segmentVote, segment2) match it bit for bit; with -DVXL_F32_T=float those ops run voxlib until the kernels follow.
-constexpr bool kVoxlibF64 = std::is_same_v<f32_t, double>;
+//! magGradient, scaleGradient and segmentVote (so segment2) compute in voxlib's per-voxel float type f32_t
+//! (typses.h): their kernels are built for it (voxlide_add_op F32T) and take their float scalars as f32_t.
 
 namespace {
 //! moments kernel results merged over z (generators/moments_gen.cpp).
@@ -162,12 +161,8 @@ template <Image I> void zeroGrad(I& v, int nLayers) {
         v, detail::Passes(1, nLayers), [&](auto& m) { m.zeroGrad(nLayers); }, int32_t(nLayers));
 }
 template <Image I> void scaleGradient(I& v, double avgGrad) {
-    if constexpr (!kVoxlibF64) {  // the kernel is f64: voxlib's own f32_t arithmetic (typses.h)
-        if constexpr (std::is_same_v<I, VoxelImageT<voxel_t<I>>>) return ::scaleGradient(v, avgGrad);
-        else return ::scaleGradient(v.host_mut(), avgGrad);
-    }
     detail::run_stencil<op::scaleGradient, kernels::scaleGradient<voxel_t<I>>>(
-        v, 1, [&](auto& m) { ::scaleGradient(m, avgGrad); }, avgGrad);
+        v, 1, [&](auto& m) { ::scaleGradient(m, avgGrad); }, f32_t(avgGrad));
 }
 template <Image I> void median032(I& v, int nAdj0, int nAdj1, voxel_t<I> lbl0, voxel_t<I> lbl1) {
     detail::run_stencil<op::median032, kernels::median032<voxel_t<I>>>(
@@ -778,16 +773,14 @@ template <Image I, Image J> void shrink(I& seged, voxel_t<I> min, voxel_t<I> mak
         seged, 1, [&](auto& m) { ::shrink(m, min, maks, src.host()); }, min, maks, src);
 }
 template <typename T> VoxelImageT<T> magGradient(const VoxelImageT<T>& v, double diffuseLSqr) {
-    if constexpr (!kVoxlibF64) return ::magGradient(v, diffuseLSqr);  // f64 kernel, f32_t voxlib (typses.h)
     VoxelImageT<T> r = v;
     detail::run_stencil<op::magGradient, kernels::magGradient<T>>(
-        r, 1, [&](auto& m) { m = ::magGradient(m, diffuseLSqr); }, diffuseLSqr);
+        r, 1, [&](auto& m) { m = ::magGradient(m, diffuseLSqr); }, f32_t(diffuseLSqr));
     return r;
 }
 template <typename T> void magGradient(DeviceImage<T>& v, double diffuseLSqr) {
-    if constexpr (!kVoxlibF64) { v.host_mut() = ::magGradient(v.host(), diffuseLSqr); return; }
     detail::run_stencil<op::magGradient, kernels::magGradient<T>>(
-        v, 1, [&](auto& m) { m = ::magGradient(m, diffuseLSqr); }, diffuseLSqr);
+        v, 1, [&](auto& m) { m = ::magGradient(m, diffuseLSqr); }, f32_t(diffuseLSqr));
 }
 template <typename T> VoxelImageT<T> median(const VoxelImageT<T>& v, int nIter) {
     VoxelImageT<T> r = v;
@@ -858,15 +851,16 @@ std::size_t segmentVote(I& vImg, const J& origimg, const K& grad, const vars<vox
                                         resolutionSqr, avgGradInv, noisv);
     };
     constexpr int kMax = 8;  // generators/segment_vote_gen.cpp kMaxSegs
-    if (!kVoxlibF64 || meds.empty() || meds.size() > kMax) {  // f64 kernel, f32_t voxlib (typses.h)
+    if (meds.empty() || meds.size() > kMax) {
         if constexpr (std::is_same_v<I, VoxelImageT<T>>) return ref(vImg); else return ref(vImg.host_mut());
     }
     int32_t m[kMax];
     for (int i = 0; i < kMax; ++i) m[i] = i < int(meds.size()) ? int32_t(meds[i]) : -1;
-    const double r1 = resolutionSqr - 0.99, kc = 2 * (krnl + 0.5) * (krnl + 0.5) * (krnl + 0.5);  // as voxlib
+    using R = f32_t;  // as voxlib: computed in double, then converted
+    const R r1 = resolutionSqr - 0.99, kc = 2 * (krnl + 0.5) * (krnl + 0.5) * (krnl + 0.5);
     return detail::run_stencil_count<op::segmentVote, kernels::segmentVote<T>>(
         vImg, detail::Passes(1, krnl), ref, o, g, int32_t(krnl), int32_t(meds.size()), m[0], m[1], m[2], m[3], m[4], m[5],
-        m[6], m[7], int32_t(capmin), int32_t(capmax), localF, flatnes, gradFactor, r1, avgGradInv, noisv, kc);
+        m[6], m[7], int32_t(capmin), int32_t(capmax), R(localF), R(flatnes), R(gradFactor), r1, R(avgGradInv), R(noisv), kc);
 }
 
 //! Opt-in stage timer for segment2 (VXHL_PROFILE=1): lap(name, images...) waits for the device work of the
@@ -906,7 +900,7 @@ bool segment2(VoxelImageT<T>& vImg, int nSegs, vars<Tint> th, vars<int> minSizs,
     auto voxlib = [&] {
         return ::segment2(vImg, nSegs, th, minSizs, noisev, localF, flatnes, resolution, gradFactor, krnl, nItrs, writedumps);
     };
-    if (!kVoxlibF64 || get_backend() == Backend::Voxlib || writedumps || nSegs < 1 || nSegs > 8) return voxlib();
+    if (get_backend() == Backend::Voxlib || writedumps || nSegs < 1 || nSegs > 8) return voxlib();
     // ---- segment2 (same checks and clamps as voxlib)
     ensure(flatnes < 0.9, "too large flatnes, set to ~0.1", 2);
     ensure(gradFactor < 10.1, "too large gradFactor, set to ~0.1", 2);

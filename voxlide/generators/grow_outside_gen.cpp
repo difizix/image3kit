@@ -72,7 +72,7 @@ public:
         scan(highY, ry, x, z, 1);
         scan(lowZ, rz, x, y, 2);
         scan(highZ, rz, x, y, 2);
-        vxhl_gen::schedule_stencil(output, t, input.type());
+        vxhl_gen::schedule_stencil(gnx, output, t, input.type());
     }
 };
 

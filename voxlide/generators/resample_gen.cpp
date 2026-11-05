@@ -28,7 +28,7 @@ using namespace Halide;
         void schedule() {                                                          \
             std::vector<Func> per;                                                 \
             if (acc.defined()) per.push_back(acc);                                 \
-            vxhl_gen::schedule_stencil(output, get_target(), output.type(), per);  \
+            vxhl_gen::schedule_stencil(gnx, output, get_target(), output.type(), per);  \
         }                                                                          \
     };
 
@@ -74,7 +74,7 @@ public:
         acc(x, y, z) = Tuple(select(better, c, acc(x, y, z)[0]), select(better, cc, acc(x, y, z)[1]));
         output(x, y, z) = cast(output.type(), acc(x, y, z)[0]);
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), output.type(), {acc}); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), output.type(), {acc}); }
 };
 
 VXHL_RESAMPLE_GEN(ResliceUp, {

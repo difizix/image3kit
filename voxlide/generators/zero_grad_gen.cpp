@@ -20,7 +20,7 @@ public:
     void generate() {
         output(x, y, z) = input(clamp(x, n, gnx - 1 - n), clamp(y, n, gny - 1 - n), clamp(z, n, gnz - 1 - n));
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type()); }
 };
 
 }  // namespace

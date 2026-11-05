@@ -30,7 +30,7 @@ public:
             Var xi{"xi"}, yi{"yi"};
             output.gpu_tile(x, y, xi, yi, 16, 16, TailStrategy::GuardWithIf);
         } else {
-            vxhl_gen::schedule_stencil(output, this->get_target(), output.type());
+            vxhl_gen::schedule_stencil(this->gnx, output, this->get_target(), output.type());
         }
     }
 };

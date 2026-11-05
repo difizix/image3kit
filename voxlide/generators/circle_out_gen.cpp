@@ -23,7 +23,7 @@ public:
         const Expr outX = (y - X0) * (y - X0) + (z - Y0) * (z - Y0) > rlim;
         output(x, y, z) = select(select(dir == 0, outZ, outX), outVal, input(x, y, z));
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type()); }
 };
 
 }  // namespace

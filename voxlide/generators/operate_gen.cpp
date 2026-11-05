@@ -36,7 +36,7 @@ public:
         const Expr neg = h.clampToT(dbl(0.0) - cast<double>(v));
         output(x, y, z) = select(op == int32_t('~'), bitNot, select(op == int32_t('!'), logNot, neg));
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type()); }
 };
 
 // ---- with another image: '+' '-' '*' '/' '&' '|' '%' and shift
@@ -63,7 +63,7 @@ public:
         output(x, y, z) = select(op == int32_t('+'), add, select(op == int32_t('-'), sub, select(op == int32_t('*'), mul, select(op == int32_t('/'), div,
                           select(op == int32_t('&'), band, select(op == int32_t('|'), bor, rem))))));
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type()); }
 };
 
 // ---- with a scalar: '=' '+' '-' '*' '/' '&' '|' '%' 'b' 'e'
@@ -92,7 +92,7 @@ public:
                           select(op == int32_t('/'), div, select(op == int32_t('&'), band, select(op == int32_t('|'), bor,
                           select(op == int32_t('%'), rem, select(op == int32_t('b'), lo, hi)))))))));
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type()); }
 };
 
 }  // namespace

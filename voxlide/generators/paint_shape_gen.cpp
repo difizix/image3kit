@@ -42,7 +42,7 @@ public:
         const Expr added = t.is_float() ? v + cast<float>(insidev) : cast(t, cast<int32_t>(v) + insidev);
         output(x, y, z) = select(inside, select(mode == 0, cast(t, insidev), added), v);
     }
-    void schedule() { vxhl_gen::schedule_stencil(output, get_target(), input.type()); }
+    void schedule() { vxhl_gen::schedule_stencil(gnx, output, get_target(), input.type()); }
 };
 
 }  // namespace
