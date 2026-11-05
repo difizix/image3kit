@@ -19,18 +19,18 @@ auto make = [](auto tag, int3 n) {
 };
 }  // namespace
 
-// Same float32 / GPU tolerance policy as test_bilateral_x.cpp.
+// Exact on every backend, as test_bilateral_x.cpp.
 // _bilateralGauss (Python bilateral_gauss): (nItrs, kernRad, sigma², sharp, sigma_d²) as the binding passes them.
 #define BILATG_PARITY(NAME, NI, KR, SG, SH, SD)                                                         \
-    VXHL_PARITY_TEST_GPU_TOL(NAME, make, [](auto& m) { ::_bilateralGauss(m, NI, KR, SG, SH, SD); },      \
-                             [](auto& m) { vxhl::_bilateralGauss(m, NI, KR, SG, SH, SD); }, 1e-4, 2.0)
+    VXHL_PARITY_TEST(NAME, make, [](auto& m) { ::_bilateralGauss(m, NI, KR, SG, SH, SD); },      \
+                             [](auto& m) { vxhl::_bilateralGauss(m, NI, KR, SG, SH, SD); })
 
 BILATG_PARITY(bilateral_gauss_defaults, 1, 1, 256.0, 0.1, 4.0)
 BILATG_PARITY(bilateral_gauss_3it_r2, 3, 2, 256.0, 0.1, 4.0)
 BILATG_PARITY(bilateral_gauss_2it_r3_sharp, 2, 3, 64.0, 0.6, 9.0)
 BILATG_PARITY(bilateral_gauss_r0, 1, 0, 64.0, 0.6, 9.0)
 
-VXHL_PARITY_TEST_GPU_TOL(bilateralGauss_cap, make,
+VXHL_PARITY_TEST(bilateralGauss_cap, make,
                          [](auto& m) { ::bilateralGauss(m, 2, 16.f, 0.05f, 12.f, 40.f, 200.f); },
-                         [](auto& m) { vxhl::bilateralGauss(m, 2, 16.f, 0.05f, 12.f, 40.f, 200.f); }, 1e-4, 2.0)
+                         [](auto& m) { vxhl::bilateralGauss(m, 2, 16.f, 0.05f, 12.f, 40.f, 200.f); })
 

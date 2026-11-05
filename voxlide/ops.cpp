@@ -67,7 +67,7 @@
 #include "bilateralGauss_kernels.h"
 
 namespace vxhl {
-//! magGradient, scaleGradient and segmentVote (so segment2) compute in voxlib's per-voxel float type f32_t
+//! magGradient, scaleGradient, segmentVote (so segment2), smoothBilateral and bilateralGauss compute in voxlib's per-voxel float type f32_t
 //! (typses.h): their kernels are built for it (voxlide_add_op F32T) and take their float scalars as f32_t.
 
 namespace {
@@ -796,7 +796,7 @@ template <Image I> bool smoothBilateral(I& v, int nItrs, int kernRad, double sig
     v.growBox(kernRad + 2);
     detail::run_stencil<op::smoothBilateral, kernels::smoothBilateral<voxel_t<I>>>(
         v, nItrs * kernRad, [&](auto& m) { for (int i = 0; i < nItrs; ++i) ::biLateralIterative(m, kernRad, sigmavv, sharpFact); },
-        detail::Snapshot{kernRad}, sigmavv, sharpFact);
+        detail::Snapshot{kernRad}, f32_t(sigmavv), f32_t(sharpFact));
     v.shrinkBox(kernRad + 2);
     return true;
 }
@@ -825,11 +825,12 @@ bool _bilateralX(I& v, int nItrs, int kernRad, int Xstp, double sigmavv, double 
 template <Image I>
 void bilateralGauss(I& v, int kernRad, float sigmaSqr, float sharpFact, float sigmaGaussSqr, float capmin,
                     float capmax) {
-    const float p1rSigma = 1. / sigmaSqr, p1rGSigma = 1. / sigmaGaussSqr;  // as voxlib: double, then float
+    using R = f32_t;  // as voxlib: 1./sigma in double, then f32_t
+    const R p1rSigma = 1. / sigmaSqr, p1rGSigma = 1. / sigmaGaussSqr;
     detail::run_stencil<op::bilateralGauss, kernels::bilateralGauss<voxel_t<I>>>(
         v, detail::Passes(1, kernRad),
         [&](auto& m) { ::bilateralGauss(m, kernRad, sigmaSqr, sharpFact, sigmaGaussSqr, capmin, capmax); },
-        int32_t(kernRad), sigmaSqr, p1rSigma, p1rGSigma, sharpFact, capmin, capmax);
+        int32_t(kernRad), R(sigmaSqr), p1rSigma, p1rGSigma, R(sharpFact), R(capmin), R(capmax));
 }
 // ::_bilateralGauss: growBox, nItrs passes, shrinkBox.
 template <Image I>

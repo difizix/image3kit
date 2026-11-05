@@ -318,8 +318,10 @@ void bilateralGauss(VoxelImageT<T>& vImg, int kernRad, float sigmaSqr=16, float 
     (std::cout<<" bilateralGauss  ").flush();
 
 
-  float p1rSigma=1./sigmaSqr;
-  float p1rGSigma=1./sigmaGaussSqr;
+  using R = f32_t;  // per-voxel arithmetic (see typses.h)
+  const R p1rSigma=1./sigmaSqr;
+  const R p1rGSigma=1./sigmaGaussSqr;
+  const R sigSqr=sigmaSqr, sharp=sharpFact, cmin=capmin, cmax=capmax;
   VoxelImageT<T> vxls=vImg;
 
   OMPFor()
@@ -330,26 +332,26 @@ void bilateralGauss(VoxelImageT<T>& vImg, int kernRad, float sigmaSqr=16, float 
     {
       for (int i=kernRad; i<vxls.nx()-kernRad; ++i)
       {
-        float  vv=vxls(i,j,k);
-        if(capmin<=vv && vv<=capmax)
+        R  vv=vxls(i,j,k);
+        if(cmin<=vv && vv<=cmax)
         {
-          float  neidiffSum(0.);
-          float  neiSumWei(1e-18);
-          float  neidiffGSum(0.);
-          float  neiSumGWei(1e-18);
+          R  neidiffSum(0.);
+          R  neiSumWei(1e-18);
+          R  neidiffGSum(0.);
+          R  neiSumGWei(1e-18);
           forAllNei(-kernRad,kernRad)
           {
-            float dist2Nei=distSqrNei();
-            float  nv=_nei(vxls,i,j,k)-vv;
-            float  weit=1./(1.+nv*nv*p1rSigma+dist2Nei*p1rGSigma);
+            R dist2Nei=distSqrNei();
+            R  nv=_nei(vxls,i,j,k)-vv;
+            R  weit=R(1)/(R(1)+nv*nv*p1rSigma+dist2Nei*p1rGSigma);
             neidiffSum+=weit*nv;
             neiSumWei+=weit;
-            weit=std::min(nv*nv,sigmaSqr)*dist2Nei;
+            weit=std::min(nv*nv,sigSqr)*dist2Nei;
             neidiffGSum+=weit*nv;
             neiSumGWei+=weit;
           }
 
-          vImg(i  ,j,k)=std::max(capmin,std::min(capmax,(vv+neidiffSum/(neiSumWei)*(1.0f+sharpFact)-sharpFact*neidiffGSum/(neiSumGWei)+0.5f)));
+          vImg(i  ,j,k)=std::max(cmin,std::min(cmax,(vv+neidiffSum/(neiSumWei)*(R(1)+sharp)-sharp*neidiffGSum/(neiSumGWei)+R(0.5))));
         }
       }
     }
@@ -415,7 +417,8 @@ void biLateralIterative(VoxelImageT<T>& vImg, const int kernRad, const double si
     (std::cout<<"  bilat ").flush();
 
   const VoxelImageT<T> vxlsO=vImg;
-  const double  sigma = sigmad;
+  using R = f32_t;  // per-voxel arithmetic (see typses.h)
+  const R  sigma = sigmad;
   for(int iKer=0; iKer<kernRad; ++iKer)
   {
    (std::cout<<":").flush();
@@ -427,21 +430,21 @@ void biLateralIterative(VoxelImageT<T>& vImg, const int kernRad, const double si
         for (int j=1; j<vxls.ny()-1; ++j)
          for (int i=1; i<vxls.nx()-1; ++i)
          {
-          const double  vvO=vxlsO(i,j,k);
+          const R  vvO=vxlsO(i,j,k);
           const T*  vp=&vxls(i,j,k);
-          const double  vv=*vp;
-          double  neidiffSum(0.);
-          double  neiSumWei(1e-12);
+          const R  vv=*vp;
+          R  neidiffSum(0.);
+          R  neiSumWei(1e-12);
           //double  sumWDn(1e-12);
           //double  sumWUp(1e-12);
 
-          double  nv;        double  weit;
-          nv=vxls.v_i(-1,vp)-vvO;  weit=1./(1.+nv*nv/sigma); nv+=vvO-vv;    neidiffSum+=weit*nv;  neiSumWei+=weit; //sumWUp+=max(nv,0.); sumWDn-=min(nv,0.);
-          nv=vxls.v_i( 1,vp)-vvO;  weit=1./(1.+nv*nv/sigma); nv+=vvO-vv;    neidiffSum+=weit*nv;  neiSumWei+=weit; //sumWUp+=max(nv,0.); sumWDn-=min(nv,0.);
-          nv=vxls.v_j(-1,vp)-vvO;  weit=1./(1.+nv*nv/sigma); nv+=vvO-vv;    neidiffSum+=weit*nv;  neiSumWei+=weit; //sumWUp+=max(nv,0.); sumWDn-=min(nv,0.);
-          nv=vxls.v_j( 1,vp)-vvO;  weit=1./(1.+nv*nv/sigma); nv+=vvO-vv;    neidiffSum+=weit*nv;  neiSumWei+=weit; //sumWUp+=max(nv,0.); sumWDn-=min(nv,0.);
-          nv=vxls.v_k(-1,vp)-vvO;  weit=1./(1.+nv*nv/sigma); nv+=vvO-vv;    neidiffSum+=weit*nv;  neiSumWei+=weit; //sumWUp+=max(nv,0.); sumWDn-=min(nv,0.);
-          nv=vxls.v_k( 1,vp)-vvO;  weit=1./(1.+nv*nv/sigma); nv+=vvO-vv;    neidiffSum+=weit*nv;  neiSumWei+=weit; //sumWUp+=max(nv,0.); sumWDn-=min(nv,0.);
+          R  nv;        R  weit;
+          nv=vxls.v_i(-1,vp)-vvO;  weit=R(1)/(R(1)+nv*nv/sigma); nv+=vvO-vv;    neidiffSum+=weit*nv;  neiSumWei+=weit; //sumWUp+=max(nv,0.); sumWDn-=min(nv,0.);
+          nv=vxls.v_i( 1,vp)-vvO;  weit=R(1)/(R(1)+nv*nv/sigma); nv+=vvO-vv;    neidiffSum+=weit*nv;  neiSumWei+=weit; //sumWUp+=max(nv,0.); sumWDn-=min(nv,0.);
+          nv=vxls.v_j(-1,vp)-vvO;  weit=R(1)/(R(1)+nv*nv/sigma); nv+=vvO-vv;    neidiffSum+=weit*nv;  neiSumWei+=weit; //sumWUp+=max(nv,0.); sumWDn-=min(nv,0.);
+          nv=vxls.v_j( 1,vp)-vvO;  weit=R(1)/(R(1)+nv*nv/sigma); nv+=vvO-vv;    neidiffSum+=weit*nv;  neiSumWei+=weit; //sumWUp+=max(nv,0.); sumWDn-=min(nv,0.);
+          nv=vxls.v_k(-1,vp)-vvO;  weit=R(1)/(R(1)+nv*nv/sigma); nv+=vvO-vv;    neidiffSum+=weit*nv;  neiSumWei+=weit; //sumWUp+=max(nv,0.); sumWDn-=min(nv,0.);
+          nv=vxls.v_k( 1,vp)-vvO;  weit=R(1)/(R(1)+nv*nv/sigma); nv+=vvO-vv;    neidiffSum+=weit*nv;  neiSumWei+=weit; //sumWUp+=max(nv,0.); sumWDn-=min(nv,0.);
 
           //neidiffSum = max(-vv,min(dmaxT(T)-vv,(neidiffSum/(neiSumWei)*(1.+sharpFact) )));
           //int deltap6 = neidiffSum/6.+0.5;
@@ -453,8 +456,8 @@ void biLateralIterative(VoxelImageT<T>& vImg, const int kernRad, const double si
           //vImg(i,j,k-1)=max(0,min(255,vImg(i,j,k-1)-deltap6));
           //vImg(i,j,k+1)=max(0,min(255,vImg(i,j,k+1)-deltap6));
 
-          neidiffSum =(1.+sharpFact)*neidiffSum/neiSumWei;
-          vImg(i,j,k)=std::max(0,std::min(imaxT(T),int(vImg(i,j,k))+int(neidiffSum+0.5)));
+          neidiffSum =(R(1)+R(sharpFact))*neidiffSum/neiSumWei;
+          vImg(i,j,k)=std::max(0,std::min(imaxT(T),int(vImg(i,j,k))+int(neidiffSum+R(0.5))));
 
           //if(neidiffSum<-1.5)
           //{

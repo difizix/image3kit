@@ -34,27 +34,32 @@ inline Expr cdiv(Expr a, int b) {
 }
 
 //! Halide's Vulkan backend ignores strict_float: its SPIR-V has no NoContraction decorations, so the driver
-//! may fuse an f32 a*b + c into one fma (RADV does; it does not fuse f64), which rounds once where voxlib
-//! rounds twice. The mutator routes every f32 product feeding an add or subtract through an integer OR with
-//! `zero`, a runtime 0 the driver cannot fold, so the operand is no longer a multiply and cannot be fused.
+//! treats f32 arithmetic as inexact: it fuses a*b + c into one fma and reassociates sums and products
+//! (e.g. moves constants out: (a + #b) + c -> (a + c) + #b; RADV does both; it does not touch f64), which
+//! changes the rounding voxlib does. The mutator routes every f32 add / sub / mul operand that is itself an
+//! add / sub / mul through an integer OR with `zero`, a runtime 0 the driver cannot fold: no float operation
+//! then feeds another directly, so nothing can be fused or reassociated.
 class NoContraction : public Internal::IRMutator {
     Expr zero;  // UInt(32), 0 at run time
+    static bool arith(const Expr& e) {
+        return e.as<Internal::Mul>() || e.as<Internal::Add>() || e.as<Internal::Sub>();
+    }
     Expr guard(const Expr& e) const {
-        if (!e.as<Internal::Mul>() || !e.type().is_float() || e.type().bits() != 32) return e;
+        if (!arith(e) || !e.type().is_float() || e.type().bits() != 32) return e;
         const Type u = UInt(32, e.type().lanes());
         return reinterpret(e.type(), reinterpret(u, e) | cast(u, zero));
+    }
+    template <typename Op> Expr rebuild(const Op* op) {
+        Expr a = mutate(op->a), b = mutate(op->b);
+        if (op->type.is_float() && op->type.bits() == 32) a = guard(a), b = guard(b);
+        return Op::make(a, b);
     }
 public:
     explicit NoContraction(Expr z) : zero(std::move(z)) {}
     using IRMutator::visit;
-    Expr visit(const Internal::Add* op) override {
-        Expr a = mutate(op->a), b = mutate(op->b);
-        return op->type.is_float() ? Internal::Add::make(guard(a), guard(b)) : Internal::Add::make(a, b);
-    }
-    Expr visit(const Internal::Sub* op) override {
-        Expr a = mutate(op->a), b = mutate(op->b);
-        return op->type.is_float() ? Internal::Sub::make(guard(a), guard(b)) : Internal::Sub::make(a, b);
-    }
+    Expr visit(const Internal::Add* op) override { return rebuild(op); }
+    Expr visit(const Internal::Sub* op) override { return rebuild(op); }
+    Expr visit(const Internal::Mul* op) override { return rebuild(op); }
 };
 //! Applies NoContraction to the definitions of `fs` on GPU targets; `zero` is any runtime expression
 //! that is 0 and that Halide cannot fold (min(gnx, 0): a buffer extent would not do, Halide knows it is >= 0).

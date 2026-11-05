@@ -4,7 +4,8 @@
 // iterations of kernRad passes each, where `orig` is the image at the start of the outer
 // iteration (Snapshot), then shrinkBox. Semantics reproduced exactly:
 //  - only voxels >= 1 from every face of the (grown) image change; the rest are copied;
-//  - double arithmetic in voxlib's operation order (strict_float target: no FMA, no reassociation):
+//  - arithmetic in voxlib's f32_t (generator param ftype) and operation order (strict_float target: no
+//    FMA, no reassociation; GPU: corrected divisions, vxhl_gen::divF):
 //      nv = n - vO; w = 1/(1 + nv*nv/sigma); nv += vO - v; sum += w*nv; wsum (from 1e-12) += w
 //    over the 6 face neighbours in the order i-1, i+1, j-1, j+1, k-1, k+1;
 //  - new = clamp(int(v) + int((1+sharp)*sum/wsum + 0.5), 0, imaxT(T)), with C++ truncation
@@ -19,10 +20,11 @@ using namespace Halide;
 
 class SmoothBilateral : public Generator<SmoothBilateral> {
 public:
+    GeneratorParam<Type> ftype{"ftype", Float(64)};  // voxlib f32_t (F32T)
     VXHL_STENCIL_INPUTS
     Input<Buffer<void, 3>> orig{"orig"};  // Snapshot: image at the start of the outer iteration
-    Input<double> sigma{"sigma"};
-    Input<double> sharp{"sharp"};
+    Input<Expr> sigma{"sigma"};  // ftype (FLOATS)
+    Input<Expr> sharp{"sharp"};
     Output<Buffer<void, 3>> output{"output"};
 
     Var x{"x"}, y{"y"}, z{"z"};
@@ -30,18 +32,20 @@ public:
     void generate() {
         Func in = BoundaryConditions::repeat_edge(input);
         const Expr p = in(x, y, z);
-        const Expr v = cast<double>(p), vO = cast<double>(orig(x, y, z));
+        const Type ft = ftype;
+        const Expr v = cast(ft, p), vO = cast(ft, orig(x, y, z));
         static constexpr int nei[6][3] = {{-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}};
-        auto f64 = [](double c) { return Internal::make_const(Float(64), c); };
+        auto f64 = [&](double c) { return vxhl_gen::fconst(ft, c); };
+        auto div = [&](Expr a, Expr b) { return vxhl_gen::divF(a, b, get_target()); };
         Expr sum = f64(0.0), wsum = f64(1e-12);
         for (const auto& d : nei) {
-            Expr nv = cast<double>(in(x + d[0], y + d[1], z + d[2])) - vO;
-            const Expr w = f64(1.0) / (f64(1.0) + nv * nv / sigma);
+            Expr nv = cast(ft, in(x + d[0], y + d[1], z + d[2])) - vO;
+            const Expr w = div(f64(1.0), f64(1.0) + div(nv * nv, sigma));
             nv = nv + (vO - v);
             sum = sum + w * nv;
             wsum = wsum + w;
         }
-        const Expr delta = (f64(1.0) + sharp) * sum / wsum;
+        const Expr delta = div((f64(1.0) + sharp) * sum, wsum);
         const Type t = input.type();
         const int imax = (t.is_float() || t.bits() >= 32) ? INT_MAX  // imaxT(T)
                                                           : int((1LL << (t.bits() - t.is_int())) - 1);

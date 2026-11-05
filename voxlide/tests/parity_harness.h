@@ -68,20 +68,11 @@ long long count_mismatches(const VoxelImageT<T>& a, const VoxelImageT<T>& b, con
     return bad;
 }
 
-//! Tolerance for the GPU backend only, for ops that voxlib computes in float32: Halide's Vulkan
-//! backend ignores strict_float (no NoContraction in the SPIR-V), so the driver may fuse a*b+c.
-//! Halide CPU stays exact. Integer images: at most `intFraction` of voxels differ, by at most 1;
-//! float images: every |diff| <= floatAbs. Default: exact.
-struct GpuTol {
-    double intFraction = 0;
-    double floatAbs = 0;
-};
-
 //! Run `ref` (voxlib) and `test` (vxhl::) on make(type, shape) for every voxel type, shape,
 //! available backend and slab count; return the total number of mismatching voxels.
 //! make: (auto typeTag, int3 n) -> VoxelImageT<decltype(typeTag)>; ref/test: (auto& img) -> void.
 template <typename Make, typename Ref, typename Test>
-long long parity_sweep(const std::string& op, Make make, Ref ref, Test test, GpuTol gpuTol = {}) {
+long long parity_sweep(const std::string& op, Make make, Ref ref, Test test) {
     long long bad = 0;
     const Backend saved = get_backend();
     auto oneType = [&](auto tag, const char* tname) {
@@ -100,17 +91,7 @@ long long parity_sweep(const std::string& op, Make make, Ref ref, Test test, Gpu
                     const std::string label = op + "<" + tname + "> " + backend_name(b) + " " +
                                               std::to_string(n.x) + "x" + std::to_string(n.y) + "x" +
                                               std::to_string(n.z) + " slabs=" + std::to_string(s);
-                    const bool tolerant = b == Backend::Gpu && (gpuTol.intFraction > 0 || gpuTol.floatAbs > 0);
-                    if (!tolerant) {
-                        bad += count_mismatches(expect, got, label);
-                    } else if (std::is_floating_point_v<decltype(tag)>) {
-                        bad += count_mismatches(expect, got, label + " (tol " + std::to_string(gpuTol.floatAbs) + ")",
-                                                gpuTol.floatAbs);
-                    } else {
-                        const long long off = count_mismatches(expect, got, label + " (allowed: few off by 1)");
-                        const long long big = count_mismatches(expect, got, label + " (off by >1)", 1.0);
-                        if (big || off > gpuTol.intFraction * double(n.x) * n.y * n.z) bad += off;
-                    }
+                    bad += count_mismatches(expect, got, label);
                 }
             }
         }
@@ -166,12 +147,6 @@ long long scalar_parity_sweep(const std::string& op, Make make, Ref ref, Test te
 //! One line per op: parity of vxhl::<op> vs voxlib over types × backends × shapes × slabs.
 #define VXHL_PARITY_TEST(NAME, MAKE, REF, TEST) \
     UTEST(VoxlideParity, NAME) { EXPECT_EQ(0LL, vxhl::testing::parity_sweep(#NAME, MAKE, REF, TEST)); }
-//! Same, with a GPU-only tolerance (GpuTol{intFraction, floatAbs}) for float32 ops; see GpuTol.
-#define VXHL_PARITY_TEST_GPU_TOL(NAME, MAKE, REF, TEST, INT_FRACTION, FLOAT_ABS)                     \
-    UTEST(VoxlideParity, NAME) {                                                                      \
-        EXPECT_EQ(0LL, vxhl::testing::parity_sweep(#NAME, MAKE, REF, TEST,                           \
-                                                   vxhl::testing::GpuTol{INT_FRACTION, FLOAT_ABS})); \
-    }
 //! For ops that also return a change count: REF/TEST are (auto& img) -> long long. The counts
 //! must be equal on every backend/slab count, besides the images.
 #define VXHL_PARITY_TEST_COUNT(NAME, MAKE, REF, TEST)                                              \

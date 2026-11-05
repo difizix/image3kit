@@ -34,6 +34,9 @@ public:
     Var x{"x"}, y{"y"}, z{"z"};
     Func acc{"acc"};
 
+    //! f32 GPU division is a·rcp(b): corrected (vxhl_gen::divF).
+    Expr div(Expr a, Expr b) { return vxhl_gen::divF(a, b, get_target()); }
+
     void generate() {
         Func in = BoundaryConditions::repeat_edge(input);
         const Expr v = cast<float>(in(x, y, z));
@@ -43,11 +46,11 @@ public:
         const Expr di = r.x * stp - kr, dj = r.y * stp - kr, dk = r.z * stp - kr;
         const Expr nv = cast<float>(in(x + di, y + dj, z + dk)) - v;
         const Expr dist2 = cast<float>(dk * dk + dj * dj + di * di);
-        const Expr w = 1.0f / (1.0f + nv * nv * p1rSigma + dist2 * p1rGSigma);
+        const Expr w = div(1.0f, 1.0f + nv * nv * p1rSigma + dist2 * p1rGSigma);
         float negTiny = -1e-32f;  // smallest float >= -1e-32 (double)
         if (double(negTiny) < -1e-32) negTiny = std::nextafter(negTiny, 0.0f);
         const Expr wM = select(nv >= negTiny, w, 0.0f);
-        const Expr wG = min(nv * nv, sigmaSqr) / (0.01f + dist2 * p1rGSigma);
+        const Expr wG = div(min(nv * nv, sigmaSqr), 0.01f + dist2 * p1rGSigma);
 
         acc(x, y, z) = {0.0f, float(1e-15), 0.0f, float(-0.9), 0.0f, float(1e-15)};  // S W M MW G GW
         acc(x, y, z) = {acc(x, y, z)[0] + w * nv, acc(x, y, z)[1] + w,  acc(x, y, z)[2] + wM * nv,
@@ -55,9 +58,9 @@ public:
         const Expr S = acc(x, y, z)[0], W = acc(x, y, z)[1], M = acc(x, y, z)[2], MW = acc(x, y, z)[3],
                    G = acc(x, y, z)[4], GW = acc(x, y, z)[5];
 
-        Expr neu = v + S / W * (1.0f + sharp) - sharp * G / GW + 0.49f;
+        Expr neu = v + div(S, W) * (1.0f + sharp) - div(sharp * G, GW) + 0.49f;
         neu = max(capmin, min(capmax, neu));
-        neu = max(v + (S - M) / (1.0f + W - MW), min(v + M / MW, neu));
+        neu = max(v + div(S - M, 1.0f + W - MW), min(v + div(M, MW), neu));
 
         const Expr change = vxhl_gen::interior(x, y, z, gnx, gny, gnz, kr) && capmin <= v && v <= capmax;
         // Via int32: C++ truncates float->T; RADV's direct f32->u8 conversion does not (it is off
