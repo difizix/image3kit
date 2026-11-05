@@ -12,6 +12,18 @@ Developed by:
 #include <string>
 
 #include "typses.h"
+#include <cstdlib>
+
+//! Debug files (the dump*.raw/.tif written inside algorithms) are opt-in: set env VXL_DEBUG=1, or compile with
+//! -DVXL_DEBUG. Algorithms with a writeDumps argument still honour it.
+inline bool vxlDebug() {
+#ifdef VXL_DEBUG
+  return true;
+#else
+  static const bool on = [] { const char* e = std::getenv("VXL_DEBUG"); return e && *e && *e != '0'; }();
+  return on;
+#endif
+}
 
 #ifdef _STOR_PUB
 #include "SiRun.h" //_STOR
