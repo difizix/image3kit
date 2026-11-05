@@ -112,10 +112,10 @@ struct var3  {
 
 typedef  double           dbl;
 //! Floating-point type of per-voxel arithmetic in image processing (segment2's vote, magGradient, scaleGradient):
-//! compile with -DVXL_F32_T=float (the intended default, faster on GPUs) or double (bit-exact voxlib-voxlide
-//! parity; the voxlide kernels are f64 so far). Accumulators, histograms and geometry stay double.
+//! float by default (fast on GPUs); -DVXL_F32_T=double for double precision. voxlide's kernels follow either
+//! choice bit for bit (CMake IMAGE3KIT_F32_T). Accumulators, histograms and geometry stay double.
 #ifndef VXL_F32_T
-#define VXL_F32_T double
+#define VXL_F32_T float
 #endif
 using f32_t = VXL_F32_T;
 typedef  var3<int>        int3;
