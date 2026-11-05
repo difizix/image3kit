@@ -99,7 +99,7 @@ void vxlToFoamPar(VoxelImage& vimage, int3 nPar, bool resetX0, bool keepBCs)  {
   vimage.cropD(int3(0,0,0),n,1,1);    //       XXXXXXXXXXXXXXXXXXXXXXXXXXXX
   cout <<" X0: "<<vimage.X0()<<endl;
 
-  keepLargestvv(vimage, (unsigned char)0, (unsigned char)255); //! CtrlF:isolated=254
+  keepLargestvv(vimage, (unsigned char)0, (unsigned char)0); //! CtrlF:isolated=254
   cout <<" X0: "<<vimage.X0()<<endl;
 
   vimage.printInfo();
