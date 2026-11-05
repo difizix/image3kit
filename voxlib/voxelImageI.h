@@ -882,7 +882,7 @@ VoxelImageT<T>  resampleMean(const VoxelImageT<T>& img, double nReSampleNotSafe)
 
 
 template<typename T>
-class mapComparer  {  public: bool operator() (std::pair<const T,short>& i1, std::pair<const T,short> i2) {return i1.second<i2.second;}  };
+class mapComparer  {  public: bool operator() (const std::pair<const T,int>& i1, const std::pair<const T,int>& i2) const {return i1.second<i2.second;}  };
 
 
 template<typename T>
@@ -938,12 +938,10 @@ VoxelImageT<T>  resampleMode(const VoxelImageT<T>& img, double nReSampleNotSafe)
   else if (nReSampleNotSafe > 1.001)  {
     int nReS=nReSampleNotSafe+0.5; /// Warning unsigned doesn't work  wTf
     tmp.reset(img.size3()/nReS);
-    forAllkji_(tmp)  {
-      std::map<T,short> neis;///.  ID-counter
-      const T pID = tmp(i,j,k);
+    forAllkji_(tmp)  {  // the most frequent value of the block; ties: the smallest value
+      std::map<T,int> neis;///.  ID-counter
       forAllNei(0,nReS-1)
-        if(T vj = _nei(img,i*nReS,j*nReS,k*nReS); vj != pID )
-          ++(neis.insert({vj,0}).first->second);// else ++nSames;
+        ++neis[_nei(img,i*nReS,j*nReS,k*nReS)];
       tmp(i,j,k)=std::max_element(neis.begin(), neis.end(), mapComparer<T>())->first;
     }
     tmp.dxCh()=img.dx()*nReS; //fixed
@@ -960,29 +958,30 @@ template<typename T>
 VoxelImageT<T> resampleMax(const VoxelImageT<T>& img, double nReSampleNotSafe)//  TODO to be tested
 {
   VoxelImageT<T> tmp;
-  if (nReSampleNotSafe < .999)  {
+  if (nReSampleNotSafe < .999)  {  // upsampling: as resampleMean (nearest voxel)
     int nReS=1./nReSampleNotSafe+0.5;
     tmp.reset(nReS*img.size3());
-    forAllkji_(img)
+    forAllkji_(tmp)
       tmp(i,j,k)=img((0.5+i)/nReS,(0.5+j)/nReS,(0.5+k)/nReS);
 
-    tmp.dxCh()/=nReS; //fixed
+    tmp.dxCh()=img.dx()/nReS; //fixed
+    tmp.X0Ch()=img.X0()/nReS; //fixed
+    return tmp;
   }
   else if (nReSampleNotSafe > 1.001)  {
     int nReS=nReSampleNotSafe+0.5; /// Warning unsigned doesn't work  wTf
     tmp.reset(img.size3()/nReS);
-    forAllkji_(img)  {
-      T neiSum=std::numeric_limits<T>::min();
+    forAllkji_(tmp)  {
+      T neiMax=std::numeric_limits<T>::lowest();
       forAllNei(0,nReS-1)
-      {
-        neiSum=std::max(neiSum, _nei(img,i*nReS,j*nReS,k*nReS));
-      }
-      tmp(i,j,k)=neiSum;//(0.5+double(neiSum)/(nReS*nReS*nReS));
+        neiMax=std::max(neiMax, _nei(img,i*nReS,j*nReS,k*nReS));
+      tmp(i,j,k)=neiMax;
     }
-
-    tmp.dxCh()*=nReS;
+    tmp.dxCh()=img.dx()*nReS; //fixed
+    tmp.X0Ch()=img.X0()*nReS; //fixed
+    return tmp;
   }
-  return tmp;
+  else return img;
 }
 
 
@@ -1435,13 +1434,13 @@ void VoxelImageT<T>::threshold101(T Bgn,T  End)  {
 template<typename T,  std::enable_if_t<std::is_arithmetic<T>::value, int> = 0>
 void rescaleValues(VoxelImageT<T>& img, T newMin,T  newMax)  {
   T vmin = std::numeric_limits<T>::max();
-  T vmax = std::numeric_limits<T>::min();
-  int deltaT = newMax - newMin;
+  T vmax = std::numeric_limits<T>::lowest();
+  std::conditional_t<std::is_floating_point_v<T>, double, int> deltaT = newMax - newMin;
 
   OMPFor(reduction(min:vmin) reduction(max:vmax))
-  forAllcp(img) {vmin = std::min(*cp,vmin); vmax = std::max(*cp,vmin); }
+  forAllcp(img) {vmin = std::min(*cp,vmin); vmax = std::max(*cp,vmax); }
   std::cout<<"   vmin:"<<int(vmin)<<"   vmax:"<<int(vmax)<<"  ";
-  vmax = std::max(T(vmin+1),vmax);
+  if (!(vmin < vmax)) vmax = T(vmin+1);  // constant image (was max(vmin+1,vmax): also stretched float ranges < 1)
   forAllvp_(img)  *vp = newMin + (deltaT*(*vp - vmin))/(vmax-vmin);
 }
 
