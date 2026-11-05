@@ -1,7 +1,7 @@
 // Halide port of ::bilateralGauss(VoxelImageT<T>&, kernRad, sigmaSqr, sharpFact, sigmaGaussSqr,
 // capmin, capmax), voxlib/voxelImageML.h:313, one call (= one pass). Kernel arg kr = kernRad.
 // vxhl::_bilateralGauss (voxlide/ops.cpp) reproduces ::_bilateralGauss's growBox and iteration loop.
-// Semantics reproduced exactly, in voxlib's f32_t (generator param ftype; strict IEEE, GPU divisions corrected):
+// Semantics reproduced exactly, in voxlib's f32_t (generator param ftype; strict IEEE, GPU f32 divisions corrected):
 //  - only voxels >= kr from every face of the image change, and only if capmin <= v <= capmax;
 //  - neighbours at all offsets -kr..kr per axis, summed in voxlib's loop order (k outer, then j,
 //    then i) into 4 accumulators initialised to 0, 1e-18, 0, 1e-18;
@@ -33,7 +33,7 @@ public:
         Func in = BoundaryConditions::repeat_edge(input);
         const Type ft = ftype;
         auto K = [&](double c) { return vxhl_gen::fconst(ft, c); };
-        auto div = [&](Expr a, Expr b) { return vxhl_gen::divF(a, b, get_target()); };
+        auto div = [&](Expr a, Expr b) { return vxhl_gen::divF32(a, b, get_target()); };
         const Expr v = cast(ft, in(x, y, z));
 
         const Expr nOff = 2 * kr + 1;

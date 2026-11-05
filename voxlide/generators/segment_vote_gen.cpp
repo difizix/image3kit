@@ -42,7 +42,7 @@ public:
     Expr flt(double v) { return vxhl_gen::fconst(ftype, v); }
     //! f32 GPU division is a·rcp(b): corrected (vxhl_gen::divF); f64 keeps the native division (the f64 port's
     //! choice: correcting it would slow the f64 vote further, and its error has not changed a label in the tests).
-    Expr div(Expr a, Expr b) { return a.type().bits() == 32 ? vxhl_gen::divF(a, b, get_target()) : a / b; }
+    Expr div(Expr a, Expr b) { return vxhl_gen::divF32(a, b, get_target()); }
     Expr medOf(Expr i) {
         std::vector<Expr> m;
         for (int k = 0; k < kMaxSegs; ++k) m.push_back(med[k]);

@@ -134,6 +134,9 @@ inline Expr divF(Expr a, Expr b, const Target& t) {
     return select(aa == zero || bb == zero, a / b, q);
 }
 inline Expr div64(Expr a, Expr b, const Target& t) { return divF(a, b, t); }
+//! divF for float32 only; float64 divides natively (iterative f64 filters: the correction's cost on this
+//! GPU, smooth_bilateral 2x3 245 -> 903 ms, outweighed ulp errors their tests never saw).
+inline Expr divF32(Expr a, Expr b, const Target& t) { return a.type().bits() == 32 ? divF(a, b, t) : a / b; }
 
 //! Correctly rounded sqrt(s) for a Float(32) or Float(64) s >= 0. GPU targets: Halide's Vulkan backend
 //! has no f64 sqrt and its f32 sqrt is not correctly rounded, so an estimate (f64: f32 sqrt + 2 Newton

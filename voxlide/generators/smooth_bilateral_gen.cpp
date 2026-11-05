@@ -5,7 +5,7 @@
 // iteration (Snapshot), then shrinkBox. Semantics reproduced exactly:
 //  - only voxels >= 1 from every face of the (grown) image change; the rest are copied;
 //  - arithmetic in voxlib's f32_t (generator param ftype) and operation order (strict_float target: no
-//    FMA, no reassociation; GPU: corrected divisions, vxhl_gen::divF):
+//    FMA, no reassociation; GPU: corrected f32 divisions, vxhl_gen::divF32):
 //      nv = n - vO; w = 1/(1 + nv*nv/sigma); nv += vO - v; sum += w*nv; wsum (from 1e-12) += w
 //    over the 6 face neighbours in the order i-1, i+1, j-1, j+1, k-1, k+1;
 //  - new = clamp(int(v) + int((1+sharp)*sum/wsum + 0.5), 0, imaxT(T)), with C++ truncation
@@ -36,7 +36,7 @@ public:
         const Expr v = cast(ft, p), vO = cast(ft, orig(x, y, z));
         static constexpr int nei[6][3] = {{-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}};
         auto f64 = [&](double c) { return vxhl_gen::fconst(ft, c); };
-        auto div = [&](Expr a, Expr b) { return vxhl_gen::divF(a, b, get_target()); };
+        auto div = [&](Expr a, Expr b) { return vxhl_gen::divF32(a, b, get_target()); };
         Expr sum = f64(0.0), wsum = f64(1e-12);
         for (const auto& d : nei) {
             Expr nv = cast(ft, in(x + d[0], y + d[1], z + d[2])) - vO;
