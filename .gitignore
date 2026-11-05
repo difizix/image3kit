@@ -22,3 +22,7 @@ venv/
 # Cache directories
 .cache/
 *_cache/
+
+# Docs: a clone or symlink of github.com/difizix/image3kit-docs, and the mkdocs output
+/docs
+/site/
