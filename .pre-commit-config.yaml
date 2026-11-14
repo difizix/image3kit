@@ -49,14 +49,18 @@ repos:
   - id: remove-tabs
     exclude: ^(docs/|.*akefile)
 
-# CMake formatting
-- repo: https://github.com/cheshirekow/cmake-format-precommit
-  rev: v0.6.13
+# CMake formatting: cmake-format (unmaintained) wraps at 80 columns and splits short commands over many
+# lines; removed, CMake files are formatted by hand (120 columns, as ruff).
+
+# Branch layout: voxlide/main = main + voxlide/ (see .githooks/branch-paths.sh)
+- repo: local
   hooks:
-  - id: cmake-format
-    additional_dependencies: [pyyaml]
-    types: [file]
-    files: (\.cmake|CMakeLists.txt)(.in)?$
+  - id: branch-paths
+    name: main has no voxlide/, voxlide/* branches change voxlide/ only
+    language: script
+    entry: .githooks/branch-paths.sh
+    pass_filenames: false
+    always_run: true
 
 # Suggested hook if you add a .clang-format file
 # - repo: https://github.com/pre-commit/mirrors-clang-format
