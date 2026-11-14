@@ -1563,11 +1563,14 @@ double VoxelImageT<T>::volFraction(T vv1, T vv2) const {
 }
 
 
+//! 7-point (centre + 6 face neighbours) median, applied nIter times; voxels on the image faces are kept.
 template<typename T>
-VoxelImageT<T> median(const VoxelImageT<T>& vImage)  {
-  //unsigned long nChanges(0);
+VoxelImageT<T> median(const VoxelImageT<T>& vImg, int nIter=1)  {
   (std::cout<<"  median ").flush();
-  VoxelImageT<T> vxls=vImage;
+  VoxelImageT<T> vxls=vImg, prev;
+  for (int it=0; it<nIter; ++it)  {
+  if (it) prev = vxls;
+  const VoxelImageT<T>& vImage = it ? prev : vImg;
   forAllkji_1_(vImage)  {  const T* vp=&vImage(i,j,k);
     std::array<T,7> vvs={{ *vp,
                 vImage.v_i(-1,vp), vImage.v_i( 1,vp),
@@ -1576,11 +1579,9 @@ VoxelImageT<T> median(const VoxelImageT<T>& vImage)  {
               }};
 
     std::nth_element(vvs.begin(),vvs.begin()+3,vvs.end());
-    //nChanges+=vxls(i,j,k) != vvs[3];
     vxls(i,j,k) = vvs[3];
   }
-
-  //(std::cout<<nChanges<<", ").flush();
+  }
   return vxls;
 }
 
