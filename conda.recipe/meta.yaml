@@ -38,9 +38,10 @@ test:
     - numpy
   source_files:
     - tests
+    - voxlide/tests  # main branch only
     - pyproject.toml
   commands:
-    - pytest tests
+    - pytest
 
 about:
   summary: An example project built with pybind11 and scikit-build.
