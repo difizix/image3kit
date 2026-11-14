@@ -40,7 +40,7 @@ test:
     - tests
     - pyproject.toml
   commands:
-    - pytest tests
+    - pytest
 
 about:
   summary: An example project built with pybind11 and scikit-build.

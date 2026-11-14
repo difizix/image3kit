@@ -45,7 +45,7 @@ filterwarnings = [
   "error",
   "ignore::pytest.PytestCacheWarning",
 ]
-testpaths = ["tests"]
+testpaths = ["tests", "voxlide/tests"]
 
 
 [tool.cibuildwheel]
