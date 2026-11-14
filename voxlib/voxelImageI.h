@@ -1151,6 +1151,24 @@ size_t  VoxelImageT<T>::FaceMedian06(int nAdj0,int nAdj1)  {
 
 
 
+// Free-function forms of member ops (so vxhl:: and vxop:: can mirror them by name); the members stay the specification.
+template<typename T> void   median032(VoxelImageT<T>& v, int nAdj0, int nAdj1, T lbl0, T lbl1) { v.PointMedian032(nAdj0, nAdj1, lbl0, lbl1); }
+template<typename T> size_t median06(VoxelImageT<T>& v, int nAdj0, int nAdj1) { return v.FaceMedian06(nAdj0, nAdj1); }
+template<typename T> void   growPore(VoxelImageT<T>& v) { v.growPore(); }
+template<typename T> void   fillHoles(VoxelImageT<T>& v, int maxHoleRadius) { v.fillHoles(maxHoleRadius); }
+// Python and_/or_/xor_/not_ and threshold101: the members are the specification (a && b, a || b, a != b, a && !b).
+template<typename T> void and_(VoxelImageT<T>& a, const VoxelImageT<T>& b) { if (a.size3() != b.size3()) throw std::runtime_error("Image sizes do not match"); a.AND(b); }
+template<typename T> void or_ (VoxelImageT<T>& a, const VoxelImageT<T>& b) { if (a.size3() != b.size3()) throw std::runtime_error("Image sizes do not match"); a.OR(b); }
+template<typename T> void xor_(VoxelImageT<T>& a, const VoxelImageT<T>& b) { if (a.size3() != b.size3()) throw std::runtime_error("Image sizes do not match"); a.XOR(b); }
+template<typename T> void not_(VoxelImageT<T>& a, const VoxelImageT<T>& b) { if (a.size3() != b.size3()) throw std::runtime_error("Image sizes do not match"); a.NOT(b); }
+template<typename T> void threshold101(VoxelImageT<T>& v, T bgn, T end) { v.threshold101(bgn, end); }
+template<typename T> void   shrinkPore(VoxelImageT<T>& v) { v.shrinkPore(); }
+template<typename T> void   growLabel(VoxelImageT<T>& v, T vl) { v.growLabel(vl); }
+template<typename T> void   cropD(VoxelImageT<T>& v, int3 frm, int3 to, int emptylyrs=0, T eLyrsValue=1, bool verbose=false) { v.cropD(frm, to, emptylyrs, eLyrsValue, verbose); }
+template<typename T> void   growBox(VoxelImageT<T>& v, int nLayers) { v.growBox(nLayers); }
+template<typename T> void   shrinkBox(VoxelImageT<T>& v, int nLayers) { v.shrinkBox(nLayers); }
+template<typename T> void   redirect(VoxelImageT<T>& v, char direction) { v.rotate(direction); }
+
 template<typename T>
 VoxelImageT<T> medianx(const VoxelImageT<T>& vImage)  {
   (std::cout<<"  median filter along x direction ").flush();

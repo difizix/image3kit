@@ -1,6 +1,6 @@
 # Install C++ headers alongside the Python binding Add more headers to this list
 # as needed
-install(FILES src/VxlImgXX.hpp src/bind_common.hpp DESTINATION image3kit)
+install(FILES src/VxlImgXX.hpp src/bind_common.hpp src/vxops.h DESTINATION image3kit)
 
 install(
   DIRECTORY pkgs/svplot/

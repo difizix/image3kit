@@ -3,6 +3,9 @@
 #include "shapeToVoxel.h"
 #include "voxelRegions.h"
 #include <pybind11/iostream.h>
+#ifdef IMAGE3KIT_HAS_VOXLIDE
+#include "voxlide.h"
+#endif
 
 namespace py = pybind11;
 
@@ -49,6 +52,35 @@ PYBIND11_MODULE(_core, mod, py::mod_gil_not_used()) {
     bind_VxlImgI32(voxlib, "VxlImgI32");
     bind_VxlImgF32(voxlib, "VxlImgF32");
     bind_VxlImgU16(voxlib, "VxlImgU16");
+
+#ifdef IMAGE3KIT_HAS_VOXLIDE
+    // Backend for ops with a voxlide (Halide) port; see docs/plans/parallelism_shared.md §1.
+    voxlib.def("set_backend", [](const std::string& name) { vxhl::set_backend(vxhl::parse_backend(name)); },
+        py::arg("name"),
+        "Set the backend for ops with a Halide port: 'auto', 'voxlib' (alias 'cpu'), 'halide' or 'gpu'.\n"
+        "Default: $IMAGE3KIT_BACKEND, else 'auto' (GPU for large images, else Halide CPU, else voxlib).\n"
+        "Results are identical on every backend.");
+    voxlib.def("get_backend", [] { return std::string(vxhl::backend_name(vxhl::get_backend())); },
+        "Name of the current backend.");
+    voxlib.def("available_backends", [] {
+            std::vector<std::string> v;
+            for (auto b : vxhl::available_backends()) v.push_back(vxhl::backend_name(b));
+            return v;
+        }, "Backends usable on this machine, e.g. ['voxlib', 'halide', 'gpu'].");
+    voxlib.def("set_max_slab_bytes", [](std::size_t bytes) { vxhl::set_max_slab_bytes(bytes); }, py::arg("bytes"),
+        "Max bytes of image (plus halo) processed in one piece; larger images are processed in z-slabs\n"
+        "(run_slabs: a whole chain per slab). 0 restores the default: 512 MiB on the GPU, 1 GiB on CPU.");
+#else
+    // Without voxlide every op runs voxlib: the same API with a single backend.
+    voxlib.def("set_backend", [](const std::string& name) {
+            if (name != "auto" && name != "voxlib" && name != "cpu")
+                throw std::invalid_argument("backend '" + name + "' needs image3kit built with voxlide");
+        }, py::arg("name"), "Set the backend: only 'auto' / 'voxlib' (alias 'cpu') without voxlide.");
+    voxlib.def("get_backend", [] { return std::string("voxlib"); }, "Name of the current backend.");
+    voxlib.def("available_backends", [] { return std::vector<std::string>{"voxlib"}; },
+        "Backends usable on this machine.");
+    voxlib.def("set_max_slab_bytes", [](std::size_t) {}, py::arg("bytes"), "No effect without voxlide.");
+#endif
 
     // TODO: What does it return ? casted image or a base-class, we shall create an adaptor that does the cast automatically
     voxlib.def("read_image",

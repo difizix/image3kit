@@ -157,6 +157,13 @@ endif()
 
 add_subdirectory(common)
 add_subdirectory(voxlib)
+# voxlide (Halide backend of the vxop:: ops) is optional: built when its folder is present
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/voxlide/CMakeLists.txt)
+  set(IMAGE3KIT_HALIDE AUTO CACHE STRING
+      "Halide kernels for voxlide: AUTO (use an installed Halide), ON (also fetch the release), OFF")
+  set_property(CACHE IMAGE3KIT_HALIDE PROPERTY STRINGS AUTO ON OFF)
+  add_subdirectory(voxlide)
+endif()
 add_subdirectory(vxlToFoam)
 add_subdirectory(vxlToSurf)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -192,6 +199,10 @@ target_include_directories(_core PRIVATE pkgs/zlib)
 target_include_directories(_core PRIVATE pkgs/svplot)
 
 target_compile_definitions(_core PRIVATE VERSION_INFO=${PROJECT_VERSION})
+if(TARGET voxlide)
+  target_compile_definitions(_core PRIVATE IMAGE3KIT_HAS_VOXLIDE=1)
+  target_link_libraries(_core PRIVATE voxlide)
+endif()
 
 set_property(TARGET _core PROPERTY CXX_STANDARD 23)
 
