@@ -223,15 +223,17 @@ VoxelImageT<T> magGradient(const VoxelImageT<T>& vImg, double diffuseLSqr) {
   VoxelImageT<T> vxls=vImg;
   vxls.growBox(1);
 
+  // Differences and sums in double (exact for integer voxels): the former unsigned int arithmetic
+  // overflowed for 16/32-bit voxels and was undefined for floats. The result is clamped to maxT(T)
+  // *before* the conversion to T: converting an out-of-range value first wrapped the strongest
+  // edges to small values (u8: sqrt(h*255*resolution^2) > 255 for contrasts h > 255/resolution^2).
   forAllkji_1_(vxls)  {
-    unsigned int gcmp = vxls(i+1,j,k)-vxls(i-1,j,k);
-    unsigned int neiSum = gcmp*gcmp;
-    gcmp = vxls(i,j+1,k)-vxls(i,j-1,k);
-    neiSum += gcmp*gcmp;
-    gcmp = vxls(i,j,k+1)-vxls(i,j,k-1);
-    neiSum += gcmp*gcmp;
+    const double gx = double(vxls(i+1,j,k))-double(vxls(i-1,j,k));
+    const double gy = double(vxls(i,j+1,k))-double(vxls(i,j-1,k));
+    const double gz = double(vxls(i,j,k+1))-double(vxls(i,j,k-1));
+    const double neiSum = gx*gx + gy*gy + gz*gz;
 
-    grad(i-1,j-1,k-1)=std::min(T(sqrt(neiSum*diffuseLSqr)+0.5),maxT(T));
+    grad(i-1,j-1,k-1)=T(std::min(sqrt(neiSum*diffuseLSqr)+0.5, dmaxT(T)));
   }
 
     return grad;
