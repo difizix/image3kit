@@ -1,0 +1,26 @@
+name: docs
+# Builds the docs site from the public docs repository (cloned into docs/, gitignored) and publishes it
+# to GitHub Pages, when a docs tag (v*-docs) is pushed. Repository Settings → Pages → Source must be "GitHub Actions".
+on:
+  push:
+    tags: ["v*-docs"]            # e.g. git tag v0.2.1-docs && git push origin v0.2.1-docs
+  workflow_dispatch:        # or Actions → docs → Run workflow
+permissions: { contents: read, pages: write, id-token: write }
+concurrency: { group: pages, cancel-in-progress: true }
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: "${{ steps.deploy.outputs.page_url }}" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with: { repository: difizix/image3kit-docs, path: docs }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install mkdocs-material "mkdocstrings[python]"
+      - run: mkdocs build --strict -d site
+        env: { NO_MKDOCS_2_WARNING: "1" }
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+      - id: deploy
+        uses: actions/deploy-pages@v4

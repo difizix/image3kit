@@ -19,6 +19,27 @@ The `main` branch (experimental) can be installed with the command:
 pip install git+https://github.com/DigiPorFlow/image3kit.git
 ```
 
+## CPU or GPU (optional)
+
+The `voxlide/main` branch adds faster versions of many filters, running on the GPU or on fast CPU code
+([Halide](https://halide-lang.org)), with the same results. To install it:
+
+```bash
+pip install -C cmake.define.IMAGE3KIT_HALIDE=ON git+https://github.com/DigiPorFlow/image3kit.git@voxlide/main
+```
+
+This downloads Halide during the build (Linux, macOS, Windows x64). To see what your installation has, and to choose:
+
+```python
+import image3kit as ik
+print(ik.available_backends())   # e.g. ['voxlib', 'halide', 'gpu']; ['voxlib'] only on main
+ik.set_backend("halide")         # or "gpu", "voxlib", "auto" (default: GPU if usable, else halide)
+```
+
+A single call on the GPU copies the image there and back, so for scripts made of separate calls `halide` is often
+faster. To keep the image on the GPU for a chain of filters, use `img.to_device()`. Details:
+[image3kit-docs](https://github.com/difizix/image3kit-docs) (`user/backends.md`, `user/gpu_chains.md`).
+
 ## Licenses
 
 See [LICENSE](LICENSE) for the license (BSD 3-clause, subject to change).

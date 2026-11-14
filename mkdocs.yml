@@ -1,0 +1,10 @@
+# Docs site of image3kit. The pages live in their own repository (github.com/difizix/image3kit-docs),
+# cloned or symlinked into docs/ (gitignored); its nav.yml holds the page order.
+INHERIT: docs/nav.yml
+site_name: image3kit
+site_url: https://difizix.github.io/image3kit/
+repo_url: https://github.com/difizix/image3kit
+docs_dir: docs
+exclude_docs: nav.yml
+theme: material
+plugins: [search, mkdocstrings]   # mkdocstrings: API reference from docstrings
