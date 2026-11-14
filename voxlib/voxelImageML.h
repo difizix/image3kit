@@ -253,7 +253,7 @@ void bilateralX(VoxelImageT<T>& vImg, int kernRad, int Xstp,
   OMPFor()
   for (int k=kernRad; k<vxls.nz()-kernRad; ++k)
   {
-    if (k%(vxls.nz()/20) == 0) (std::cout<<".").flush();
+    if (vxls.nz()>=20 && k%(vxls.nz()/20) == 0) (std::cout<<".").flush();
     for (int j=kernRad; j<vxls.ny()-kernRad; ++j)
     {
       for (int i=kernRad; i<vxls.nx()-kernRad; ++i)
@@ -323,7 +323,7 @@ void bilateralGauss(VoxelImageT<T>& vImg, int kernRad, float sigmaSqr=16, float 
   OMPFor()
   for (int k=kernRad; k<vxls.nz()-kernRad; ++k)
   {
-    if (k%(vxls.nz()/20) == 0) (std::cout<<".").flush();
+    if (vxls.nz()>=20 && k%(vxls.nz()/20) == 0) (std::cout<<".").flush();
     for (int j=kernRad; j<vxls.ny()-kernRad; ++j)
     {
       for (int i=kernRad; i<vxls.nx()-kernRad; ++i)
@@ -376,7 +376,7 @@ void biLateral(VoxelImageT<T>& vImg, int kernRad, double sigmad, double sharpFac
   double  sigma = sigmad;
   for (int k=kernRad; k<vxls.nz()-kernRad; ++k)
   {
-    if (k%(vxls.nz()/20) == 0) (std::cout<<".").flush();
+    if (vxls.nz()>=20 && k%(vxls.nz()/20) == 0) (std::cout<<".").flush();
     for (int j=kernRad; j<vxls.ny()-kernRad; ++j)
     {
       for (int i=kernRad; i<vxls.nx()-kernRad; ++i)
@@ -420,7 +420,7 @@ void biLateralIterative(VoxelImageT<T>& vImg, const int kernRad, const double si
    const VoxelImageT<T> vxls=vImg;
    for (int k=1; k<vxls.nz()-1; ++k)
     {
-    if (k%(vxls.nz()/10) == 0) (std::cout<<".").flush();
+    if (vxls.nz()>=10 && k%(vxls.nz()/10) == 0) (std::cout<<".").flush();
         OMPFor()
         for (int j=1; j<vxls.ny()-1; ++j)
          for (int i=1; i<vxls.nx()-1; ++i)
@@ -723,6 +723,12 @@ VoxelImageT<uint8_t> threshold01_otsu(const VoxelImageT<T>& vImg, int  minvi=0, 
   return msk;
 }
 
+
+//! segment2: gradient values below avgGrad become 10, the others are scaled by 10/avgGrad (capped at maxT).
+template<typename T>
+void scaleGradient(VoxelImageT<T>& grad, double avgGrad) {
+  forAllvp_(grad)  { if (*vp<avgGrad) { *vp=10;} else  *vp=min(dmaxT(T),*vp*10./avgGrad);}
+}
 
 template<typename T>
 int average2p(const VoxelImageT<T>& vm, T minV=2) {
@@ -1199,8 +1205,7 @@ void  multiSegment2(VoxelImageT<T>& vImg, vars<Tint> trshlds, vars<int> minSizs,
   grad=magGradient(origimg, resolutionSqr*(dmaxT(T)/(meds.back()-meds[0])));
 
   bilateralX(grad, 1,1, noisv*noisv, 0.05, 12);
-  { double avgGrad=average2p(grad)*0.2+0.01;
-  forAllvp_(grad)  { if (*vp<avgGrad) { *vp=10;} else  *vp=min(dmaxT(T),*vp*10./avgGrad);} }
+  scaleGradient(grad, average2p(grad)*0.2+0.01);
   if(writeDumps)
     grad.write("dumpGrad5.tif");
   double avgGradInv=1./average2p(grad);
